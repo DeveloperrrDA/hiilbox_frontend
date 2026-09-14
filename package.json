@@ -54,9 +54,9 @@
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
-    "devextreme": "23.2\u00a0",
+    "devextreme": "23.2 ",
     "devextreme-dist": "23.2",
-    "devextreme-react": "23.2\u00a0",
+    "devextreme-react": "23.2 ",
     "embla-carousel-react": "^8.6.0",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "html-to-image": "^1.11.13",
@@ -121,6 +121,9 @@
     "core-js@3.49.0": true,
     "inferno@7.4.11": true,
     "sharp@0.34.5": true,
-    "protobufjs@7.6.6": true
+    "protobufjs@7.6.6": true,
+    "esbuild@0.25.4": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260911.1": true
   }
 }

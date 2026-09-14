@@ -26,6 +26,27 @@ export interface CampaignImage {
   date: string;
 }
 
+export interface CampaignUpdateImage {
+  id: string;
+  filename: string;
+  url: string;
+  sizes?: {
+    medium?: CampaignImageSize;
+    thumbnail?: CampaignImageSize;
+    woocommerce_thumbnail?: CampaignImageSize;
+    woocommerce_gallery_thumbnail?: CampaignImageSize;
+  };
+  height: number;
+  width: number;
+  filesize: number;
+  mime: string;
+  type: string;
+  thumb: string | null;
+  author: string;
+  author_name: string;
+  date: string;
+}
+
 export interface CampaignPerson {
   id: string;
   first_name: string;
@@ -164,6 +185,27 @@ export interface Campaign {
   recent_donations: CampaignDonation[];
 }
 
+export interface CampaignUpdate {
+  id: number;
+  campaign_id: number;
+  title: string;
+  slug: string;
+
+  image: CampaignUpdateImage[];
+
+  description: string;
+
+  created_by_id: number;
+  created_by_name: string;
+  created_by_role: string;
+  created_by_image: string;
+
+  created_at: string;
+  comments: number;
+  likes: number;
+
+}
+
 export interface CampaignPagination {
   page: number;
   per_page: number;
@@ -171,10 +213,21 @@ export interface CampaignPagination {
   total_pages: number;
 }
 
+export interface CampaignUpdatePagination {
+  page: number;
+  per_page: number;
+}
+
 export interface CampaignsResponse {
   success: boolean;
   data: Campaign[];
   pagination: CampaignPagination;
+}
+
+export interface CampaignUpdatesResponse {
+  success: boolean;
+  data: CampaignUpdate[];
+  pagination: CampaignUpdatePagination;
 }
 
 export interface GetCampaignsParams {
@@ -186,6 +239,12 @@ export interface GetCampaignsParams {
   order?: "asc" | "desc";
   is_featured?: boolean;
   status?: string;
+}
+
+export interface GetCampaignUpdatesParams {
+  page?: number;
+  per_page?: number;
+  campaign_id?: number;
 }
 
 
@@ -214,6 +273,13 @@ function normalizeCampaignImages(raw: any): CampaignImage[] {
   const parsed = parseMaybeJson(raw?.images);
   if (Array.isArray(parsed)) return parsed;
   if (parsed && typeof parsed === "object") return Object.values(parsed) as CampaignImage[];
+  return [];
+}
+
+function normalizeCampaignUpdateImages(raw: any): CampaignUpdateImage[] {
+  const parsed = parseMaybeJson(raw?.image);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") return Object.values(parsed) as CampaignUpdateImage[];
   return [];
 }
 
@@ -625,6 +691,37 @@ function normalizeCampaign(raw: any): Campaign {
 }
 
 /**
+ * Normalize a raw campaign from the WordPress/GrowFund API
+ * into the structure expected by the Next.js frontend.
+ */
+function normalizeCampaignUpdate(raw: any): CampaignUpdate {
+  const normalizedImages = normalizeCampaignUpdateImages(raw);
+
+  
+
+  return {
+    id: Number(raw?.id ?? 0),
+
+    campaign_id: Number(raw?.campaign_id ?? 0),
+    title: String(raw?.title ?? ""),
+    slug: String(raw?.slug ?? ""),
+
+    image: normalizedImages,
+
+    description: String(raw?.description ?? ""),
+    created_by_id: Number(raw?.created_by_id ?? 0),
+    created_by_name: String(raw?.created_by_name ?? ""),
+    created_by_role: String(raw?.created_by_role ?? ""),
+    created_by_image: String(raw?.created_by_image.url ?? ""),
+
+    created_at: String(raw?.created_at ?? ""),
+    comments: Number(raw?.comments ?? ""),
+    likes: Number(raw?.likes ?? ""),
+
+  };
+}
+
+/**
  * Build query parameters for the campaigns endpoint.
  */
 function buildQuery(
@@ -732,6 +829,50 @@ function getApiBaseUrl(): string {
  * data
  */
 function extractCampaigns(
+  responseData: any
+): any[] {
+  if (
+    Array.isArray(responseData?.data)
+  ) {
+    return responseData.data;
+  }
+
+  if (
+    Array.isArray(
+      responseData?.paginated?.results
+    )
+  ) {
+    return responseData.paginated.results;
+  }
+
+  if (
+    Array.isArray(responseData?.results)
+  ) {
+    return responseData.results;
+  }
+
+  if (
+    Array.isArray(responseData)
+  ) {
+    return responseData;
+  }
+
+  return [];
+}
+
+/**
+ * Extract campaign updates from the different response
+ * structures returned by the GrowFund API.
+ *
+ * Your current backend response uses:
+ *
+ * paginated.results
+ *
+ * not:
+ *
+ * data
+ */
+function extractCampaignUpdates(
   responseData: any
 ): any[] {
   if (
@@ -1103,5 +1244,113 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
   } catch {
     return [];
   }
+}
+
+/**
+ * Get campaign Updates.
+ */
+export async function getCampaignUpdates(
+  params: GetCampaignUpdatesParams = {}
+): Promise<CampaignUpdatesResponse> {
+  const query =
+    buildQuery(params);
+
+  const baseUrl =
+    getApiBaseUrl();
+
+  const endpoint =
+    `/api/campaign/updates/paginated${
+      query ? `?${query}` : ""
+    }`;
+
+  const url =
+    `${baseUrl}${endpoint}`;
+
+  console.log(
+    "GET CAMPAIGN UPDATES FROM:",
+    url
+  );
+
+  const response =
+    await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept:
+          "application/json",
+      },
+      cache: "no-store",
+    });
+
+  let data: any = null;
+
+  try {
+    data =
+      await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ??
+        "Failed to load campaign updates."
+    );
+  }
+
+  const rawCampaignUpdates =
+    extractCampaignUpdates(data);
+
+  const campaignupdates =
+    rawCampaignUpdates.map(
+      normalizeCampaignUpdate
+    );
+
+  /**
+   * Your API currently returns:
+   *
+   * paginated: {
+   *   results: [...],
+   *   count: 4,
+   *   total: 4,
+   *   current_page: 1,
+   *   per_page: 10,
+   *   has_more: false,
+   *   overall: 11
+   * }
+   */
+  const paginated =
+    data?.paginated;
+
+  const pagination: CampaignUpdatePagination = {
+    page:
+      Number(
+        paginated?.current_page ??
+        data?.pagination?.page ??
+        params.page ??
+        1
+      ),
+
+    per_page:
+      Number(
+        paginated?.per_page ??
+        data?.pagination?.per_page ??
+        params.per_page ??
+        campaignupdates.length
+      ),
+
+    
+  };
+
+  return {
+    success:
+      Boolean(
+        data?.success ??
+        true
+      ),
+
+    data: campaignupdates,
+
+    pagination,
+  };
 }
 

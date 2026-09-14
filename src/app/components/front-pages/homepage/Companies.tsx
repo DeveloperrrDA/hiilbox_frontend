@@ -53,7 +53,7 @@ const companies = [
 const Companies = () => {
   return (
     <div className="dark:bg-dark">
-      <div className="container-full mx-auto">
+      <div className="container-1218 mx-auto">
         <div className="border-ld border-t lg:py-14 py-7 overflow-hidden w-full">
           <div className="hiilbox-payment-marquee-track">
             {[0, 1].map((groupIndex) => (

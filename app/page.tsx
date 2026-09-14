@@ -1,5 +1,4 @@
 import ClientReviews from "@/app/components/front-pages/homepage/ClientReviews";
-import Companies from "@/app/components/front-pages/homepage/Companies";
 import ContactBar from "@/app/components/front-pages/homepage/ContactBar";
 import { FAQ } from "@/app/components/front-pages/homepage/FAQ";
 import FeatureTabs from "@/app/components/front-pages/homepage/FeatureTabs";
@@ -27,7 +26,6 @@ export default function Home() {
       <CampaignGridFeatured />
       <OurClients />
       <CampaignGrid />
-      <Companies />
       <PurchaseTemp />
     </HomeLayout>
   );

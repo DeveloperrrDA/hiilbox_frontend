@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import Image from "next/image";
-
+import Companies from "@/app/components/front-pages/homepage/Companies";
 import Logo from "@/app/(DashboardLayout)/layout/shared/logo/Logo";
 
 export const Footer = () => {
@@ -202,6 +202,7 @@ export const Footer = () => {
             </div>
           </div>
         </div>
+        <Companies />
         <div className="container-1218 mx-auto ">
           <div className="flex md:justify-between justify-center items-center flex-wrap md:py-10 py-8">
             <div className="flex items-center gap-3">

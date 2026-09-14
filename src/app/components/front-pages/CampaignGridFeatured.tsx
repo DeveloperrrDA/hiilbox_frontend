@@ -80,11 +80,19 @@ const response = await getCampaigns({
     );
   }
 
+  // Split campaigns into chunks of 5
+  const chunkedCampaigns = [];
+  for (let i = 0; i < campaigns.length; i += 5) {
+    chunkedCampaigns.push(campaigns.slice(i, i + 5));
+  }
+
   return (
     <div className="lg:py-24 py-12 dark:bg-dark">
-      <div className="container-1218 mx-auto">
-        <div className=" lg:pt-24 pt-12 rounded-md overflow-hidden">
-            <div className="flex w-full justify-center mb-12">
+      <div className="container-1218 mx-auto px-4">
+        
+        {/* --- HEADER --- */}
+        <div className="lg:pt-24 pt-12 rounded-md overflow-hidden">
+          <div className="flex w-full justify-center mb-12">
             <div className="text-center">
               <h2 className="sm:text-44 text-3xl font-bold leading-48px! text-dark dark:text-white text-center">
                 Explore <span className="text-primary">Verified</span> Somali Crowdfunding Campaigns
@@ -96,15 +104,48 @@ const response = await getCampaigns({
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
-            {campaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
-            ))}
+
+        {/* --- REPEATING BENTO BOX LAYOUT --- */}
+        <div className="flex flex-col gap-16"> 
+          {/* gap-16 creates space between each block of 5 campaigns */}
+          
+          {chunkedCampaigns.map((group, groupIndex) => {
+            // For this specific group of 5, grab the 1 big and 4 small
+            const featuredCampaign = group[0];
+            const regularCampaigns = group.slice(1, 5);
+
+            return (
+              <div key={groupIndex} className="flex flex-col lg:flex-row gap-8 w-full items-stretch">
+                
+                {/* LEFT SIDE: Exactly 50% Width on desktop, 1 Big Card */}
+                <div className="w-full lg:w-1/2 flex">
+                  {featuredCampaign && (
+                    <div className="w-full h-full">
+                      <CampaignCard campaign={featuredCampaign} />
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT SIDE: Exactly 50% Width on desktop, 2x2 Grid */}
+                {/* We only render the right side if there are actually remaining campaigns in this chunk */}
+                {regularCampaigns.length > 0 && (
+                  <div className="w-full lg:w-1/2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {regularCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="w-full h-full">
+                        <CampaignCard campaign={campaign} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+              </div>
+            );
+          })}
+          
         </div>
+
       </div>
     </div>
-    
-    
   );
 }
 
