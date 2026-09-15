@@ -1252,16 +1252,18 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
 export async function getCampaignUpdates(
   params: GetCampaignUpdatesParams = {}
 ): Promise<CampaignUpdatesResponse> {
-  const query =
-    buildQuery(params);
+  // Build the query safely and natively
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append("page", params.page.toString());
+  if (params.per_page) queryParams.append("per_page", params.per_page.toString());
+  if (params.campaign_id) queryParams.append("campaign_id", params.campaign_id.toString());
+
+  const query = queryParams.toString();
 
   const baseUrl =
     getApiBaseUrl();
 
-  const endpoint =
-    `/api/campaign/updates/paginated${
-      query ? `?${query}` : ""
-    }`;
+  const endpoint = `/api/campaigns/updates${query ? `?${query}` : ""}`;
 
   const url =
     `${baseUrl}${endpoint}`;
