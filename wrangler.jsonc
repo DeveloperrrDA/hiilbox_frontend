@@ -1,13 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "hb-frontend",
+  "name": "hiilboxfrontend",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-13",
   "compatibility_flags": [
     "nodejs_compat"
   ],
+
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://hiilboxfrontend.mohamoud-ali15.workers.dev",
+    "NEXT_PUBLIC_WORDPRESS_URL": "https://cms.hiilbox.com",
+    "NEXT_PUBLIC_WORDPRESS_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1",
+    "NEXT_PUBLIC_GFCM_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
   }
 }
