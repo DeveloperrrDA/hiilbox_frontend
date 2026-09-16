@@ -25,8 +25,30 @@ function deepValue(input: any, keys: string[]): any {
   return undefined;
 }
 function createdCampaigns(r: any) {
-  const value = r?.__campaign_count ?? deepValue(r?.__overview, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]) ?? deepValue(r, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]);
-  return Number(Array.isArray(value) ? value.length : value ?? 0);
+  const value =
+    r?.__campaign_count ??
+    deepValue(r?.__overview, [
+      "total_campaign_created",
+      "created_campaigns",
+      "campaign_count",
+      "campaigns_count",
+      "total_campaigns",
+      "campaigns"
+    ]) ??
+    deepValue(r, [
+      "total_campaign_created",
+      "created_campaigns",
+      "campaign_count",
+      "campaigns_count",
+      "total_campaigns",
+      "campaigns"
+    ]);
+
+  return Number(
+    Array.isArray(value)
+      ? value.length
+      : value ?? 0
+  );
 }
 function joinedDate(r: any) { return deepValue(r?.__overview, ["joined_date", "date_created", "created_at", "registered_at", "user_registered", "registration_date", "created"]) ?? deepValue(r, ["joined_date", "date_created", "created_at", "registered_at", "user_registered", "registration_date", "created"]); }
 
@@ -60,6 +82,29 @@ export default function AdminFundraiserManager() {
       // Do not block rendering, and do not replace a valid overview count with a guessed zero.
       void adminApi(`campaigns?page=1&per_page=100&status=all`).then((campaignData) => {
         const campaignRows = rowsFrom(campaignData);
+       console.log(
+  "ADMIN FUNDRAISER IDS:",
+  baseRows.map((r: any) => ({
+    id: idOf(r),
+    name: `${r?.first_name ?? ""} ${r?.last_name ?? ""}`.trim(),
+    email: r?.email ?? r?.user_email ?? "",
+  }))
+);
+
+console.log(
+  "ADMIN CAMPAIGN OWNERS:",
+  campaignRows.map((c: any) => ({
+    campaign_id: c?.id,
+    title: c?.title,
+    status: c?.status,
+    author_id: c?.author?.id,
+    author_name: c?.author?.display_name,
+    author_email: c?.author?.email,
+    fundraiser_id: c?.fundraiser?.id,
+    fundraiser_name: c?.fundraiser?.display_name,
+    fundraiser_email: c?.fundraiser?.email,
+  }))
+);
         const counts = new Map<number, number>();
         for (const campaign of campaignRows) {
           const owner = Number(campaign?.author?.id ?? campaign?.author_id ?? campaign?.fundraiser?.id ?? campaign?.fundraiser_id ?? campaign?.user_id ?? campaign?.created_by ?? campaign?.owner_id ?? 0);
@@ -68,28 +113,7 @@ export default function AdminFundraiserManager() {
         setRows((current) => current.map((row) => counts.has(idOf(row)) ? { ...row, __campaign_count: counts.get(idOf(row)) } : row));
       }).catch(() => undefined);
 
-      for (let i = 0; i < baseRows.length; i += 6) {
-        const batch = baseRows.slice(i, i + 6);
-        const results = await Promise.all(batch.map(async (row) => {
-          const id = idOf(row);
-          if (!id) return row;
-          try {
-            const controller = new AbortController();
-            const timer = window.setTimeout(() => controller.abort(), 7000);
-            try {
-              const overview = dataFrom(await adminApi(`fundraiser/${id}/overview`, { signal: controller.signal }));
-              return { ...row, __overview: overview };
-            } finally {
-              window.clearTimeout(timer);
-            }
-          } catch {
-            return row;
-          }
-        }));
-
-        const byId = new Map(results.map((row) => [idOf(row), row]));
-        setRows((current) => current.map((row) => byId.get(idOf(row)) ?? row));
-      }
+            
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load fundraisers.");
       setRows([]);
