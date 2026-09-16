@@ -16,10 +16,12 @@ export default async function CampaignPage({
   const { id } = await params;
 
   const campaignId = Number(id);
-  const [response, fetchedDonations] = await Promise.all([
+  const [campaignResult, donationResult] = await Promise.allSettled([
     getCampaign(campaignId),
     getCampaignRecentDonations(campaignId),
   ]);
+  const response = campaignResult.status === "fulfilled" ? campaignResult.value : { success: false, data: null as any };
+  const fetchedDonations = donationResult.status === "fulfilled" ? donationResult.value : [];
 
   if (!response.success || !response.data) {
     return (
@@ -322,7 +324,7 @@ export default async function CampaignPage({
 
                   <div className="mt-4 max-h-[420px] overflow-y-auto overscroll-contain divide-y divide-[#edf0ed] pr-2 [scrollbar-gutter:stable]">
                     {recentDonations.length ? (
-                      recentDonations.map((donation) => {
+                   recentDonations.map((donation: any) => {
                         const name = donation.is_anonymous ? "Anonymous" : donation.donor_name || "Supporter";
                         const initial = name.charAt(0).toUpperCase();
                         const when = donation.created_at

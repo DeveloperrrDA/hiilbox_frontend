@@ -11,7 +11,7 @@ import { getDateRange, isDateInRange, type DateRangeKey } from "@/lib/dashboard/
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-function rows(v:any):any[]{if(Array.isArray(v))return v;if(Array.isArray(v?.data))return v.data;if(Array.isArray(v?.data?.data))return v.data.data;if(Array.isArray(v?.donations))return v.donations;if(Array.isArray(v?.donors))return v.donors;if(Array.isArray(v?.campaigns))return v.campaigns;return [];}
+function rows(v:any):any[]{if(Array.isArray(v))return v;if(Array.isArray(v?.data))return v.data;if(Array.isArray(v?.data?.data))return v.data.data;if(Array.isArray(v?.donations))return v.donations;if(Array.isArray(v?.donors))return v.donors;if(Array.isArray(v?.campaigns))return v.campaigns;if(Array.isArray(v?.paginated?.results))return v.paginated.results;if(Array.isArray(v?.results))return v.results;return [];}
 function first(r:any,...keys:string[]){for(const k of keys){const parts=k.split(".");let v=r;for(const p of parts)v=v?.[p];if(v!==undefined&&v!==null&&v!=="")return v;}return undefined;}
 function num(r:any,...keys:string[]){const v=Number(first(r,...keys));return Number.isFinite(v)?v:0;}
 function donationId(r:any){return String(first(r,"id","donation_id","uid")??"");}

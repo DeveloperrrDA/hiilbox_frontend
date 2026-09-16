@@ -48,13 +48,7 @@ export default function AdminFundraiserManager() {
     setLoading(true); setError("");
     try {
       const makeQ = (fundraiserStatus?: string) => { const q = new URLSearchParams({ page: "1", per_page: "100" }); if (fundraiserStatus) q.set("status", fundraiserStatus); if (search.trim()) q.set("search", search.trim()); return q; };
-      let baseRows:any[]=[];
-      if(status === "all") {
-        // The unfiltered fundraiser collection is the authoritative admin collection.
-        // Do not fan out one request per guessed status: that overloads WordPress and was
-        // the reason the admin page intermittently showed no fundraisers.
-        baseRows=rowsFrom(await adminApi(`fundraisers/paginated?${makeQ()}`));
-      } else baseRows=rowsFrom(await adminApi(`fundraisers/paginated?${makeQ(status)}`));
+      const baseRows:any[]=rowsFrom(await adminApi(`fundraisers/paginated?${makeQ()}`));
 
       // Render the fundraiser list immediately. Overview enrichment is useful for Created
       // Campaigns / Joined Date, but it must never block the entire page if one overview
@@ -179,7 +173,7 @@ export default function AdminFundraiserManager() {
   }
 
 
-  const visibleRows = useMemo(() => rows.filter((r) => { const d=joinedDate(r); return !d || isDateInRange(d, dateRange); }), [rows, dateRange]);
+  const visibleRows = useMemo(() => rows.filter((r) => { const st=statusOf(r); const statusOk=status==="all" || st===status || (status==="approved"&&st==="active") || (status==="declined"&&st==="rejected"); const d=joinedDate(r); return statusOk && (!d || isDateInRange(d, dateRange)); }), [rows, dateRange, status]);
 
   const formFields = [["first_name", "First name", true], ["last_name", "Last name", false], ["email", "Email", true], ["username", "Username", true], ["password", "Password", false], ["phone", "Phone", false]] as const;
   const formMarkup = (submitLabel: string, submit: (e: FormEvent) => void) => <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">{formFields.map(([k, l, req]) => <label key={k} className="text-sm">{l}<input required={req} type={k === "password" ? "password" : k === "email" ? "email" : "text"} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label>)}<div className="sm:col-span-2 flex justify-end"><Button type="submit">{submitLabel}</Button></div></form>;

@@ -119,6 +119,15 @@ function donationCount(row: any) {
 }
 function createdDate(row: any) { return deepValue(row, ["date_created", "created_at", "created_date", "post_date", "date", "created"]); }
 
+const statusOf = (campaign: any): string =>
+  String(
+    campaign?.status ??
+    campaign?.campaign_status ??
+    campaign?.post_status ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
 export default function AdminCampaignManager() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,18 +168,16 @@ export default function AdminCampaignManager() {
       // collection. This stays at two collection requests and never restores the old
       // per-campaign detail/overview request fan-out.
       if (status === "all") {
-        // Start with GrowFund's authoritative all-status collection. A few older builds
-        // omit review states from `all`, so merge only the lifecycle collections we must
-        // guarantee, sequentially. Sequential requests avoid the CMS socket/time-out storm.
-        const merged:any[]=[];
-        for (const st of ["all","pending","rejected","draft"]) {
-          try { merged.push(...rowsFrom(await adminApi(`campaigns?${makeQs(st)}`))); } catch { /* keep results already loaded */ }
-        }
-        const byId = new Map<string, any>();
-        merged.forEach((row, index) => { const key=String(row?.id ?? row?.ID ?? row?.campaign_id ?? `row-${index}`); if(!byId.has(key)) byId.set(key,row); });
-        setRows(Array.from(byId.values()));
+        const initial=rowsFrom(await adminApi(`campaigns?${makeQs("all")}`));
+        setRows(initial);
+        setLoading(false);
+        void (async()=>{const merged:any[]=[...initial];for(const st of ["pending","rejected","draft"]){try{merged.push(...rowsFrom(await adminApi(`campaigns?${makeQs(st)}`)));}catch{}}const byId=new Map<string,any>();merged.forEach((row,index)=>{const key=String(row?.id??row?.ID??row?.campaign_id??`row-${index}`);if(!byId.has(key))byId.set(key,row);});setRows(Array.from(byId.values()));})();
       } else {
-        setRows(rowsFrom(await adminApi(`campaigns?${makeQs(status)}`)));
+        // Fetch the all collection first and filter locally when it contains the requested state.
+        // This prevents slow status endpoints from leaving the admin page stuck loading.
+        const allRows=rowsFrom(await adminApi(`campaigns?${makeQs("all")}`));
+        const local=allRows.filter((r:any)=>statusOf(r)===status);
+        if(local.length){setRows(local);}else{setRows(rowsFrom(await adminApi(`campaigns?${makeQs(status)}`)));}
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load campaigns.");
