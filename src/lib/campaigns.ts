@@ -712,7 +712,7 @@ function normalizeCampaignUpdate(raw: any): CampaignUpdate {
     created_by_id: Number(raw?.created_by_id ?? 0),
     created_by_name: String(raw?.created_by_name ?? ""),
     created_by_role: String(raw?.created_by_role ?? ""),
-    created_by_image: String(raw?.created_by_image.url ?? ""),
+    created_by_image: String(raw?.created_by_image?.url ?? ""), 
 
     created_at: String(raw?.created_at ?? ""),
     comments: Number(raw?.comments ?? ""),
@@ -1292,13 +1292,21 @@ export async function getCampaignUpdates(
     data = null;
   }
 
-  if (!response.ok) {
-    throw new Error(
-      data?.message ??
-        "Failed to load campaign updates."
-    );
-  }
+ if (!response.ok) {
+  console.error(
+    `Campaign updates request failed: ${response.status}`,
+    data?.message ?? ""
+  );
 
+  return {
+    success: false,
+    data: [],
+    pagination: {
+      page: params.page ?? 1,
+      per_page: params.per_page ?? 10,
+    },
+  };
+}
   const rawCampaignUpdates =
     extractCampaignUpdates(data);
 
