@@ -816,6 +816,58 @@ function getApiBaseUrl(): string {
   );
 }
 
+const WORDPRESS_API = (
+  process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
+  "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
+).replace(/\/$/, "");
+
+async function getGrowfundSystemToken(): Promise<string> {
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
+  }
+
+  const response = await fetch(`${WORDPRESS_API}/auth/system-token`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || !data?.system_access_token) {
+    throw new Error(
+      data?.message || "Unable to obtain GrowFund system access token."
+    );
+  }
+
+  return String(data.system_access_token);
+}
+
+async function growfundServerFetch(path: string): Promise<Response> {
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
+  }
+
+  const token = await getGrowfundSystemToken();
+
+  return fetch(`${WORDPRESS_API}${path}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-API-Key": apiKey,
+    },
+    cache: "no-store",
+  });
+}
 /**
  * Extract campaigns from the different response
  * structures returned by the GrowFund API.
@@ -929,16 +981,18 @@ export async function getCampaigns(
     url
   );
 
-  const response =
-    await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept:
-          "application/json",
-      },
-      cache: "no-store",
-    });
-
+ const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/campaigns${query ? `?${query}` : ""}`
+      )
+    : await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
   let data: any = null;
 
   try {
@@ -1077,19 +1131,20 @@ export async function getCampaign(
 
   let response: Response;
 
-  try {
-    response =
-      await fetch(
-        directUrl,
-        {
-          method: "GET",
-          headers: {
-            Accept:
-              "application/json",
-          },
-          cache: "no-store",
-        }
-      );
+ try {
+  response =
+    typeof window === "undefined"
+      ? await growfundServerFetch(`/campaigns/${id}`)
+      : await fetch(
+          directUrl,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }
+        );
   } catch (error) {
     console.error(
       "DIRECT CAMPAIGN REQUEST ERROR:",
@@ -1273,16 +1328,18 @@ export async function getCampaignUpdates(
     url
   );
 
-  const response =
-    await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept:
-          "application/json",
-      },
-      cache: "no-store",
-    });
-
+ const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/campaign/updates/paginated${query ? `?${query}` : ""}`
+      )
+    : await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
   let data: any = null;
 
   try {
