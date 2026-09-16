@@ -1,0 +1,151 @@
+
+"use client";
+
+import { useEffect, useState } from "react";
+import CampaignCard from "@/app/components/front-pages/CampaignCard";
+import { getCampaigns, type Campaign } from "@/lib/campaigns";
+
+export default function CampaignGrid() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCampaigns() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+const response = await getCampaigns({
+  page: 1,
+  per_page: 10,
+  status: "launched-and-beyond",
+  is_featured: true,
+})
+        if (!cancelled) {
+          if (response.success) {
+            setCampaigns(response.data);
+          } else {
+            setCampaigns([]);
+            setError("Failed to load campaigns.");
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to fetch campaigns:", err);
+          setCampaigns([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load campaigns."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadCampaigns();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        Loading campaigns...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (campaigns.length === 0) {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        No campaigns found.
+      </div>
+    );
+  }
+
+  // Split campaigns into chunks of 5
+  const chunkedCampaigns = [];
+  for (let i = 0; i < campaigns.length; i += 5) {
+    chunkedCampaigns.push(campaigns.slice(i, i + 5));
+  }
+
+  return (
+    <div className="lg:py-24 py-12 dark:bg-dark">
+      <div className="container-1218 mx-auto px-4">
+        
+        {/* --- HEADER --- */}
+        <div className="lg:pt-24 pt-12 rounded-md overflow-hidden">
+          <div className="flex w-full justify-center mb-12">
+            <div className="text-center">
+              <h2 className="sm:text-44 text-3xl font-bold leading-48px! text-dark dark:text-white text-center">
+                Explore <span className="text-primary">Verified</span> Somali Crowdfunding Campaigns
+              </h2>
+              <p className="text-base leading-32px pt-4 text-darklink">
+                Discover trusted Somali crowdfunding campaigns supporting
+                health, education, emergencies, community projects, and charitable causes.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* --- REPEATING BENTO BOX LAYOUT --- */}
+        <div className="flex flex-col gap-16"> 
+          {/* gap-16 creates space between each block of 5 campaigns */}
+          
+          {chunkedCampaigns.map((group, groupIndex) => {
+            // For this specific group of 5, grab the 1 big and 4 small
+            const featuredCampaign = group[0];
+            const regularCampaigns = group.slice(1, 5);
+
+            return (
+              <div key={groupIndex} className="flex flex-col lg:flex-row gap-8 w-full items-stretch">
+                
+                {/* LEFT SIDE: Exactly 50% Width on desktop, 1 Big Card */}
+                <div className="w-full lg:w-1/2 flex">
+                  {featuredCampaign && (
+                    <div className="w-full h-full">
+                      <CampaignCard campaign={featuredCampaign} />
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT SIDE: Exactly 50% Width on desktop, 2x2 Grid */}
+                {/* We only render the right side if there are actually remaining campaigns in this chunk */}
+                {regularCampaigns.length > 0 && (
+                  <div className="w-full lg:w-1/2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {regularCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="w-full h-full">
+                        <CampaignCard campaign={campaign} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+              </div>
+            );
+          })}
+          
+        </div>
+
+      </div>
+    </div>
+  );
+}
+

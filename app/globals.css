@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2a3547;
+  --hiilbox-primary: #01A14B;
+  --hiilbox-dark: #111c2d;
+  --hiilbox-light: #f8fafd;
+  --hiilbox-muted: #5a6a85;
+  --hiilbox-border: #e0e6eb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+button, input, select, textarea { font: inherit; }
+
+.container-1218 {
+  width: min(100%, 1218px);
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+.theme-card {
+  border: 1px solid var(--hiilbox-border);
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 12px 30px rgb(17 28 45 / 6%);
+}
+
+.theme-input {
+  width: 100%;
+  border: 1px solid #d7dee6;
+  border-radius: 10px;
+  background: white;
+  padding: 12px 14px;
+  color: var(--hiilbox-dark);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.theme-input:focus { border-color: var(--hiilbox-primary); box-shadow: 0 0 0 4px rgb(1 161 75 / 10%); }

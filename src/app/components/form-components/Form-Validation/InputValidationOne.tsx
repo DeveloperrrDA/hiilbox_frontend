@@ -1,0 +1,155 @@
+"use client";
+import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+import Link from "next/link";
+import React, { useState } from "react";
+import CardBox from "../../shared/CardBox";
+// First Form
+const initialFormData = {
+  name: "",
+  email: "",
+  password: "",
+};
+interface ErrorMessage {
+  name: string;
+  email: string;
+  password: string;
+}
+const errorMessage: ErrorMessage = {
+  name: "",
+  email: "",
+  password: "",
+};
+
+const InputValidationOne = () => {
+  // First Form
+  const [formData, setFormData] = useState(initialFormData);
+  const [errorMessages, setErrorMessages] = useState(errorMessage);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessages(validate(formData));
+  };
+
+  const validate = (formValues: any) => {
+    let error: ErrorMessage = {
+      name: "",
+      email: "",
+      password: "",
+    };
+    console.log(formValues);
+    if (!formValues.first) {
+      error.name = "Firstname is required";
+    } else if (formValues.first.length < 10) {
+      error.name = "Firstname should be minimum 10 characters.";
+    } else {
+      error.name = "";
+    }
+    if (!formValues.last) {
+      error.email = "Email is required";
+    } else {
+      error.email = "";
+    }
+    if (!formValues.password) {
+      error.password = "Password is required";
+    } else if (formValues.password.length < 8) {
+      error.password = "Password should be a minimum of 8 characters.";
+    } else {
+      error.password = "";
+    }
+    return error;
+  };
+
+  return (
+    <div>
+      <CardBox>
+        <div className="pb-10 pt-3">
+          <FullLogo />
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12">
+              <div className="mb-2 block">
+                <Label htmlFor="name" className="mb-2 block">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  onChange={handleChange}
+                  value={formData.name}
+                />
+              </div>
+
+              <span className="text-red-500">{errorMessages.name}</span>
+            </div>
+            <div className="col-span-12">
+              <div className="mb-2 block">
+                <Label htmlFor="email" className="mb-2 block">
+                  Email
+                </Label>
+              </div>
+              <Input
+                id="email"
+                type="email"
+                onChange={handleChange}
+                value={formData.email}
+              />
+              <span className="text-red-500">{errorMessages.email}</span>
+            </div>
+            <div className="col-span-12">
+              <div className="mb-2 block">
+                <Label htmlFor="password" className="mb-2 block">
+                  Password
+                </Label>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                onChange={handleChange}
+                value={formData.password}
+              />
+              <span className="text-red-500">{errorMessages.password}</span>
+            </div>
+            <div className="col-span-12">
+              <Label htmlFor="confirmpassword" className="mb-2 block">
+                Confirm Password
+              </Label>
+              <Input
+                id="confirmpassword"
+                type="password"
+                onChange={handleChange}
+              />
+            </div>
+            <div className="flex items-center gap-2 lg:col-span-6 col-span-12">
+              <Checkbox className="checkbox" id="remember" />
+              <Label htmlFor="remember">Remember this Device</Label>
+            </div>
+            <div className="lg:col-span-6 col-span-12 text-end">
+              <Link href="/" className="text-primary">
+                Forgot Password ?
+              </Link>
+            </div>
+            <div className="col-span-12 flex items-center gap-[1rem]">
+              <Button type="submit" color="primary">
+                Sign Up
+              </Button>
+            </div>
+          </div>
+        </form>
+      </CardBox>
+    </div>
+  );
+};
+
+export default InputValidationOne;
