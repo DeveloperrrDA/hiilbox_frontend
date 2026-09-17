@@ -1,10 +1,9 @@
-import { Icon } from "@iconify/react";
+"use client";
 
-import React, { useContext } from "react";
-import * as profileData from "./Data";
+import { Icon } from "@iconify/react";
+import React, { useContext, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import SimpleBar from "simplebar-react";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,94 +11,142 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import { CustomizerContext } from "@/app/context/CustomizerContext";
+import {
+  dashboardRole,
+  savedDashboardUser,
+} from "@/lib/dashboard/roles";
+import { useHiilboxAuth } from "@/hooks/useHiilboxAuth";
 
 const Profile = () => {
   const { activeDir } = useContext(CustomizerContext);
+  const { logout } = useHiilboxAuth();
+
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    setUser(savedDashboardUser());
+  }, []);
+
+  const role = dashboardRole(user);
+
+  const name =
+    [user?.first_name, user?.last_name]
+      .filter(Boolean)
+      .join(" ") ||
+    user?.display_name ||
+    user?.name ||
+    user?.username ||
+    user?.user_login ||
+    "User";
+
+  const email =
+    user?.email ??
+    user?.user_email ??
+    "";
+
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part: string) => part.charAt(0))
+      .join("")
+      .toUpperCase() || "U";
 
   return (
     <div className="relative group/menu">
-      <DropdownMenu dir={activeDir === "rtl" ? "rtl" : "ltr"}>
+      <DropdownMenu
+        dir={activeDir === "rtl" ? "rtl" : "ltr"}
+      >
         <DropdownMenuTrigger asChild>
-          <span className="h-10 w-10 hover:text-primary hover:bg-lightprimary rounded-full flex justify-center items-center cursor-pointer group-hover/menu:bg-lightprimary group-hover/menu:text-primary">
-            <Image
-              src="/images/profile/user-1.jpg"
-              alt="logo"
-              height="35"
-              width="35"
-              className="rounded-full"
-            />
-          </span>
+          <button
+            type="button"
+            aria-label="Open user profile"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-lightprimary font-semibold text-primary transition hover:bg-primary hover:text-white"
+          >
+            {initials}
+          </button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent className="w-screen sm:w-[360px] py-6 px-0 rounded-sm ">
-          {/* Header */}
+        <DropdownMenuContent className="w-[320px] rounded-md px-0 py-5 shadow-lg sm:w-[360px]">
+          {/* User information */}
           <div className="px-6">
-            <h3 className="text-lg font-semibold text-ld">User Profile</h3>
-            <div className="flex items-center gap-6 pb-5 border-b border-border dark:border-darkborder mt-5 mb-3">
-              <Image
-                src="/images/profile/user-1.jpg"
-                alt="logo"
-                height="80"
-                width="80"
-                className="rounded-full"
-              />
-              <div>
-                <h5 className="card-title">Jonathan Deo</h5>
+            <h3 className="text-lg font-semibold text-ld">
+              User Profile
+            </h3>
 
-                <span className="card-subtitle">Admin</span>
+            <div className="mt-5 flex items-center gap-4 border-b border-border pb-5 dark:border-darkborder">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-lightprimary text-xl font-semibold text-primary">
+                {initials}
+              </div>
 
-                <p className="card-subtitle mb-0 mt-1 flex items-center">
-                  <Icon
-                    icon="solar:mailbox-line-duotone"
-                    className="text-base me-1"
-                  />
-                  info@Materialm.com
-                </p>
+              <div className="min-w-0">
+                <h5 className="truncate font-semibold">
+                  {name}
+                </h5>
+
+                <span className="text-sm capitalize text-darklink">
+                  {role === "guest" ? "User" : role}
+                </span>
+
+                {email && (
+                  <p className="mt-1 flex items-center text-sm text-darklink">
+                    <Icon
+                      icon="solar:mailbox-line-duotone"
+                      className="me-1 shrink-0 text-base"
+                    />
+
+                    <span className="truncate">
+                      {email}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Dropdown items */}
-          <SimpleBar>
-            {profileData.profileDD.map((items, index) => (
-              <DropdownMenuItem
-                key={index}
-                asChild
-                className="px-6 py-3 flex justify-between items-center bg-hover group/link w-full cursor-pointer "
+          {/* Profile */}
+          <div className="px-3 pt-3">
+            <DropdownMenuItem asChild>
+              <Link
+                href="/dashboard/profile"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-3"
               >
-                <Link href={items.url} className="flex items-center w-full">
-                  <div className="flex items-center w-full">
-                    <div
-                      className={`h-11 w-11 flex-shrink-0 rounded-md flex justify-center items-center ${items.bgcolor}`}
-                    >
-                      <Icon
-                        icon={items.icon}
-                        height={20}
-                        className={items.color}
-                      />
-                    </div>
-                    <div className="ps-4 flex justify-between w-full">
-                      <div className="w-3/4 ">
-                        <h5 className="mb-1 text-sm  group-hover/link:text-primary">
-                          {items.title}
-                        </h5>
-                        <div className="text-xs  text-darklink">
-                          {items.subtitle}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </SimpleBar>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-lightprimary text-primary">
+                  <Icon
+                    icon="solar:user-circle-line-duotone"
+                    className="text-xl"
+                  />
+                </div>
 
-          {/* Logout Button */}
+                <div>
+                  <p className="text-sm font-medium">
+                    My Profile
+                  </p>
 
-          <div className="pt-6 px-6">
-            <Button color="primary" className="w-full rounded-full">
-              <Link href="/auth/auth1/login"> Logout</Link>
+                  <p className="text-xs text-darklink">
+                    View and manage your profile
+                  </p>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+          </div>
+
+          {/* Logout */}
+          <div className="px-6 pt-4">
+            <Button
+              type="button"
+              onClick={logout}
+              className="w-full rounded-full"
+            >
+              <Icon
+                icon="solar:logout-2-line-duotone"
+                className="me-2 text-lg"
+              />
+
+              Logout
             </Button>
           </div>
         </DropdownMenuContent>
