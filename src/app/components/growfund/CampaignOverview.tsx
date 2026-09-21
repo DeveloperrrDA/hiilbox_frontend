@@ -14,7 +14,67 @@ import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
 type AnyRecord = Record<string, any>;
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+function unwrapPayload(value: any, entityKey?: string): AnyRecord {
+  let current = value;
 
+  for (
+    let i = 0;
+    i < 4 &&
+    current &&
+    typeof current === "object" &&
+    !Array.isArray(current);
+    i++
+  ) {
+    if (
+      entityKey &&
+      current[entityKey] &&
+      typeof current[entityKey] === "object"
+    ) {
+      return current[entityKey];
+    }
+
+    if (
+      current.data &&
+      typeof current.data === "object" &&
+      !Array.isArray(current.data)
+    ) {
+      current = current.data;
+      continue;
+    }
+
+    break;
+  }
+
+  if (
+    entityKey &&
+    current?.[entityKey] &&
+    typeof current[entityKey] === "object"
+  ) {
+    return current[entityKey];
+  }
+
+  return current && typeof current === "object" ? current : {};
+}
+
+function rowsFromPayload(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+
+  for (const key of [
+    "data",
+    "items",
+    "results",
+    "rows",
+    "records",
+    "donations",
+  ]) {
+    const rows = rowsFromPayload(value[key]);
+
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
 function findByKeys(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") return undefined;
   for (const key of keys) {
@@ -84,8 +144,9 @@ export default function CampaignOverview({ id }: { id: string }) {
       const campaignUrl = isAdmin
         ? `/api/admin/growfund/campaigns/${id}`
         : `/api/dashboard/campaigns/${id}`;
-      const donationUrl = `/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(id)}&orderby=id&order=desc`;
-      const [overviewResponse, campaignResponse, donationResponse] = await Promise.all([
+const donationUrl = isAdmin
+  ? `/api/admin/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(id)}&orderby=id&order=desc`
+  : `/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(id)}&orderby=id&order=desc`;      const [overviewResponse, campaignResponse, donationResponse] = await Promise.all([
         fetch(overviewUrl, { headers, cache: "no-store" }),
         fetch(campaignUrl, { headers, cache: "no-store" }),
         fetch(donationUrl, { headers, cache: "no-store" }),
@@ -93,10 +154,13 @@ export default function CampaignOverview({ id }: { id: string }) {
       const [overviewJson, campaignJson, donationJson] = await Promise.all([overviewResponse.json(), campaignResponse.json(), donationResponse.json().catch(() => null)]);
       if (!overviewResponse.ok) throw new Error(overviewJson?.message || "Unable to load campaign overview.");
       if (!campaignResponse.ok) throw new Error(campaignJson?.message || "Unable to load campaign details.");
-      setData(overviewJson?.data ?? {});
-      setCampaign(campaignJson?.data ?? {});
+      setData(unwrapPayload(overviewJson));
+setCampaign(unwrapPayload(campaignJson, "campaign"));
       if (donationResponse.ok) {
-        const donationRows = Array.isArray(donationJson?.data) ? donationJson.data : Array.isArray(donationJson?.data?.data) ? donationJson.data.data : [];
+        console.log("CAMPAIGN OVERVIEW RESPONSE:", overviewJson);
+console.log("CAMPAIGN RESPONSE:", campaignJson);
+console.log("DONATION RESPONSE:", donationJson);
+const donationRows = rowsFromPayload(donationJson);
         setPaidDonationCount(donationRows.filter((d:any) => {
           const payment = String(d?.payment_status ?? "").toLowerCase();
           const status = String(d?.status ?? "").toLowerCase();
@@ -119,11 +183,82 @@ export default function CampaignOverview({ id }: { id: string }) {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currency = textFrom(data, ["currency", "currency_code"]) || textFrom(campaign, ["currency", "currency_code"]) || "USD";
-  const raised = numberFrom(data, ["raised_amount", "fund_raised", "total_raised", "raised", "amount_raised"]);
-  const donations = paidDonationCount ?? numberFrom(data, ["donations", "donation_count", "total_donations", "number_of_donations", "contributions", "contribution_count"]);
-  const contributors = numberFrom(data, ["contributors", "number_of_contributors", "donors", "donor_count", "unique_donors"]);
-  const views = numberFrom(data, ["views", "view_count", "total_views", "visits"]);
-  const averageDonation = numberFrom(data, ["average_donation", "average_donation_amount", "avg_donation"] ) || (donations > 0 ? raised / donations : 0);
+  const metrics = data?.metrics ?? {};
+
+const metricNumber = (metric: any): number => {
+  if (metric === null || metric === undefined) return 0;
+
+  if (typeof metric === "number") {
+    return Number.isFinite(metric) ? metric : 0;
+  }
+
+  if (typeof metric === "string") {
+    const parsed = Number(metric.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  if (typeof metric === "object") {
+    const raw =
+      metric.value ??
+      metric.amount ??
+      metric.total ??
+      metric.count ??
+      metric.current ??
+      metric.total_amount ??
+      metric.donation_amount;
+
+    if (raw !== undefined && raw !== null) {
+      const parsed = Number(
+        String(raw).replace(/[^0-9.-]/g, "")
+      );
+
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+  }
+
+  return 0;
+};
+ const raised =
+  metricNumber(metrics.total_donation) ||
+  numberFrom(data, [
+    "raised_amount",
+    "fund_raised",
+    "total_raised",
+    "raised",
+    "amount_raised"
+  ]);
+
+const donations =
+  paidDonationCount ??
+  numberFrom(data, [
+    "donations",
+    "donation_count",
+    "total_donations",
+    "number_of_donations",
+    "contributions",
+    "contribution_count"
+  ]);
+
+const contributors =
+  metricNumber(metrics.total_donors) ||
+  numberFrom(data, [
+    "contributors",
+    "number_of_contributors",
+    "donors",
+    "donor_count",
+    "unique_donors"
+  ]);
+
+const views = numberFrom(data, [
+  "views",
+  "view_count",
+  "total_views",
+  "visits"
+]);
+
+const averageDonation =
+  metricNumber(metrics.average_donation) ||
+  (donations > 0 ? raised / donations : 0);
   const goal = Number(campaign.goal_amount ?? campaign.goal ?? 0) || numberFrom(data, ["goal_amount", "goal"]);
   const progress = goal > 0 ? Math.min(100, Math.max(0, raised / goal * 100)) : 0;
   const rangeStart = textFrom(data, ["start_date", "from_date"]);

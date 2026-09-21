@@ -38,7 +38,44 @@ const variants: Record<string, any> = {
 };
 
 function campaignStatus(row: any) {
-  return String(row?.status ?? row?.campaign_status ?? "unknown").toLowerCase();
+  return String(
+    row?.status ??
+    row?.campaign_status ??
+    row?.post_status ??
+    "unknown"
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function statusMatches(row: any, wanted: string) {
+  const actual = campaignStatus(row);
+
+  if (wanted === "trash") {
+    return ["trash", "trashed"].includes(actual);
+  }
+
+  if (wanted === "declined") {
+    return ["declined", "denied", "rejected"].includes(actual);
+  }
+
+  if (wanted === "launched") {
+    return ["launched", "published", "active"].includes(actual);
+  }
+
+  return actual === wanted;
+}
+
+function featured(row: any) {
+  const value = row?.is_featured ?? row?.featured;
+
+  if (typeof value === "string") {
+    return ["1", "true", "yes", "featured"].includes(
+      value.trim().toLowerCase()
+    );
+  }
+
+  return value === true || value === 1;
 }
 function statusOf(row: any) {
   return String(row?.status ?? row?.campaign_status ?? row?.post_status ?? "").trim().toLowerCase();
@@ -174,10 +211,30 @@ export default function AdminCampaignManager() {
       } else {
         // Fetch the all collection first and filter locally when it contains the requested state.
         // This prevents slow status endpoints from leaving the admin page stuck loading.
-        const allRows=rowsFrom(await adminApi(`campaigns?${makeQs("all")}`));
-        const local=allRows.filter((r:any)=>statusOf(r)===status);
-        if(local.length){setRows(local);}else{setRows(rowsFrom(await adminApi(`campaigns?${makeQs(status)}`)));}
-      }
+        const allRows = rowsFrom(
+  await adminApi(`campaigns?${makeQs("all")}`)
+);
+
+const local = allRows.filter((r: any) =>
+  statusMatches(r, status)
+);
+
+if (local.length) {
+  setRows(local);
+} else {
+  // Some backend versions ignore the "trash" filter
+  // and return every campaign.
+  // Always filter the returned rows before displaying them.
+  const statusRows = rowsFrom(
+    await adminApi(`campaigns?${makeQs(status)}`)
+  );
+
+  setRows(
+    statusRows.filter((r: any) =>
+      statusMatches(r, status)
+    )
+  );
+}}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load campaigns.");
       setRows([]);
@@ -194,7 +251,7 @@ export default function AdminCampaignManager() {
     setNotice("");
     try {
       const data = await adminApi(path, { method: "POST", body: JSON.stringify(payload) });
-      setNotice(data?.message || msg);
+setNotice(data?.message || msg);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed.");
@@ -203,16 +260,104 @@ export default function AdminCampaignManager() {
     }
   }
 
-  async function duplicateCampaign(r: any) {
-    const id = idOf(r);
-    setBusy(id); setError(""); setNotice("");
-    try {
-      const data = await adminApi(`campaign/${id}/duplicate`, { method: "POST", body: "{}" });
-      setNotice(data?.message || "Campaign duplicated successfully.");
-      await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to duplicate campaign."); }
-    finally { setBusy(null); }
+  async function duplicate(r: any) {
+  const id = idOf(r);
+
+  setBusy(id);
+  setError("");
+
+  try {
+    // Fetch the original campaign.
+    const full = dataFrom(
+      await adminApi(`campaigns/${id}`)
+    );
+
+    const source = full?.campaign ?? full;
+
+    // Only copy campaign fields that should belong
+    // to the new campaign.
+    //
+    // Do NOT copy:
+    // id
+    // created_at
+    // updated_at
+    // date_created
+    // timestamps
+    const payload: Record<string, any> = {};
+
+    const copyFields = [
+      "description",
+      "story",
+      "images",
+      "video",
+      "category",
+      "sub_category",
+      "start_date",
+      "end_date",
+      "location",
+      "tags",
+      "fundraiser_id",
+      "collaborators",
+      "show_collaborator_list",
+      "risk",
+      "has_goal",
+      "goal_type",
+      "reaching_action",
+      "confirmation_title",
+      "confirmation_description",
+      "provide_confirmation_pdf_receipt",
+      "goal_amount",
+      "allow_custom_donation",
+      "min_donation_amount",
+      "max_donation_amount",
+      "suggested_option_type",
+      "suggested_options",
+      "faqs",
+      "author_id",
+    ];
+
+    for (const field of copyFields) {
+      if (source?.[field] !== undefined) {
+        payload[field] = source[field];
+      }
+    }
+
+    payload.title =
+      `Copy of ${
+        source?.title ||
+        r?.title ||
+        `Campaign ${id}`
+      }`;
+
+    // A copied campaign starts as a new draft.
+    payload.status = "draft";
+
+    // Create an entirely new campaign.
+    // The backend will generate the new creation timestamp.
+    const result = await adminApi(
+      "campaigns/create",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    setNotice(
+      result?.message ||
+      "Campaign copied successfully."
+    );
+
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to copy campaign."
+    );
+  } finally {
+    setBusy(null);
   }
+}
 
   async function approve(r: any) {
     const id = idOf(r);
@@ -241,32 +386,6 @@ export default function AdminCampaignManager() {
     await post(id, "campaign/update-featured-status", { ids: [id], is_featured: value }, value ? "Campaign featured." : "Campaign unfeatured.");
   }
 
-  async function duplicate(r: any) {
-    const id = idOf(r);
-    setBusy(id);
-    setError("");
-    try {
-      const full = dataFrom(await adminApi(`campaigns/${id}`));
-      const source = full?.campaign ?? full;
-      const payload: Record<string, any> = {};
-      const copyFields = [
-        "description", "story", "images", "video", "category", "sub_category", "start_date", "end_date", "location", "tags",
-        "fundraiser_id", "collaborators", "show_collaborator_list", "risk", "has_goal", "goal_type", "reaching_action",
-        "confirmation_title", "confirmation_description", "provide_confirmation_pdf_receipt", "goal_amount", "allow_custom_donation",
-        "min_donation_amount", "max_donation_amount", "suggested_option_type", "suggested_options", "faqs", "author_id",
-      ];
-      for (const field of copyFields) if (source?.[field] !== undefined) payload[field] = source[field];
-      payload.title = `Copy of ${source?.title || r?.title || `Campaign ${id}`}`;
-      payload.status = "draft";
-      const result = await adminApi("campaigns/create", { method: "POST", body: JSON.stringify(payload) });
-      setNotice(result?.message || "Campaign copied successfully.");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to copy campaign.");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   function openPostUpdate(r: any) {
     setUpdateCampaign(r);
@@ -474,8 +593,11 @@ export default function AdminCampaignManager() {
           </TableRow></TableHeader>
           <TableBody>
             {loading ? <TableRow><TableCell colSpan={10} className="py-10 text-center">Loading campaigns…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={10} className="py-10 text-center text-darklink">No campaigns found.</TableCell></TableRow> : pageRows.map((r) => {
-              const id = idOf(r), st = campaignStatus(r), isFeatured = Boolean(r.is_featured ?? r.featured), isBusy = busy === id;
-              const g = goal(r), a = raised(r), pct = g > 0 ? Math.min(100, Math.round((a / g) * 100)) : 0;
+   const id = idOf(r),
+         st = campaignStatus(r),
+            isFeatured = featured(r),
+                     isBusy = busy === id;            
+                       const g = goal(r), a = raised(r), pct = g > 0 ? Math.min(100, Math.round((a / g) * 100)) : 0;
               return <TableRow key={id}>
                 <TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={() => toggle(id)} /></TableCell>
                 <TableCell>#{id}</TableCell>
@@ -491,7 +613,8 @@ export default function AdminCampaignManager() {
                     <DropdownMenuItem onClick={() => openPostUpdate(r)}><Icon icon="solar:document-add-line-duotone" /> Post an update</DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href={`/dashboard/campaigns/${id}/overview`}><Icon icon="solar:chart-2-line-duotone" /> Overview</Link></DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href={`/campaign/${id}`}><Icon icon="solar:eye-line-duotone" /> Preview</Link></DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void duplicateCampaign(r)}><Icon icon="solar:copy-line-duotone" /> Make a copy</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void duplicate(r)}> 
+                      <Icon icon="solar:copy-line-duotone" /> Make a copy</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {st === "trashed" || st === "trash" ? <DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem> : <DropdownMenuItem className="text-error focus:text-error" onClick={() => trash(r)}><Icon icon="solar:trash-bin-trash-line-duotone" /> Move to trash</DropdownMenuItem>}
                   </DropdownMenuContent></DropdownMenu>
