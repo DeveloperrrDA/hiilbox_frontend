@@ -21,11 +21,113 @@ function donorName(r:any){const d=r?.donor??r?.user??{};const combined=[d?.first
 function donorFirstName(r:any){if(r?.is_anonymous)return "Anonymous";const d=r?.donor??r?.user??{};return String(d?.first_name??r?.first_name??donorName(r)).trim().split(/\s+/)[0]||"Anonymous";}
 function donorType(r:any){return r?.donor_type??r?.user_type??(r?.user_id?"Registered":"Guest");}
 function dateOf(r:any){return r?.date??r?.created_at??r?.date_created??r?.created_date;}
-function minor(value:any){const n=Number(value??0);return Number.isFinite(n)?n/100:0;}
-function gatewayFee(r:any){return minor(r?.gateway_fee??r?.payment_gateway_fee??0);}
-function platformFee(r:any){return minor(r?.platform_fee??0);}
-function tipAmount(r:any){return minor(r?.tip_amount??0);}
-function netAmount(r:any){const direct=Number(r?.net_amount??r?.net??r?.amount_after_fees);if(Number.isFinite(direct))return direct;const gross=Number(r?.amount??0);return Math.max(0,(Number.isFinite(gross)?gross:0)-gatewayFee(r)-platformFee(r));}
+function minor(value: any) {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
+
+function paymentMethodOf(r: any) {
+  const raw =
+    r?.transaction?.payment_method ??
+    r?.transaction?.gateway ??
+    r?.payment?.payment_method ??
+    r?.payment?.method ??
+    r?.payment_method ??
+    r?.payment_engine ??
+    r?.gateway ??
+    "";
+
+  if (typeof raw === "object" && raw !== null) {
+    return String(
+      raw.id ??
+      raw.slug ??
+      raw.name ??
+      raw.label ??
+      raw.type ??
+      ""
+    ).toLowerCase();
+  }
+
+  return String(raw).toLowerCase();
+}
+
+function isOfflinePayment(r: any) {
+  const method = paymentMethodOf(r);
+
+  return (
+    method.includes("bank") ||
+    method.includes("bacs") ||
+    method.includes("offline") ||
+    method.includes("bank_transfer") ||
+    method.includes("bank-transfer")
+  );
+}
+
+function gatewayFee(r: any) {
+  const explicit =
+    r?.gateway_fee ??
+    r?.payment_gateway_fee ??
+    r?.processing_fee;
+
+  if (
+    explicit !== undefined &&
+    explicit !== null &&
+    explicit !== ""
+  ) {
+    return minor(explicit);
+  }
+
+  // Offline / bank-transfer payments use the 1% metric
+  // when the API does not return an explicit gateway fee.
+  if (isOfflinePayment(r)) {
+    const gross = Number(
+      r?.amount ??
+      r?.donation_amount ??
+      r?.total ??
+      0
+    );
+
+    return Number.isFinite(gross)
+      ? gross * 0.01
+      : 0;
+  }
+
+  return 0;
+}
+
+function platformFee(r: any) {
+  return minor(r?.platform_fee ?? 0);
+}
+
+function tipAmount(r: any) {
+  return minor(r?.tip_amount ?? 0);
+}
+
+function netAmount(r: any) {
+  const direct = Number(
+    r?.net_amount ??
+    r?.net ??
+    r?.amount_after_fees
+  );
+
+  if (Number.isFinite(direct)) {
+    return direct;
+  }
+
+  const gross = Number(
+    r?.amount ??
+    r?.donation_amount ??
+    r?.total ??
+    0
+  );
+
+  return Math.max(
+    0,
+    (Number.isFinite(gross) ? gross : 0) -
+      gatewayFee(r) -
+      platformFee(r)
+  );
+}
 function totalPagesFrom(data:any,page:number,rowCount:number){const candidates=[data?.data?.last_page,data?.data?.total_pages,data?.last_page,data?.total_pages,data?.data?.pagination?.total_pages,data?.pagination?.total_pages];for(const v of candidates){const n=Number(v);if(Number.isFinite(n)&&n>0)return n;}return rowCount<10?page:page+1;}
 
 type ColumnKey="donationId"|"amount"|"campaign"|"donor"|"donorType"|"date"|"status"|"net"|"gateway"|"platform"|"tip";

@@ -64,7 +64,6 @@ export default function AdminDonationDetail({ donationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"overview" | "donations">("overview");
 
   const load = useCallback(async () => {
     if (!donationId) return;
@@ -157,10 +156,10 @@ export default function AdminDonationDetail({ donationId }: Props) {
 
       {error && <div className="rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
 
-      <div className="flex gap-2 border-b border-ld"><button className={`px-4 py-3 text-sm font-medium ${tab === "overview" ? "border-b-2 border-primary text-primary" : "text-darklink"}`} onClick={() => setTab("overview")}>Overview</button><button className={`px-4 py-3 text-sm font-medium ${tab === "donations" ? "border-b-2 border-primary text-primary" : "text-darklink"}`} onClick={() => setTab("donations")}>Donations</button></div>
 
-      {tab === "overview" ? (
+     
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+
           <div className="space-y-5">
             <CardBox>
               <div className="flex gap-4">
@@ -191,20 +190,43 @@ export default function AdminDonationDetail({ donationId }: Props) {
             {notes && <CardBox><h3 className="mb-3 text-lg font-semibold">Notes</h3><p className="whitespace-pre-wrap text-sm text-darklink">{String(notes)}</p></CardBox>}
           </div>
         </div>
-      ) : (
+      
         <CardBox>
-          <h3 className="mb-4 text-xl font-semibold">Donation Logs</h3>
-          <div className="relative ml-4 border-l border-ld pl-8">
-            {timeline.map((activity, index) => (
-              <div key={String(activity?.id ?? activity?.activity_id ?? index)} className="relative pb-8 last:pb-1">
-                <span className="absolute -left-[43px] top-1 flex h-8 w-8 items-center justify-center rounded-md bg-white dark:bg-dark"><span className="h-3 w-3 rounded-full bg-darklink" /></span>
-                <p className="font-medium">{activityText(activity)}</p>
-                {activityDate(activity) && <p className="mt-1 text-xs text-darklink">{fmtDate(activityDate(activity))}</p>}
-              </div>
-            ))}
-          </div>
+<h3 className="mb-4 text-xl font-semibold">Donation Activity</h3>
+         {timeline.length > 0 ? (
+  <div className="relative ml-4 border-l border-ld pl-8">
+    {timeline.map((activity, index) => (
+      <div
+        key={String(
+          activity?.id ??
+          activity?.activity_id ??
+          index
+        )}
+        className="relative pb-8 last:pb-1"
+      >
+        <span className="absolute -left-[43px] top-1 flex h-8 w-8 items-center justify-center rounded-md bg-white dark:bg-dark">
+          <span className="h-3 w-3 rounded-full bg-darklink" />
+        </span>
+
+        <p className="font-medium">
+          {activityText(activity)}
+        </p>
+
+        {activityDate(activity) && (
+          <p className="mt-1 text-xs text-darklink">
+            {fmtDate(activityDate(activity))}
+          </p>
+        )}
+      </div>
+    ))}
+  </div>
+) : (
+  <p className="text-sm text-darklink">
+    No activity has been recorded for this donation.
+  </p>
+)}
         </CardBox>
-      )}
+      
     </div>
   );
 }
