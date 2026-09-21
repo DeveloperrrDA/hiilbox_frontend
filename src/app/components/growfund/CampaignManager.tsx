@@ -245,8 +245,32 @@ export default function CampaignManager() {
 
       {notice && <div className="mt-5 rounded-md border border-success/30 bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
       {error && <div className="mt-5 rounded-md border border-error/30 bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
-      <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="campaign-list-table" columns={["Campaign ID", "Campaign", "Creator", "Status", "Raised / Goal", "Donations", "State", "Ends", "Actions"]}/></div><div className="mt-4 overflow-x-auto">
-        <Table className="campaign-list-table"><TableHeader><TableRow><TableHead>Campaign ID</TableHead><TableHead>Campaign</TableHead><TableHead>Creator</TableHead><TableHead>Status</TableHead><TableHead>Raised / Goal</TableHead><TableHead>Donations</TableHead><TableHead>State</TableHead><TableHead>Ends</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+      <div className="mt-4 flex justify-end">
+        <ColumnVisibilityControl
+  tableClass="campaign-list-table"
+  columns={[
+    "Campaign ID",
+    "Campaign",
+    "Status",
+    "Raised / Goal",
+    "State",
+    "Ends",
+    "Actions",
+  ]}
+/>
+        </div><div className="mt-4 overflow-x-auto">
+        <Table className="campaign-list-table">
+          <TableHeader>
+  <TableRow>
+    <TableHead>Campaign ID</TableHead>
+    <TableHead>Campaign</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Raised / Goal</TableHead>
+    <TableHead>State</TableHead>
+    <TableHead>Ends</TableHead>
+    <TableHead className="text-right">Actions</TableHead>
+  </TableRow>
+</TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={9} className="py-10 text-center text-darklink">Loading campaigns…</TableCell></TableRow> : visibleCampaigns.length === 0 ? <TableRow><TableCell colSpan={9} className="py-10 text-center text-darklink">No campaigns found for this account.</TableCell></TableRow> : visibleCampaigns.map(c => {
             const raised = Number(c.raised_amount ?? c.fund_raised ?? 0); const goal = Number(c.goal_amount ?? c.goal ?? 0); const busy = workingId === c.id;
