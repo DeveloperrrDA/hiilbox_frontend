@@ -40,15 +40,15 @@ const Profile = () => {
   const avatar = firstValue(user, ["avatar_url", "avatar", "profile_image", "profile_image_url", "image", "photo", "picture"]);
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
 
-  function logout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("auth_user");
-    sessionStorage.clear();
-    router.replace("/auth/auth1/login");
-    router.refresh();
-  }
+ function logout() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("auth_user");
+  sessionStorage.clear();
 
+  router.replace("/login");
+  router.refresh();
+}
   const avatarNode = (size: "small" | "large") => {
     const classes = size === "large" ? "h-20 w-20 text-xl" : "h-9 w-9 text-sm";
     return avatar ? <img src={avatar} alt={name} className={`${classes} rounded-full object-cover`} /> : <span className={`${classes} flex shrink-0 items-center justify-center rounded-full bg-lightprimary font-semibold text-primary`}>{initials}</span>;
