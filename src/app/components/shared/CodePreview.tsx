@@ -1,0 +1,47 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import CodeDialog from "@/app/components/shared/CodeDialog";
+
+type Props = {
+  component: React.ReactNode; // Accept rendered element instead of function
+  filePath: string;
+  title?: string;
+  subtitle?: string;
+};
+
+export default function CodePreview({
+  component,
+  filePath,
+  title,
+  subtitle,
+}: Props) {
+  const [code, setCode] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/code?file=${filePath}`)
+      .then((res) => res.text())
+      .then((text) => setCode(text))
+      .catch((err) => console.error("Error loading code:", err));
+  }, [filePath]);
+
+  return (
+    <Card className="p-0">
+      <div>
+        <div className="p-6 flex flex-col gap-4">
+          <div>
+            {title && <h4 className="text-lg font-semibold">{title}</h4>}
+            {subtitle && (
+              <p className="text-dark dark:text-white">{subtitle}</p>
+            )}
+          </div>
+          <div>
+            {component} {/* Already rendered element */}
+          </div>
+        </div>
+        <CodeDialog>{code}</CodeDialog>
+      </div>
+    </Card>
+  );
+}
