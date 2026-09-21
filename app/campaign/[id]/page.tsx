@@ -1,10 +1,15 @@
 import Link from "next/link";
 
-import { getCampaign, getCampaignRecentDonations, getCampaignUpdates } from "@/lib/campaigns";
+import { CampaignFaq, getCampaign, getCampaignRecentDonations, getCampaignUpdates } from "@/lib/campaigns";
 import { type CampaignUpdate } from "@/lib/campaigns";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from '@headlessui/react'
 
 
 interface CampaignPageProps {
@@ -14,6 +19,36 @@ interface CampaignPageProps {
   searchParams: Promise<{ 
     tab?: string 
   }>;
+}
+
+const CampaignFAQTabs = ({
+  campaignFAQ
+}:{
+  campaignFAQ: any;
+}) => {
+  return (
+    <div>
+      <div className='w-full divide-y divide-border dark:divide-darkborder rounded-xl bg-lightgray dark:bg-dark'>
+        {campaignFAQ?.map((faq: { question: string; answer: string }) => (
+          <Disclosure as='div' key={faq.question} className='py-4 px-6' defaultOpen={true}>
+            <DisclosureButton className='group flex w-full items-center justify-between'>
+              <span className='text-base font-medium text-ld group-data-[hover]:text-primary'>
+                {faq.question}
+              </span>
+              <Icon
+                icon='solar:alt-arrow-down-outline'
+                height={18}
+                className='size-5 fill-white/60 group-data-[hover]:fill-white/50 group-data-[open]:rotate-180'
+              />
+            </DisclosureButton>
+            <DisclosurePanel className='mt-2 text-sm text-darklink'>
+              {faq.answer}
+            </DisclosurePanel>
+          </Disclosure>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 const CampaignTabs = ({ 
@@ -96,7 +131,7 @@ const CampaignTabs = ({
         {activeTab === "faqs" && (
           <div className="col-span-12">
             <p className="whitespace-pre-line text-base leading-8 border-t border-[#e0e6eb] pt-4 text-[#5a6a85]">
-              FAQ Section
+              <CampaignFAQTabs campaignFAQ = {campaign.faqs} />
             </p>
           </div>
         )}
