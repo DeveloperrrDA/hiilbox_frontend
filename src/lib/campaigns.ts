@@ -1201,7 +1201,7 @@ export async function getCampaign(
     await getCampaigns({
       page: 1,
       per_page: 100,
-      status: "published",
+      status: "launched-and-beyond"
     });
 
   const campaign =
@@ -1313,26 +1313,21 @@ export async function getCampaignUpdates(
   const baseUrl =
     getApiBaseUrl();
 
-  const endpoint = `/api/campaigns/updates${query ? `?${query}` : ""}`;
+ const endpoint =
+  `/api/campaigns/updates${query ? `?${query}` : ""}`;
 
-  const url =
-    `${baseUrl}${endpoint}`;
-
-  console.log(
-    "GET CAMPAIGN UPDATES FROM:",
-    url
-  );
-
-  const response =
-    await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept:
-          "application/json",
-      },
-      cache: "no-store",
-    });
-
+const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/campaigns/updates${query ? `?${query}` : ""}`
+      )
+    : await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
   let data: any = null;
 
   try {
