@@ -118,14 +118,22 @@ export async function GET(
 
     const donations = (Array.isArray(data?.data) ? data.data : pickArray(data))
       .map(normalizeDonation)
-      .filter((item: any) => !["failed", "cancelled", "canceled", "refunded", "reversed", "void"].includes(item.status))
-      .sort((a: any, b: any) => {
+.filter(
+  (item: any) =>
+    String(item.status ?? "")
+      .trim()
+      .toLowerCase() === "completed"
+)      .sort((a: any, b: any) => {
         const aTime = a.created_at ? Date.parse(a.created_at) : 0;
         const bTime = b.created_at ? Date.parse(b.created_at) : 0;
         return bTime - aTime || Number(b.id) - Number(a.id);
       });
 
-    return NextResponse.json({ success: true, data: donations });
+return NextResponse.json({
+  success: true,
+  data: donations,
+  completed_count: donations.length,
+});
   } catch (error) {
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Unable to load recent donations." },

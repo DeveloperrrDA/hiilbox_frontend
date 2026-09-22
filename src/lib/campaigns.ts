@@ -1286,7 +1286,13 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
         is_anonymous: Boolean(item?.is_anonymous),
         status: String(item?.status ?? "").toLowerCase(),
       }))
-      .filter((item) => !["failed", "cancelled", "canceled", "refunded", "reversed", "void"].includes(item.status ?? ""))
+.filter((item) => {
+  const status = String(item.status ?? "")
+    .trim()
+    .toLowerCase();
+
+  return status === "completed";
+})
       .sort((a, b) => {
         const aTime = a.created_at ? Date.parse(a.created_at) : 0;
         const bTime = b.created_at ? Date.parse(b.created_at) : 0;
