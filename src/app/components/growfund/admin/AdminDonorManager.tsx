@@ -28,14 +28,49 @@ export default function AdminDonorManager() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(1);
-  const [open, setOpen] = useState(false), [editOpen, setEditOpen] = useState(false), [editingId, setEditingId] = useState(0), [form, setForm] = useState(blank);
-
+const [open, setOpen] = useState(false),
+  [editOpen, setEditOpen] = useState(false),
+  [editingId, setEditingId] = useState(0),
+  [form, setForm] = useState(blank),
+  [sendingReset, setSendingReset] = useState(false);
   const load = useCallback(async () => { setLoading(true); setError(""); try { const q = new URLSearchParams({ page: "1", per_page: "100" }); if (search.trim()) q.set("search", search.trim()); if(status!=="all") q.set("status",status); setRows(rowsFrom(await adminApi(`donors/paginated?${q}`))); } catch (e) { setError(e instanceof Error ? e.message : "Unable to load donors."); } finally { setLoading(false); } }, [search,status]);
   useEffect(() => void load(), [load]);
 
   async function create(e: FormEvent) { e.preventDefault(); setError(""); try { const d = await adminApi("donor/create", { method: "POST", body: JSON.stringify(form) }); setNotice(d?.message || "Donor created successfully."); setOpen(false); setForm(blank); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to create donor."); } }
   async function beginEdit(r: any) { const id = idOf(r); setBusy(id); try { let source = r; try { source = dataFrom(await adminApi(`donor/${id}/overview`)); } catch {} source = source?.donor ?? source; setEditingId(id); setForm({ first_name: source?.first_name ?? r?.first_name ?? "", last_name: source?.last_name ?? r?.last_name ?? "", email: source?.email ?? source?.user_email ?? r?.email ?? r?.user_email ?? "", username: source?.username ?? source?.user_login ?? r?.username ?? r?.user_login ?? "", password: "", phone: source?.phone ?? r?.phone ?? "" }); setEditOpen(true); } finally { setBusy(null); } }
   async function saveEdit(e: FormEvent) { e.preventDefault(); try { const payload: any = { ...form }; if (!payload.password) delete payload.password; const d = await adminApi(`donor/${editingId}/update`, { method: "POST", body: JSON.stringify(payload) }); setNotice(d?.message || "Donor updated successfully."); setEditOpen(false); setForm(blank); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to update donor."); } }
+  async function sendPasswordReset() {
+  const email = form.email.trim();
+
+  if (!email) {
+    setError("This donor does not have an email address.");
+    return;
+  }
+
+  setSendingReset(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const d = await adminApi("auth/password-reset-mail", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+    setNotice(
+      d?.message ||
+        `Password reset email sent successfully to ${email}.`
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to send password reset email."
+    );
+  } finally {
+    setSendingReset(false);
+  }
+}
   async function remove(r: any, permanent = false) { const id = idOf(r); if (!confirm(permanent ? "Permanently delete this donor?" : "Move this donor to trash?")) return; setBusy(id); try { const d = await adminApi(`donor/${id}/delete`, { method: "DELETE", body: JSON.stringify({ delete_type: permanent ? "permanent" : "trash" }) }); setNotice(d?.message || (permanent ? "Donor permanently deleted." : "Donor moved to trash.")); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Donor action failed."); } finally { setBusy(null); } }
   async function restore(r: any) { const id = idOf(r); setBusy(id); try { const d = await adminApi("donors/bulk-action", { method: "POST", body: JSON.stringify({ ids: [id], action: "restore", is_permanent_delete: false }) }); setNotice(d?.message || "Donor restored."); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to restore donor."); } finally { setBusy(null); } }
   async function emptyTrash() { if (!confirm("Permanently delete all trashed donors?")) return; try { const d = await adminApi("donors/empty-trash", { method: "POST", body: "{}" }); setNotice(d?.message || "Donor trash emptied."); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to empty trash."); } }
@@ -59,6 +94,39 @@ export default function AdminDonorManager() {
       </TableRow>; })}
     </TableBody></Table></div>
     <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
-    <Dialog open={editOpen} onOpenChange={setEditOpen}><DialogContent><DialogHeader><DialogTitle>Edit Donor</DialogTitle></DialogHeader>{formMarkup("Save changes", saveEdit)}</DialogContent></Dialog>
+<Dialog open={editOpen} onOpenChange={setEditOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Edit Donor</DialogTitle>
+    </DialogHeader>
+
+    {formMarkup("Save changes", saveEdit)}
+
+    <div className="border-t border-ld pt-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium">
+            Password reset
+          </p>
+          <p className="mt-1 text-xs text-darklink">
+            Send a password reset link to {form.email || "this donor"}.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={sendPasswordReset}
+          disabled={sendingReset || !form.email.trim()}
+        >
+          <Icon icon="solar:letter-line-duotone" />
+          {sendingReset
+            ? "Sending..."
+            : "Send reset password email"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
   </CardBox>;
 }
