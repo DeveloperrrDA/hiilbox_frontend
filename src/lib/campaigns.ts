@@ -712,8 +712,10 @@ function normalizeCampaignUpdate(raw: any): CampaignUpdate {
     created_by_id: Number(raw?.created_by_id ?? 0),
     created_by_name: String(raw?.created_by_name ?? ""),
     created_by_role: String(raw?.created_by_role ?? ""),
-    created_by_image: String(raw?.created_by_image.url ?? ""),
-
+    created_by_image: String(
+    raw?.created_by_image?.url ??
+      raw?.created_by_image ??""
+),
     created_at: String(raw?.created_at ?? ""),
     comments: Number(raw?.comments ?? ""),
     likes: Number(raw?.likes ?? ""),
@@ -1113,20 +1115,18 @@ export async function getCampaign(
     );
   }
 
-  const baseUrl =
-    getApiBaseUrl();
 
   /**
    * First try the dedicated campaign endpoint.
    */
-  const directUrl =
-    `${baseUrl}/api/campaigns/${id}`;
+ const directUrl = `/api/campaigns/${id}`;
 
-  console.log(
-    "GET CAMPAIGN FROM:",
-    directUrl
-  );
-
+console.log(
+  "GET CAMPAIGN:",
+  typeof window === "undefined"
+    ? `${WORDPRESS_API}/campaigns/${id}`
+    : directUrl
+);
   let response: Response;
 
   try {
@@ -1165,24 +1165,26 @@ export async function getCampaign(
    * If /api/campaigns/[id] works,
    * return that campaign.
    */
+ if (response.ok) {
+  const rawCampaign =
+    data?.data?.campaign ??
+    data?.campaign ??
+    data?.data ??
+    null;
+
   if (
-    response.ok &&
-    data?.data
+    rawCampaign &&
+    typeof rawCampaign === "object" &&
+    !Array.isArray(rawCampaign)
   ) {
     return {
-      success:
-        Boolean(
-          data?.success ??
-          true
-        ),
-
-      data:
-        normalizeCampaign(
-          data.data
-        ),
+      success: Boolean(
+        data?.success ?? true
+      ),
+      data: normalizeCampaign(rawCampaign),
     };
   }
-
+}
   /**
    * FALLBACK:
    *
@@ -1347,10 +1349,24 @@ const response =
   const rawCampaignUpdates =
     extractCampaignUpdates(data);
 
-  const campaignupdates =
-    rawCampaignUpdates.map(
-      normalizeCampaignUpdate
-    );
+ const campaignupdates = rawCampaignUpdates
+  .map((update) => {
+    try {
+      return normalizeCampaignUpdate(update);
+    } catch (error) {
+      console.error(
+        "Unable to normalize campaign update:",
+        update?.id,
+        error
+      );
+
+      return null;
+    }
+  })
+  .filter(
+    (update): update is CampaignUpdate =>
+      update !== null
+  );
 
   /**
    * Your API currently returns:

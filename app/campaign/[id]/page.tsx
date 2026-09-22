@@ -213,15 +213,34 @@ export default async function CampaignPage({
   const activeTab = resolvedSearchParams.tab || "story";
 
   const campaignId = Number(id);
-  const [response, recentDonations, campaignUpdatesResponse] = await Promise.all([
-    getCampaign(campaignId),
-    getCampaignRecentDonations(campaignId),
-    getCampaignUpdates({
-      page: 1,
-      per_page: 10,
-      campaign_id: campaignId,
-    }),
-  ]);
+  const [response, recentDonations] = await Promise.all([
+  getCampaign(campaignId),
+  getCampaignRecentDonations(campaignId),
+]);
+
+let campaignUpdatesResponse: Awaited<
+  ReturnType<typeof getCampaignUpdates>
+> = {
+  success: true,
+  data: [],
+  pagination: {
+    page: 1,
+    per_page: 10,
+  },
+};
+
+try {
+  campaignUpdatesResponse = await getCampaignUpdates({
+    page: 1,
+    per_page: 10,
+    campaign_id: campaignId,
+  });
+} catch (error) {
+  console.error(
+    `Unable to load updates for campaign ${campaignId}:`,
+    error
+  );
+}
 
   if (!response.success || !response.data) {
     return (
