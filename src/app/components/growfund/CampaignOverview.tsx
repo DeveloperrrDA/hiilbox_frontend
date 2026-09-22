@@ -108,12 +108,7 @@ function formatMoney(value: number, currency = "USD") {
   }
 }
 
-function toPrimitiveMetrics(input: AnyRecord) {
-  const hidden = new Set(["id", "campaign_id", "title", "name", "currency", "start_date", "end_date"]);
-  return Object.entries(input)
-    .filter(([key, value]) => !hidden.has(key) && ["string", "number", "boolean"].includes(typeof value))
-    .slice(0, 12);
-}
+
 
 export default function CampaignOverview({ id }: { id: string }) {
   const [updatedNotice, setUpdatedNotice] = useState(false);
@@ -123,7 +118,7 @@ export default function CampaignOverview({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
   const [paidDonationCount, setPaidDonationCount] = useState<number | null>(null);
-
+  const [donationRows, setDonationRows] = useState<any[]>([]);
   const load = useCallback(async () => {
     const token = localStorage.getItem("access_token") || "";
     if (!token) {
@@ -156,17 +151,29 @@ const donationUrl = isAdmin
       if (!campaignResponse.ok) throw new Error(campaignJson?.message || "Unable to load campaign details.");
       setData(unwrapPayload(overviewJson));
 setCampaign(unwrapPayload(campaignJson, "campaign"));
-      if (donationResponse.ok) {
-        console.log("CAMPAIGN OVERVIEW RESPONSE:", overviewJson);
-console.log("CAMPAIGN RESPONSE:", campaignJson);
-console.log("DONATION RESPONSE:", donationJson);
-const donationRows = rowsFromPayload(donationJson);
-        setPaidDonationCount(donationRows.filter((d:any) => {
-          const payment = String(d?.payment_status ?? "").toLowerCase();
-          const status = String(d?.status ?? "").toLowerCase();
-          return payment ? payment === "paid" : ["paid","completed","complete","successful","success"].includes(status);
-        }).length);
-      } else setPaidDonationCount(null);
+     if (donationResponse.ok) {
+  console.log("CAMPAIGN OVERVIEW RESPONSE:", overviewJson);
+  console.log("CAMPAIGN RESPONSE:", campaignJson);
+  console.log("DONATION RESPONSE:", donationJson);
+
+  const rows = rowsFromPayload(donationJson);
+
+  setDonationRows(rows);
+
+  setPaidDonationCount(
+    rows.filter((d: any) => {
+      const payment = String(d?.payment_status ?? "").toLowerCase();
+      const status = String(d?.status ?? "").toLowerCase();
+
+      return payment
+        ? payment === "paid"
+        : ["paid", "completed", "complete", "successful", "success"].includes(status);
+    }).length
+  );
+} else {
+  setDonationRows([]);
+  setPaidDonationCount(null);
+}
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load campaign overview.");
     } finally {
@@ -218,15 +225,7 @@ const metricNumber = (metric: any): number => {
 
   return 0;
 };
- const raised =
-  metricNumber(metrics.total_donation) ||
-  numberFrom(data, [
-    "raised_amount",
-    "fund_raised",
-    "total_raised",
-    "raised",
-    "amount_raised"
-  ]);
+
 
 const donations =
   paidDonationCount ??
@@ -239,38 +238,211 @@ const donations =
     "contribution_count"
   ]);
 
-const contributors =
-  metricNumber(metrics.total_donors) ||
+
+
+
+
+const totalDonation =
+  metricNumber(metrics.total_donation) ||
   numberFrom(data, [
-    "contributors",
-    "number_of_contributors",
-    "donors",
-    "donor_count",
-    "unique_donors"
+    "total_donation",
+    "total_donations_amount",
+    "gross_donation",
+    "gross_amount",
+    "raised_amount",
+    "fund_raised",
+    "total_raised",
+    "raised",
+    "amount_raised",
   ]);
 
-const views = numberFrom(data, [
-  "views",
-  "view_count",
-  "total_views",
-  "visits"
-]);
+const netDonation =
+  metricNumber(metrics.net_donation) ||
+  numberFrom(data, [
+    "net_donation",
+    "net_donations",
+    "net_amount",
+    "total_net_donation",
+    "total_net_amount",
+  ]);
+
+const totalDonors =
+  metricNumber(metrics.total_donors) ||
+  numberFrom(data, [
+    "total_donors",
+    "donors",
+    "donor_count",
+    "unique_donors",
+    "contributors",
+    "number_of_contributors",
+  ]);
 
 const averageDonation =
   metricNumber(metrics.average_donation) ||
-  (donations > 0 ? raised / donations : 0);
-  const goal = Number(campaign.goal_amount ?? campaign.goal ?? 0) || numberFrom(data, ["goal_amount", "goal"]);
-  const progress = goal > 0 ? Math.min(100, Math.max(0, raised / goal * 100)) : 0;
-  const rangeStart = textFrom(data, ["start_date", "from_date"]);
-  const rangeEnd = textFrom(data, ["end_date", "to_date"]);
-  const primitiveMetrics = useMemo(() => toPrimitiveMetrics(data), [data]);
+  numberFrom(data, [
+    "average_donation",
+    "avg_donation",
+    "average_amount",
+  ]) ||
+  (donations > 0 ? totalDonation / donations : 0);
+ const rangeStart = textFrom(data, ["start_date", "from_date"]);
+const rangeEnd = textFrom(data, ["end_date", "to_date"]);
+const revenueRows = useMemo(() => {
+  const rows = Array.isArray(data?.revenue_chart_data)
+    ? data.revenue_chart_data
+    : [];
 
-  const stats = [
-    ["Raised", formatMoney(raised, currency), "solar:wallet-money-line-duotone"],
-    ["Donations", donations.toLocaleString(), "solar:hand-money-line-duotone"],
-    ["Contributors", contributors.toLocaleString(), "solar:users-group-rounded-line-duotone"],
-    ["Average donation", formatMoney(averageDonation, currency), "solar:chart-square-line-duotone"],
-  ];
+  return rows.map((row: any) => ({
+    date: String(row?.date ?? ""),
+    revenue: Number(row?.revenue ?? 0) || 0,
+  }));
+}, [data]);
+
+const revenueBreakdown = useMemo(() => {
+  return revenueRows.map((revenueRow) => {
+    const periodDonations = donationRows.filter((donation: any) => {
+      const paymentStatus = String(
+        donation?.payment_status ?? ""
+      ).toLowerCase();
+
+      const status = String(
+        donation?.status ?? ""
+      ).toLowerCase();
+
+      const isPaid = paymentStatus
+        ? paymentStatus === "paid"
+        : ["paid", "completed", "complete", "successful", "success"].includes(
+            status
+          );
+
+      if (!isPaid || !donation?.created_at) {
+        return false;
+      }
+
+      const donationDate = new Date(donation.created_at);
+
+      if (Number.isNaN(donationDate.getTime())) {
+        return false;
+      }
+
+      const donationPeriod = donationDate.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+
+      return donationPeriod === revenueRow.date;
+    });
+
+    const totalDonation = periodDonations.reduce(
+      (sum: number, donation: any) => {
+        const amount = Number(donation?.amount ?? 0);
+
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      },
+      0
+    );
+
+    const uniqueDonors = new Set(
+      periodDonations.map((donation: any) => {
+        const donorId = donation?.donor?.id;
+
+        if (donorId && String(donorId) !== "0") {
+          return `donor-${donorId}`;
+        }
+
+        return `donation-${donation?.id ?? donation?.uid ?? donation?.transaction_id}`;
+      })
+    ).size;
+
+    return {
+      date: revenueRow.date,
+      donors: uniqueDonors,
+      totalDonation,
+      netDonation: revenueRow.revenue,
+    };
+  });
+}, [revenueRows, donationRows]);
+const revenueChartOptions = useMemo(
+  () => ({
+    chart: {
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: "inherit",
+    },
+
+    colors: ["#2e9b62"],
+
+    stroke: {
+      curve: "straight" as const,
+      width: 3,
+    },
+
+    dataLabels: {
+      enabled: false,
+    },
+
+    markers: {
+      size: 3,
+      strokeWidth: 0,
+      hover: {
+        size: 6,
+      },
+    },
+
+    grid: {
+      borderColor: "rgba(0,0,0,.08)",
+      strokeDashArray: 0,
+    },
+
+    xaxis: {
+      categories: revenueRows.map((row) => row.date),
+      labels: {
+        rotate: 0,
+        trim: true,
+      },
+    },
+
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      labels: {
+        formatter: (value: number) =>
+          Number.isInteger(value)
+            ? value.toString()
+            : value.toFixed(0),
+      },
+    },
+
+    tooltip: {
+      y: {
+        formatter: (value: number) =>
+          `Revenue: ${formatMoney(value, currency)}`,
+      },
+    },
+
+    legend: {
+      show: false,
+    },
+  }),
+  [revenueRows, currency]
+);
+
+const revenueChartSeries = useMemo(
+  () => [
+    {
+      name: "Revenue",
+      data: revenueRows.map((row) => row.revenue),
+    },
+  ],
+  [revenueRows]
+);
+ const stats = [
+  ["Total Donation", formatMoney(totalDonation, currency), "solar:wallet-money-line-duotone"],
+  ["Net Donation", formatMoney(netDonation, currency), "solar:hand-money-line-duotone"],
+  ["Average Donation", formatMoney(averageDonation, currency), "solar:chart-square-line-duotone"],
+  ["Total Donors", totalDonors.toLocaleString(), "solar:users-group-rounded-line-duotone"],
+];
 
   return <div className="space-y-6">
     {updatedNotice && <div className="rounded-md border border-success/30 bg-lightsuccess px-4 py-3 text-sm text-success">Campaign changes were saved and submitted to GrowFund for review.</div>}
@@ -299,49 +471,122 @@ const averageDonation =
       </CardBox>)}
     </div>
 
-    <div className="grid grid-cols-12 gap-6">
-      <CardBox className="col-span-12 lg:col-span-5">
-        <div><h5 className="card-title">Funding progress</h5><p className="mt-1 text-sm text-darklink">Campaign total compared with its target.</p></div>
-        <Chart
-          type="radialBar"
-          height={300}
-          series={[Number(progress.toFixed(1))]}
-          options={{
-            chart: { fontFamily: "inherit" },
-            colors: ["var(--color-primary)"],
-            labels: ["Funded"],
-            plotOptions: { radialBar: { hollow: { size: "68%" }, dataLabels: { name: { show: true, offsetY: 22 }, value: { fontSize: "28px", fontWeight: 700, offsetY: -18, formatter: (value: number) => `${Math.round(value)}%` } } } },
-          } as any}
+       {/* Revenue for Period */}
+    <CardBox>
+      <div className="flex items-center gap-2">
+        <h5 className="card-title">Revenue for Period</h5>
+        <Icon
+          icon="solar:info-circle-line-duotone"
+          height={18}
+          className="text-darklink"
         />
-        <div className="flex justify-between border-t border-ld pt-4 text-sm"><span className="text-darklink">Raised</span><strong>{formatMoney(raised, currency)}</strong></div>
-        <div className="mt-3 flex justify-between text-sm"><span className="text-darklink">Goal</span><strong>{formatMoney(goal, currency)}</strong></div>
-      </CardBox>
-      <CardBox className="col-span-12 lg:col-span-7">
-        <div><h5 className="card-title">Engagement</h5><p className="mt-1 text-sm text-darklink">Real GrowFund engagement metrics for the selected period.</p></div>
-        <Chart
-          type="bar"
-          height={300}
-          series={[{ name: "Count", data: [donations, contributors, views] }]}
-          options={{
-            chart: { toolbar: { show: false }, fontFamily: "inherit" },
-            colors: ["var(--color-primary)"],
-            dataLabels: { enabled: false },
-            plotOptions: { bar: { borderRadius: 7, columnWidth: "45%" } },
-            xaxis: { categories: ["Donations", "Contributors", "Views"] },
-            yaxis: { min: 0, forceNiceScale: true },
-            grid: { borderColor: "rgba(0,0,0,.08)", strokeDashArray: 3 },
-          } as any}
-        />
-        <div className="flex items-center justify-between border-t border-ld pt-4"><span className="text-sm text-darklink">Donation conversion from views</span><strong>{loading ? "…" : views > 0 ? `${(donations / views * 100).toFixed(1)}%` : "—"}</strong></div>
-      </CardBox>
-    </div>
-
-    {primitiveMetrics.length > 0 && <CardBox>
-      <h5 className="card-title">Additional GrowFund metrics</h5>
-      <p className="mt-1 text-sm text-darklink">Additional scalar values returned by the overview service.</p>
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {primitiveMetrics.map(([key, value]) => <div key={key} className="rounded-md border border-ld px-4 py-3"><p className="text-xs uppercase tracking-wide text-darklink">{key.replaceAll("_", " ")}</p><p className="mt-1 font-medium">{typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}</p></div>)}
       </div>
-    </CardBox>}
-  </div>;
+
+      <div className="mt-5">
+        {loading ? (
+          <div className="flex h-[330px] items-center justify-center text-darklink">
+            Loading revenue data...
+          </div>
+        ) : revenueRows.length > 0 ? (
+          <Chart
+            type="line"
+            height={330}
+            series={revenueChartSeries}
+            options={revenueChartOptions as any}
+          />
+        ) : (
+          <div className="flex h-[330px] items-center justify-center text-darklink">
+            No revenue data available for this period.
+          </div>
+        )}
+      </div>
+    </CardBox>
+
+       {/* Revenue Breakdown */}
+    {/* Revenue Breakdown */}
+<CardBox>
+  <div className="flex items-center gap-2">
+    <h5 className="card-title">Revenue Breakdown</h5>
+
+    <Icon
+      icon="solar:info-circle-line-duotone"
+      height={18}
+      className="text-darklink"
+    />
+  </div>
+
+  <div className="mt-6 overflow-x-auto">
+    <table className="w-full min-w-[800px] text-left">
+      <thead>
+        <tr className="border-b border-ld">
+          <th className="px-3 py-4 font-medium text-darklink">
+            Date
+          </th>
+
+          <th className="px-3 py-4 font-medium text-darklink">
+            Donors
+          </th>
+
+          <th className="px-3 py-4 font-medium text-darklink">
+            Total Donation
+          </th>
+
+          <th className="px-3 py-4 font-medium text-darklink">
+            Net Donation
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {loading ? (
+          <tr>
+            <td
+              colSpan={4}
+              className="px-3 py-8 text-center text-darklink"
+            >
+              Loading revenue breakdown...
+            </td>
+          </tr>
+        ) : revenueBreakdown.length === 0 ? (
+          <tr>
+            <td
+              colSpan={4}
+              className="px-3 py-8 text-center text-darklink"
+            >
+              No revenue data available for this period.
+            </td>
+          </tr>
+        ) : (
+          revenueBreakdown.map((row, index) => (
+            <tr
+              key={`${row.date}-${index}`}
+              className={
+                index % 2 === 1
+                  ? "bg-lightgray dark:bg-darkgray"
+                  : ""
+              }
+            >
+              <td className="px-3 py-5">
+                {row.date}
+              </td>
+
+              <td className="px-3 py-5">
+                {row.donors.toLocaleString()}
+              </td>
+
+              <td className="px-3 py-5">
+                {formatMoney(row.totalDonation, currency)}
+              </td>
+
+              <td className="px-3 py-5">
+                {formatMoney(row.netDonation, currency)}
+              </td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+</CardBox>
+      </div>;
 }
