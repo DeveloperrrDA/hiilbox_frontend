@@ -1,11 +1,12 @@
-"use-client";
-import { useContext } from "react";
+"use client";
+import { useContext, useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import Miniicons from "./MiniSidebar";
 import SimpleBar from "simplebar-react";
 import { CustomizerContext } from "@/app/context/CustomizerContext";
 import Logo from "../../shared/logo/Logo";
 import { Button } from "@/components/ui/button";
+import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +15,8 @@ import {
 } from "@/components/ui/tooltip";
 
 export const IconSidebar = () => {
+  const [role, setRole] = useState<"admin" | "fundraiser" | "donor" | "guest">("guest");
+  useEffect(() => { setRole(dashboardRole(savedDashboardUser())); }, []);
   const { selectedIconId, setSelectedIconId, setIsCollapse } =
     useContext(CustomizerContext) || {};
   // Handle icon click
@@ -29,7 +32,7 @@ export const IconSidebar = () => {
       </div>
       <SimpleBar className="miniicons">
         <TooltipProvider delayDuration={0}>
-          {Miniicons.map((links, index) => (
+          {(role === "admin" ? Miniicons : Miniicons.filter((item) => item.id === 1)).map((links, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <Button

@@ -21,6 +21,15 @@ import DonationReceiptDialog, { type DonationReceipt } from "@/components/Donati
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@iconify/react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CampaignData {
   id: number;
@@ -46,7 +55,6 @@ function CheckoutContent() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [walletNumber, setWalletNumber] = useState("");
 
 
@@ -351,12 +359,6 @@ function CheckoutContent() {
     if (!email.trim()) {
       return "Please enter your email address.";
     }
-
-    if (!phoneNumber.trim()) {
-      return "Please enter your phone number.";
-    }
-
-
     if (!paymentMethod) {
       return "Please select a payment method.";
     }
@@ -444,7 +446,7 @@ function CheckoutContent() {
           // IMPORTANT:
           // This is the exact property expected
           // by CheckoutInput in donations.ts.
-          phone: phoneNumber.trim(),
+          phone: walletNumber.trim(),
 
           // Billing address is intentionally not collected for the
           // wallet-first HiilBox checkout. Keep the existing order contract.
@@ -534,6 +536,8 @@ function CheckoutContent() {
   // --------------------------------------------------
   // PAGE
   // --------------------------------------------------
+
+  
 
   return (
     <ThemeShell>
@@ -625,23 +629,37 @@ function CheckoutContent() {
                       htmlFor="amount"
                       className="block text-sm font-semibold text-gray-700"
                     >
-                      Donation amount
+                      Donation amount debug
                     </label>
 
                     <div className="mt-2 grid gap-2 sm:grid-cols-[150px_1fr]">
-                      <select
-                        aria-label="Donation currency"
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
+                      <Select 
+                        value={currency} 
+                        onValueChange={(value) => setCurrency(value)} // 👈 Notice it's just 'value', not 'e.target.value'
                         disabled={loading}
-                        className="rounded-xl border border-gray-300 bg-white px-4 py-4 font-semibold text-dark dark:text-white outline-none focus:border-primary focus:ring-4 focus:ring-lightprimary disabled:bg-gray-100"
                       >
-                        {currencies.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {item.code}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger 
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-4 font-semibold text-dark dark:text-white outline-none focus:border-primary focus:ring-4 focus:ring-lightprimary disabled:bg-gray-100"
+                          aria-label="Donation currency"
+                        >
+                          {/* This displays the currently selected value, or the placeholder if nothing is selected */}
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Currencies</SelectLabel>
+                            
+                            {/* Map through your currencies array just like before */}
+                            {currencies.map((item) => (
+                              <SelectItem key={item.code} value={item.code}>
+                                {item.code}
+                              </SelectItem>
+                            ))}
+                            
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
 
                       <Input
                         id="amount"
@@ -824,32 +842,6 @@ function CheckoutContent() {
                         disabled={loading}
                         required
                         autoComplete="email"
-                        className="mt-2 h-12 rounded-xl px-4"
-                      />
-                    </div>
-
-                    {/* PHONE */}
-                    <div className="sm:col-span-2">
-                      <label
-                        htmlFor="phone"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Phone number
-                      </label>
-
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={(e) =>
-                          setPhoneNumber(e.target.value)
-                        }
-                        disabled={loading}
-                        required
-                        autoComplete="tel"
-                        inputMode="tel"
-                        placeholder="Enter your phone number"
                         className="mt-2 h-12 rounded-xl px-4"
                       />
                     </div>

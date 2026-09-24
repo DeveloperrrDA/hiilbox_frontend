@@ -6,6 +6,7 @@ import { Customizer } from "./layout/shared/customizer/Customizer";
 import { CustomizerContext } from "@/app/context/CustomizerContext";
 import { Activity } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import DashboardAccessGuard from "@/app/components/growfund/role/DashboardAccessGuard";
 
 export default function Layout({
   children,
@@ -37,7 +38,7 @@ export default function Layout({
               } ${activeLayout == "horizontal" ? "xl:mt-3" : ""}
             `}
             >
-              {children}
+              <DashboardAccessGuard>{children}</DashboardAccessGuard>
             </div>
             <Customizer />
           </div>

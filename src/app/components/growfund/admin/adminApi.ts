@@ -24,6 +24,19 @@ export async function adminApi(path: string, init: RequestInit = {}) {
   });
 
   const data = await response.json().catch(() => null);
+  const authMessage = String(data?.message || data?.data?.message || data?.error || "").toLowerCase();
+  if (response.status === 401 || authMessage.includes("expired jwt") || authMessage.includes("invalid jwt") || authMessage.includes("invalid or expired")) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("auth_user");
+      localStorage.removeItem("token");
+      window.dispatchEvent(new Event("hiilbox-auth-change"));
+      window.location.assign("/");
+    }
+    throw new Error("Your session has expired. Please sign in again.");
+  }
   if (!response.ok) {
     const message =
       data?.message ||

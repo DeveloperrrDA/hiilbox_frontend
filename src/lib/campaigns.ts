@@ -26,6 +26,27 @@ export interface CampaignImage {
   date: string;
 }
 
+export interface CampaignUpdateImage {
+  id: string;
+  filename: string;
+  url: string;
+  sizes?: {
+    medium?: CampaignImageSize;
+    thumbnail?: CampaignImageSize;
+    woocommerce_thumbnail?: CampaignImageSize;
+    woocommerce_gallery_thumbnail?: CampaignImageSize;
+  };
+  height: number;
+  width: number;
+  filesize: number;
+  mime: string;
+  type: string;
+  thumb: string | null;
+  author: string;
+  author_name: string;
+  date: string;
+}
+
 export interface CampaignPerson {
   id: string;
   first_name: string;
@@ -164,6 +185,27 @@ export interface Campaign {
   recent_donations: CampaignDonation[];
 }
 
+export interface CampaignUpdate {
+  id: number;
+  campaign_id: number;
+  title: string;
+  slug: string;
+
+  image: CampaignUpdateImage[];
+
+  description: string;
+
+  created_by_id: number;
+  created_by_name: string;
+  created_by_role: string;
+  created_by_image: string;
+
+  created_at: string;
+  comments: number;
+  likes: number;
+
+}
+
 export interface CampaignPagination {
   page: number;
   per_page: number;
@@ -171,10 +213,21 @@ export interface CampaignPagination {
   total_pages: number;
 }
 
+export interface CampaignUpdatePagination {
+  page: number;
+  per_page: number;
+}
+
 export interface CampaignsResponse {
   success: boolean;
   data: Campaign[];
   pagination: CampaignPagination;
+}
+
+export interface CampaignUpdatesResponse {
+  success: boolean;
+  data: CampaignUpdate[];
+  pagination: CampaignUpdatePagination;
 }
 
 export interface GetCampaignsParams {
@@ -186,6 +239,12 @@ export interface GetCampaignsParams {
   order?: "asc" | "desc";
   is_featured?: boolean;
   status?: string;
+}
+
+export interface GetCampaignUpdatesParams {
+  page?: number;
+  per_page?: number;
+  campaign_id?: number;
 }
 
 
@@ -214,6 +273,13 @@ function normalizeCampaignImages(raw: any): CampaignImage[] {
   const parsed = parseMaybeJson(raw?.images);
   if (Array.isArray(parsed)) return parsed;
   if (parsed && typeof parsed === "object") return Object.values(parsed) as CampaignImage[];
+  return [];
+}
+
+function normalizeCampaignUpdateImages(raw: any): CampaignUpdateImage[] {
+  const parsed = parseMaybeJson(raw?.image);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") return Object.values(parsed) as CampaignUpdateImage[];
   return [];
 }
 
@@ -625,6 +691,39 @@ function normalizeCampaign(raw: any): Campaign {
 }
 
 /**
+ * Normalize a raw campaign from the WordPress/GrowFund API
+ * into the structure expected by the Next.js frontend.
+ */
+function normalizeCampaignUpdate(raw: any): CampaignUpdate {
+  const normalizedImages = normalizeCampaignUpdateImages(raw);
+
+  
+
+  return {
+    id: Number(raw?.id ?? 0),
+
+    campaign_id: Number(raw?.campaign_id ?? 0),
+    title: String(raw?.title ?? ""),
+    slug: String(raw?.slug ?? ""),
+
+    image: normalizedImages,
+
+    description: String(raw?.description ?? ""),
+    created_by_id: Number(raw?.created_by_id ?? 0),
+    created_by_name: String(raw?.created_by_name ?? ""),
+    created_by_role: String(raw?.created_by_role ?? ""),
+    created_by_image: String(
+    raw?.created_by_image?.url ??
+      raw?.created_by_image ??""
+),
+    created_at: String(raw?.created_at ?? ""),
+    comments: Number(raw?.comments ?? ""),
+    likes: Number(raw?.likes ?? ""),
+
+  };
+}
+
+/**
  * Build query parameters for the campaigns endpoint.
  */
 function buildQuery(
@@ -718,7 +817,57 @@ function getApiBaseUrl(): string {
     "http://localhost:3000"
   );
 }
+const WORDPRESS_API = (
+  process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
+  "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
+).replace(/\/$/, "");
 
+async function getGrowfundSystemToken(): Promise<string> {
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
+  }
+
+  const response = await fetch(`${WORDPRESS_API}/auth/system-token`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "X-API-Key": apiKey,
+    },
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || !data?.system_access_token) {
+    throw new Error(
+      data?.message || "Unable to obtain GrowFund system access token."
+    );
+  }
+
+  return String(data.system_access_token);
+}
+
+async function growfundServerFetch(path: string): Promise<Response> {
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
+  }
+
+  const token = await getGrowfundSystemToken();
+
+  return fetch(`${WORDPRESS_API}${path}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-API-Key": apiKey,
+    },
+    cache: "no-store",
+  });
+}
 /**
  * Extract campaigns from the different response
  * structures returned by the GrowFund API.
@@ -732,6 +881,50 @@ function getApiBaseUrl(): string {
  * data
  */
 function extractCampaigns(
+  responseData: any
+): any[] {
+  if (
+    Array.isArray(responseData?.data)
+  ) {
+    return responseData.data;
+  }
+
+  if (
+    Array.isArray(
+      responseData?.paginated?.results
+    )
+  ) {
+    return responseData.paginated.results;
+  }
+
+  if (
+    Array.isArray(responseData?.results)
+  ) {
+    return responseData.results;
+  }
+
+  if (
+    Array.isArray(responseData)
+  ) {
+    return responseData;
+  }
+
+  return [];
+}
+
+/**
+ * Extract campaign updates from the different response
+ * structures returned by the GrowFund API.
+ *
+ * Your current backend response uses:
+ *
+ * paginated.results
+ *
+ * not:
+ *
+ * data
+ */
+function extractCampaignUpdates(
   responseData: any
 ): any[] {
   if (
@@ -787,16 +980,18 @@ export async function getCampaigns(
     "GET CAMPAIGNS FROM:",
     url
   );
-
-  const response =
-    await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept:
-          "application/json",
-      },
-      cache: "no-store",
-    });
+const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/campaigns${query ? `?${query}` : ""}`
+      )
+    : await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
 
   let data: any = null;
 
@@ -920,35 +1115,31 @@ export async function getCampaign(
     );
   }
 
-  const baseUrl =
-    getApiBaseUrl();
 
   /**
    * First try the dedicated campaign endpoint.
    */
-  const directUrl =
-    `${baseUrl}/api/campaigns/${id}`;
+ const directUrl = `/api/campaigns/${id}`;
 
-  console.log(
-    "GET CAMPAIGN FROM:",
-    directUrl
-  );
-
+console.log(
+  "GET CAMPAIGN:",
+  typeof window === "undefined"
+    ? `${WORDPRESS_API}/campaigns/${id}`
+    : directUrl
+);
   let response: Response;
 
   try {
-    response =
-      await fetch(
-        directUrl,
-        {
-          method: "GET",
-          headers: {
-            Accept:
-              "application/json",
-          },
-          cache: "no-store",
-        }
-      );
+   response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(`/campaigns/${id}`)
+    : await fetch(directUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
   } catch (error) {
     console.error(
       "DIRECT CAMPAIGN REQUEST ERROR:",
@@ -974,24 +1165,26 @@ export async function getCampaign(
    * If /api/campaigns/[id] works,
    * return that campaign.
    */
+ if (response.ok) {
+  const rawCampaign =
+    data?.data?.campaign ??
+    data?.campaign ??
+    data?.data ??
+    null;
+
   if (
-    response.ok &&
-    data?.data
+    rawCampaign &&
+    typeof rawCampaign === "object" &&
+    !Array.isArray(rawCampaign)
   ) {
     return {
-      success:
-        Boolean(
-          data?.success ??
-          true
-        ),
-
-      data:
-        normalizeCampaign(
-          data.data
-        ),
+      success: Boolean(
+        data?.success ?? true
+      ),
+      data: normalizeCampaign(rawCampaign),
     };
   }
-
+}
   /**
    * FALLBACK:
    *
@@ -1010,7 +1203,7 @@ export async function getCampaign(
     await getCampaigns({
       page: 1,
       per_page: 100,
-      status: "published",
+      status: "launched-and-beyond"
     });
 
   const campaign =
@@ -1093,7 +1286,13 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
         is_anonymous: Boolean(item?.is_anonymous),
         status: String(item?.status ?? "").toLowerCase(),
       }))
-      .filter((item) => !["failed", "cancelled", "canceled", "refunded", "reversed", "void"].includes(item.status ?? ""))
+.filter((item) => {
+  const status = String(item.status ?? "")
+    .trim()
+    .toLowerCase();
+
+  return status === "completed";
+})
       .sort((a, b) => {
         const aTime = a.created_at ? Date.parse(a.created_at) : 0;
         const bTime = b.created_at ? Date.parse(b.created_at) : 0;
@@ -1103,5 +1302,124 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
   } catch {
     return [];
   }
+}
+
+/**
+ * Get campaign Updates.
+ */
+export async function getCampaignUpdates(
+  params: GetCampaignUpdatesParams = {}
+): Promise<CampaignUpdatesResponse> {
+  // Build the query safely and natively
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append("page", params.page.toString());
+  if (params.per_page) queryParams.append("per_page", params.per_page.toString());
+  if (params.campaign_id) queryParams.append("campaign_id", params.campaign_id.toString());
+
+  const query = queryParams.toString();
+
+  const baseUrl =
+    getApiBaseUrl();
+
+ const endpoint =
+  `/api/campaigns/updates${query ? `?${query}` : ""}`;
+
+const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/campaigns/updates${query ? `?${query}` : ""}`
+      )
+    : await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+  let data: any = null;
+
+  try {
+    data =
+      await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ??
+        "Failed to load campaign updates."
+    );
+  }
+
+  const rawCampaignUpdates =
+    extractCampaignUpdates(data);
+
+ const campaignupdates = rawCampaignUpdates
+  .map((update) => {
+    try {
+      return normalizeCampaignUpdate(update);
+    } catch (error) {
+      console.error(
+        "Unable to normalize campaign update:",
+        update?.id,
+        error
+      );
+
+      return null;
+    }
+  })
+  .filter(
+    (update): update is CampaignUpdate =>
+      update !== null
+  );
+
+  /**
+   * Your API currently returns:
+   *
+   * paginated: {
+   *   results: [...],
+   *   count: 4,
+   *   total: 4,
+   *   current_page: 1,
+   *   per_page: 10,
+   *   has_more: false,
+   *   overall: 11
+   * }
+   */
+  const paginated =
+    data?.paginated;
+
+  const pagination: CampaignUpdatePagination = {
+    page:
+      Number(
+        paginated?.current_page ??
+        data?.pagination?.page ??
+        params.page ??
+        1
+      ),
+
+    per_page:
+      Number(
+        paginated?.per_page ??
+        data?.pagination?.per_page ??
+        params.per_page ??
+        campaignupdates.length
+      ),
+
+    
+  };
+
+  return {
+    success:
+      Boolean(
+        data?.success ??
+        true
+      ),
+
+    data: campaignupdates,
+
+    pagination,
+  };
 }
 

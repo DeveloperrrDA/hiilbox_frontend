@@ -1,76 +1,161 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import CardBox from "@/app/components/shared/CardBox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
+import { useRouter } from "next/navigation";
 import { adminApi, fmtDate, idOf, money, rowsFrom } from "./adminApi";
+import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
-function statusOf(r: any) { return String(r?.status ?? r?.payment_status ?? "unknown").toLowerCase(); }
-function isTrashedStatus(status: string) { return status === "trash" || status === "trashed"; }
-function campaignName(r: any) { return r?.campaign?.title ?? r?.campaign_title ?? r?.campaign_name ?? (r?.campaign_id ? `Campaign #${r.campaign_id}` : "—"); }
-function donorName(r: any) { return r?.donor?.name ?? r?.user?.name ?? r?.donor_name ?? r?.display_name ?? r?.name ?? r?.email ?? "Anonymous"; }
-function donorType(r: any) { return r?.donor_type ?? r?.user_type ?? (r?.user_id ? "Registered" : "Guest"); }
-function dateOf(r: any) { return r?.date ?? r?.created_at ?? r?.date_created ?? r?.created_date; }
-function netAmount(r: any) { return Number(r?.net_amount ?? r?.net ?? r?.amount_after_fees ?? r?.amount ?? 0); }
-function gatewayFee(r: any) { return Number(r?.gateway_fee ?? r?.payment_gateway_fee ?? r?.processing_fee ?? 0); }
+function statusOf(r:any){return String(r?.payment_status??r?.status??"unknown").toLowerCase();}
+function isTrashedStatus(s:string){return s==="trash"||s==="trashed";}
+function campaignIdOf(r:any){const v=r?.campaign_id??r?.campaign?.id;const n=Number(v);return Number.isFinite(n)&&n>0?n:null;}
+function campaignName(r:any){return r?.campaign?.title??r?.campaign_title??r?.campaign_name??(campaignIdOf(r)?`Campaign #${campaignIdOf(r)}`:"—");}
+function donorName(r:any){const d=r?.donor??r?.user??{};const combined=[d?.first_name,d?.last_name].filter(Boolean).join(" ");return (r?.is_anonymous?"Anonymous":(d?.display_name||d?.name||combined||r?.donor_name||r?.display_name||r?.name||d?.email||r?.email))||"Anonymous";}
+function donorFirstName(r:any){if(r?.is_anonymous)return "Anonymous";const d=r?.donor??r?.user??{};return String(d?.first_name??r?.first_name??donorName(r)).trim().split(/\s+/)[0]||"Anonymous";}
+function donorType(r:any){return r?.donor_type??r?.user_type??(r?.user_id?"Registered":"Guest");}
+function dateOf(r:any){return r?.date??r?.created_at??r?.date_created??r?.created_date;}
+function minor(value: any) {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
 
-export default function AdminDonationManager() {
-  const [rows, setRows] = useState<any[]>([]), [loading, setLoading] = useState(true), [busy, setBusy] = useState<number | null>(null);
-  const [error, setError] = useState(""), [notice, setNotice] = useState(""), [status, setStatus] = useState("all"), [search, setSearch] = useState("");
-  const [campaignId, setCampaignId] = useState(""), [startDate, setStartDate] = useState(""), [endDate, setEndDate] = useState(""), [selected, setSelected] = useState<number[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ campaign_id: "", email: "", amount: "", notes: "", status: "pending", payment_method: "", payment_status: "pending", is_anonymous: false });
+function paymentMethodOf(r: any) {
+  const raw =
+    r?.transaction?.payment_method ??
+    r?.transaction?.gateway ??
+    r?.payment?.payment_method ??
+    r?.payment?.method ??
+    r?.payment_method ??
+    r?.payment_engine ??
+    r?.gateway ??
+    "";
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try {
-      const q = new URLSearchParams({ page: "1", per_page: "100" });
-      if (status !== "all") q.set("status", status);
-      if (search.trim()) q.set("search", search.trim());
-      if (campaignId) q.set("campaign_id", campaignId);
-      if (startDate) q.set("start_date", startDate);
-      if (endDate) q.set("end_date", endDate);
-      setRows(rowsFrom(await adminApi(`donations?${q}`)));
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to load donations."); }
-    finally { setLoading(false); }
-  }, [status, search, campaignId, startDate, endDate]);
-  useEffect(() => void load(), [load]);
+  if (typeof raw === "object" && raw !== null) {
+    return String(
+      raw.id ??
+      raw.slug ??
+      raw.name ??
+      raw.label ??
+      raw.type ??
+      ""
+    ).toLowerCase();
+  }
 
-  async function act(id: number, path: string, payload: any, msg: string) { setBusy(id); setError(""); setNotice(""); try { const d = await adminApi(path, { method: "POST", body: JSON.stringify(payload) }); setNotice(d?.message || msg); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Action failed."); } finally { setBusy(null); } }
-  async function approve(r: any) { const id = idOf(r); if (confirm("Approve this donation?")) await act(id, `donation/${id}/update-status`, { action: "approve" }, "Donation approved."); }
-  async function decline(r: any) { const id = idOf(r); if (confirm("Decline this donation?")) await act(id, `donation/${id}/update-status`, { action: "decline" }, "Donation declined."); }
-  async function trash(r: any) { const id = idOf(r); if (confirm("Move this donation to trash?")) await act(id, `donation/${id}/delete`, { is_permanent: false }, "Donation moved to trash."); }
-  async function restore(r: any) { const id = idOf(r); await act(id, "donations/bulk-action", { ids: [id], action: "restore" }, "Donation restored."); }
-  async function permanent(r: any) { const id = idOf(r); if (confirm("Permanently delete this donation?")) await act(id, `donation/${id}/delete`, { is_permanent: true }, "Donation permanently deleted."); }
-  async function createDonation(e: FormEvent) { e.preventDefault(); setError(""); try { const payload = { ...createForm, campaign_id: Number(createForm.campaign_id), amount: Number(createForm.amount) }; const d = await adminApi("donations/create", { method: "POST", body: JSON.stringify(payload) }); setNotice(d?.message || "Donation created successfully."); setCreateOpen(false); setCreateForm({ campaign_id: "", email: "", amount: "", notes: "", status: "pending", payment_method: "", payment_status: "pending", is_anonymous: false }); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to create donation."); } }
-  async function emptyTrash() { if (!confirm("Permanently delete all trashed donations?")) return; try { const d = await adminApi("donations/empty-trash", { method: "POST", body: "{}" }); setNotice(d?.message || "Donation trash emptied."); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to empty trash."); } }
-  async function bulk(action: string) { if (!selected.length) return; try { const d = await adminApi("donations/bulk-action", { method: "POST", body: JSON.stringify({ ids: selected, action }) }); setNotice(d?.message || "Donations updated."); setSelected([]); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Bulk action failed."); } }
+  return String(raw).toLowerCase();
+}
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.includes(idOf(r)));
-  const toggleAll = () => setSelected(allSelected ? [] : rows.map(idOf).filter(Boolean));
-  const toggle = (id: number) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+function isOfflinePayment(r: any) {
+  const method = paymentMethodOf(r);
 
-  return <CardBox>
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h5 className="card-title">Donations</h5><p className="mt-1 text-sm text-darklink">Manage donation records, statuses and trash.</p></div><div className="flex gap-2">{selected.length > 0 && <><Button variant="outline" onClick={() => bulk("restore")}><Icon icon="solar:restart-line-duotone" /> Restore selected</Button><Button variant="outline" onClick={() => bulk("trash")}>Trash selected</Button></>}<Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone" /> Empty trash</Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button><Icon icon="solar:add-circle-line-duotone" /> New Donation</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>New Donation</DialogTitle></DialogHeader><form onSubmit={createDonation} className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Campaign ID<input required type="number" value={createForm.campaign_id} onChange={(e) => setCreateForm({ ...createForm, campaign_id: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label><label className="text-sm">Amount<input required min="0" step="0.01" type="number" value={createForm.amount} onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label><label className="text-sm">Donor email<input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label><label className="text-sm">Payment method<input value={createForm.payment_method} onChange={(e) => setCreateForm({ ...createForm, payment_method: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label><label className="text-sm">Status<select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option></select></label><label className="text-sm">Payment status<select value={createForm.payment_status} onChange={(e) => setCreateForm({ ...createForm, payment_status: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label className="sm:col-span-2 text-sm">Notes<textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} rows={3} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label><label className="sm:col-span-2 flex items-center gap-2 text-sm"><Checkbox checked={createForm.is_anonymous} onCheckedChange={(v) => setCreateForm({ ...createForm, is_anonymous: Boolean(v) })} /> Anonymous donation</label><div className="sm:col-span-2 flex justify-end"><Button type="submit">Create donation</Button></div></form></DialogContent></Dialog></div></div>
-    <div className="mt-5 grid gap-3 lg:grid-cols-[180px_220px_1fr_160px_160px]">
-      <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5"><option value="all">All Statuses</option><option value="completed">Completed</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="declined">Declined</option><option value="trash">Trash</option></select>
-      <input value={campaignId} onChange={(e) => setCampaignId(e.target.value)} placeholder="All Campaigns / Campaign ID" className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
-      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
-      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
-    </div>
-    {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
-    <div className="mt-4 overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll} /></TableHead><TableHead>ID</TableHead><TableHead>Amount</TableHead><TableHead>Campaign</TableHead><TableHead>Donor Name</TableHead><TableHead>Donor Type</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead><TableHead>Net Amount</TableHead><TableHead>Gateway Fee</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
-      {loading ? <TableRow><TableCell colSpan={11} className="py-10 text-center">Loading donations…</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={11} className="py-10 text-center text-darklink">No donations found.</TableCell></TableRow> : rows.map((r) => { const id = idOf(r), st = statusOf(r), currency = r?.currency_symbol || r?.currency || "$"; const pending = ["pending", "processing", "review"].includes(st); return <TableRow key={id}>
-        <TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={() => toggle(id)} /></TableCell><TableCell>#{id}</TableCell><TableCell className="font-medium text-success">{money(r.amount, currency)}</TableCell><TableCell className="max-w-80 truncate">{campaignName(r)}</TableCell><TableCell>{donorName(r)}</TableCell><TableCell><Badge variant="lightPrimary">{donorType(r)}</Badge></TableCell><TableCell>{fmtDate(dateOf(r))}</TableCell><TableCell>{pending ? <div className="flex gap-2"><Button size="sm" variant="outline" className="text-success" disabled={busy === id} onClick={() => approve(r)} title="Approve"><Icon icon="solar:check-circle-bold" /></Button><Button size="sm" variant="outline" className="text-error" disabled={busy === id} onClick={() => decline(r)} title="Decline"><Icon icon="solar:close-circle-bold" /></Button></div> : <Badge variant={st === "completed" || st === "approved" ? "lightSuccess" : st === "trashed" || st === "declined" || st === "failed" ? "lightError" : "lightWarning"}>{st}</Badge>}</TableCell><TableCell className="font-medium text-success">{money(netAmount(r), currency)}</TableCell><TableCell>{money(gatewayFee(r), currency)}</TableCell>
-        <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => approve(r)}>Approve</DropdownMenuItem><DropdownMenuItem onClick={() => decline(r)}>Decline</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => permanent(r)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => trash(r)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
-      </TableRow>; })}
-    </TableBody></Table></div>
-  </CardBox>;
+  return (
+    method.includes("bank") ||
+    method.includes("bacs") ||
+    method.includes("offline") ||
+    method.includes("bank_transfer") ||
+    method.includes("bank-transfer")
+  );
+}
+
+function gatewayFee(r: any) {
+  const explicit =
+    r?.gateway_fee ??
+    r?.payment_gateway_fee ??
+    r?.processing_fee;
+
+  if (
+    explicit !== undefined &&
+    explicit !== null &&
+    explicit !== ""
+  ) {
+    return minor(explicit);
+  }
+
+  // Offline / bank-transfer payments use the 1% metric
+  // when the API does not return an explicit gateway fee.
+  if (isOfflinePayment(r)) {
+    const gross = Number(
+      r?.amount ??
+      r?.donation_amount ??
+      r?.total ??
+      0
+    );
+
+    return Number.isFinite(gross)
+      ? gross * 0.01
+      : 0;
+  }
+
+  return 0;
+}
+
+function platformFee(r: any) {
+  return minor(r?.platform_fee ?? 0);
+}
+
+function tipAmount(r: any) {
+  return minor(r?.tip_amount ?? 0);
+}
+
+function netAmount(r: any) {
+  const direct = Number(
+    r?.net_amount ??
+    r?.net ??
+    r?.amount_after_fees
+  );
+
+  if (Number.isFinite(direct)) {
+    return direct;
+  }
+
+  const gross = Number(
+    r?.amount ??
+    r?.donation_amount ??
+    r?.total ??
+    0
+  );
+
+  return Math.max(
+    0,
+    (Number.isFinite(gross) ? gross : 0) -
+      gatewayFee(r) -
+      platformFee(r)
+  );
+}
+function totalPagesFrom(data:any,page:number,rowCount:number){const candidates=[data?.data?.last_page,data?.data?.total_pages,data?.last_page,data?.total_pages,data?.data?.pagination?.total_pages,data?.pagination?.total_pages];for(const v of candidates){const n=Number(v);if(Number.isFinite(n)&&n>0)return n;}return rowCount<10?page:page+1;}
+
+type ColumnKey="donationId"|"amount"|"campaign"|"donor"|"donorType"|"date"|"status"|"net"|"gateway"|"platform"|"tip";
+const labels:Record<ColumnKey,string>={donationId:"Donation ID",amount:"Amount",campaign:"Campaign",donor:"Donor Name",donorType:"Donor Type",date:"Date",status:"Status",net:"Net Amount",gateway:"Gateway Fee",platform:"Platform Fee",tip:"Tip"};
+
+export default function AdminDonationManager(){
+ const router=useRouter();
+ const [rows,setRows]=useState<any[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState<number|null>(null);
+ const [error,setError]=useState(""),[notice,setNotice]=useState(""),[status,setStatus]=useState("all"),[search,setSearch]=useState(""),[campaignId,setCampaignId]=useState("");
+ const [startDate,setStartDate]=useState(""),[endDate,setEndDate]=useState(""),[page,setPage]=useState(1),[totalPages,setTotalPages]=useState(1),[selected,setSelected]=useState<number[]>([]);
+ const [createOpen,setCreateOpen]=useState(false);const [createForm,setCreateForm]=useState({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});
+ const [visible,setVisible]=useState<Record<ColumnKey,boolean>>(()=>Object.fromEntries(Object.keys(labels).map(k=>[k,true])) as Record<ColumnKey,boolean>);
+ const visibleCount=useMemo(()=>Object.values(visible).filter(Boolean).length+2,[visible]);
+ const load=useCallback(async()=>{setLoading(true);setError("");try{const q=new URLSearchParams({page:String(page),per_page:"10",orderby:"id",order:"desc"});if(status!=="all")q.set("status",status);if(search.trim())q.set("search",search.trim());if(campaignId)q.set("campaign_id",campaignId);if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);const data=await adminApi(`donations/paginated?${q}`);const list=rowsFrom(data);setRows(list);setTotalPages(totalPagesFrom(data,page,list.length));}catch(e){setError(e instanceof Error?e.message:"Unable to load donations.");setRows([]);}finally{setLoading(false);}},[status,search,campaignId,startDate,endDate,page]);
+ useEffect(()=>void load(),[load]);useEffect(()=>setPage(1),[status,search,campaignId,startDate,endDate]);
+ async function act(id:number,path:string,payload:any,msg:string){setBusy(id);setError("");setNotice("");try{const d=await adminApi(path,{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||msg);await load();}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(null);}}
+ async function trash(r:any){const id=idOf(r);if(confirm("Move this donation to trash?"))await act(id,`donation/${id}/delete`,{is_permanent:false},"Donation moved to trash.");}
+ async function createDonation(e:FormEvent){e.preventDefault();setError("");try{const payload={...createForm,campaign_id:Number(createForm.campaign_id),amount:Number(createForm.amount)};const d=await adminApi("donations/create",{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||"Donation created successfully.");setCreateOpen(false);setCreateForm({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});setPage(1);await load();}catch(e){setError(e instanceof Error?e.message:"Unable to create donation.");}}
+ async function emptyTrash(){if(!confirm("Permanently delete all trashed donations?"))return;try{const d=await adminApi("donations/empty-trash",{method:"POST",body:"{}"});setNotice(d?.message||"Donation trash emptied.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to empty trash.");}}
+ async function bulk(action:string){if(!selected.length)return;try{const d=await adminApi("donations/bulk-action",{method:"POST",body:JSON.stringify({ids:selected,action})});setNotice(d?.message||"Donations updated.");setSelected([]);await load();}catch(e){setError(e instanceof Error?e.message:"Bulk action failed.");}}
+ const allSelected=rows.length>0&&rows.every(r=>selected.includes(idOf(r)));const toggleAll=()=>setSelected(allSelected?[]:rows.map(idOf).filter(Boolean));const toggle=(id:number)=>setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+ return <CardBox className="w-full !max-w-none">
+  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h5 className="card-title">Donations</h5><p className="mt-1 text-sm text-darklink">Manage donation records, statuses and trash.</p></div><div className="flex flex-wrap gap-2">{selected.length>0&&<><Button variant="outline" onClick={()=>bulk("restore")}><Icon icon="solar:restart-line-duotone"/> Restore selected</Button><Button variant="outline" onClick={()=>bulk("trash")}>Trash selected</Button></>}<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline"><Icon icon="solar:settings-minimalistic-line-duotone"/> Show/Hide Columns</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuLabel>Columns</DropdownMenuLabel><DropdownMenuSeparator/>{(Object.keys(labels) as ColumnKey[]).map(k=><DropdownMenuCheckboxItem key={k} checked={visible[k]} onCheckedChange={v=>setVisible(x=>({...x,[k]:Boolean(v)}))}>{labels[k]}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu><Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone"/> Empty trash</Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button><Icon icon="solar:add-circle-line-duotone"/> New Donation</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>New Donation</DialogTitle></DialogHeader><form onSubmit={createDonation} className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Campaign ID<input required type="number" value={createForm.campaign_id} onChange={e=>setCreateForm({...createForm,campaign_id:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Amount<input required min="0" step="0.01" type="number" value={createForm.amount} onChange={e=>setCreateForm({...createForm,amount:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Donor email<input type="email" value={createForm.email} onChange={e=>setCreateForm({...createForm,email:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Payment method<input value={createForm.payment_method} onChange={e=>setCreateForm({...createForm,payment_method:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Status<select value={createForm.status} onChange={e=>setCreateForm({...createForm,status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option></select></label><label className="text-sm">Payment status<select value={createForm.payment_status} onChange={e=>setCreateForm({...createForm,payment_status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label className="sm:col-span-2 text-sm">Notes<textarea value={createForm.notes} onChange={e=>setCreateForm({...createForm,notes:e.target.value})} rows={3} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="sm:col-span-2 flex items-center gap-2 text-sm"><Checkbox checked={createForm.is_anonymous} onCheckedChange={v=>setCreateForm({...createForm,is_anonymous:Boolean(v)})}/> Anonymous donation</label><div className="sm:col-span-2 flex justify-end"><Button type="submit">Create donation</Button></div></form></DialogContent></Dialog></div></div>
+  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5"><option value="all">All Statuses</option><option value="completed">Completed</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="declined">Declined</option><option value="trash">Trash</option></select><input value={campaignId} onChange={e=>setCampaignId(e.target.value)} placeholder="Campaign ID" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/></div>
+  {notice&&<div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error&&<div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
+  <div className="mt-4 w-full overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll}/></TableHead>{visible.donationId&&<TableHead>Donation ID</TableHead>}{visible.amount&&<TableHead>Amount</TableHead>}{visible.campaign&&<TableHead>Campaign</TableHead>}{visible.donor&&<TableHead>Donor Name</TableHead>}{visible.donorType&&<TableHead>Donor Type</TableHead>}{visible.date&&<TableHead>Date</TableHead>}{visible.status&&<TableHead>Status</TableHead>}{visible.net&&<TableHead>Net Amount</TableHead>}{visible.gateway&&<TableHead>Gateway Fee</TableHead>}{visible.platform&&<TableHead>Platform Fee</TableHead>}{visible.tip&&<TableHead>Tip</TableHead>}<TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+   {loading?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center">Loading donations…</TableCell></TableRow>:rows.length===0?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center text-darklink">No donations found.</TableCell></TableRow>:rows.map(r=>{const id=idOf(r),st=statusOf(r),currency=r?.currency_symbol||r?.currency||"$",cid=campaignIdOf(r);return <TableRow key={id}><TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={()=>toggle(id)}/></TableCell>{visible.donationId&&<TableCell className="font-medium">{id?`#${id}`:"—"}</TableCell>}{visible.amount&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="font-medium text-success hover:underline">{money(r?.amount,currency)}</button></TableCell>}{visible.campaign&&<TableCell className="max-w-80"><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex max-w-full items-center gap-3 text-left hover:text-primary">{campaignImage(r)?<img src={campaignImage(r)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover"/>:<span className="h-10 w-10 shrink-0 rounded-md bg-lightgray"/>}<span className="truncate">{campaignName(r)}</span></button></TableCell>}{visible.donor&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex items-center gap-2 hover:text-primary"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><span>{donorFirstName(r)}</span></button></TableCell>}{visible.donorType&&<TableCell><Badge variant="lightPrimary">{donorType(r)}</Badge></TableCell>}{visible.date&&<TableCell>{fmtDate(dateOf(r))}</TableCell>}{visible.status&&<TableCell><Badge variant={["completed","approved","paid"].includes(st)?"lightSuccess":isTrashedStatus(st)||["declined","failed"].includes(st)?"lightError":"lightWarning"}>{st}</Badge></TableCell>}{visible.net&&<TableCell className="font-medium text-success">{money(netAmount(r),currency)}</TableCell>}{visible.gateway&&<TableCell>{money(gatewayFee(r),currency)}</TableCell>}{visible.platform&&<TableCell>{money(platformFee(r),currency)}</TableCell>}{visible.tip&&<TableCell>{money(tipAmount(r),currency)}</TableCell>}<TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy===id}><Icon icon="solar:menu-dots-bold"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>router.push(`/dashboard/donations/${id}`)}><Icon icon="solar:eye-line-duotone"/> View donation</DropdownMenuItem><DropdownMenuItem className="text-error" disabled={isTrashedStatus(st)} onClick={()=>trash(r)}><Icon icon="solar:trash-bin-trash-line-duotone"/> Move to trash</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>;})}
+  </TableBody></Table></div>
+  <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page}{totalPages>page?` of ${totalPages}`:""} · 10 items per page</p><div className="flex gap-2"><Button variant="outline" size="sm" disabled={page<=1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</Button><Button variant="outline" size="sm" disabled={loading||rows.length<10||page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
+ </CardBox>;
 }

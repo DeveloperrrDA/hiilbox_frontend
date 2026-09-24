@@ -10,6 +10,7 @@ const ALLOWED = [
   /^donor(?:\/|$)/,
   /^fundraisers(?:\/|$)/,
   /^fundraiser(?:\/|$)/,
+  /^analytics(?:\/|$)/,
   /^media(?:\/|$)/,
 ];
 

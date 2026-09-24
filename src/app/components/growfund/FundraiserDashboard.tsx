@@ -55,7 +55,10 @@ export default function FundraiserDashboard() {
         setCampaigns(Array.isArray(campaignJson?.data) ? campaignJson.data : []);
         if (meResponse.ok && meJson?.data) {
           setUser(meJson.data);
-          localStorage.setItem("auth_user", JSON.stringify(meJson.data));
+          let previous: any = {};
+          try { previous = JSON.parse(localStorage.getItem("auth_user") || "{}"); } catch {}
+          localStorage.setItem("auth_user", JSON.stringify({ ...previous, ...meJson.data, roles: meJson.data?.roles?.length ? meJson.data.roles : previous?.roles }));
+          window.dispatchEvent(new Event("hiilbox-auth-changed"));
         }
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Unable to load dashboard."))

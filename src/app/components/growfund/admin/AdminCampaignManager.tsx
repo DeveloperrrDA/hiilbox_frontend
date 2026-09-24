@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import CardBox from "@/app/components/shared/CardBox";
+import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Icon } from "@iconify/react";
 import { adminApi, adminToken, dataFrom, fmtDate, idOf, money, rowsFrom } from "./adminApi";
+import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
+import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
+import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
   published: "lightSuccess",
@@ -34,10 +38,50 @@ const variants: Record<string, any> = {
 };
 
 function campaignStatus(row: any) {
-  return String(row?.status ?? row?.campaign_status ?? "unknown").toLowerCase();
+  return String(
+    row?.status ??
+    row?.campaign_status ??
+    row?.post_status ??
+    "unknown"
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function statusMatches(row: any, wanted: string) {
+  const actual = campaignStatus(row);
+
+  if (wanted === "trash") {
+    return ["trash", "trashed"].includes(actual);
+  }
+
+  if (wanted === "declined") {
+    return ["declined", "denied", "rejected"].includes(actual);
+  }
+
+  if (wanted === "launched") {
+    return ["launched", "published", "active"].includes(actual);
+  }
+
+  return actual === wanted;
+}
+
+function featured(row: any) {
+  const value = row?.is_featured ?? row?.featured;
+
+  if (typeof value === "string") {
+    return ["1", "true", "yes", "featured"].includes(
+      value.trim().toLowerCase()
+    );
+  }
+
+  return value === true || value === 1;
+}
+function statusOf(row: any) {
+  return String(row?.status ?? row?.campaign_status ?? row?.post_status ?? "").trim().toLowerCase();
 }
 function creator(row: any) {
-  return row?.creator?.name || row?.fundraiser?.name || row?.author?.name || row?.fundraiser_name || row?.author_name || row?.creator_name || "—";
+  return row?.author?.display_name || row?.fundraiser?.display_name || row?.creator?.display_name || row?.author?.name || row?.fundraiser?.name || row?.creator?.name || row?.author_name || row?.fundraiser_name || row?.creator_name || "—";
 }
 function deepValue(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") return undefined;
@@ -124,9 +168,11 @@ export default function AdminCampaignManager() {
   const [notice, setNotice] = useState("");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
   const [updateCampaign, setUpdateCampaign] = useState<any | null>(null);
   const [updateForm, setUpdateForm] = useState({ title: "", description: "" });
   const [updateImages, setUpdateImages] = useState<any[]>([]);
@@ -140,39 +186,58 @@ export default function AdminCampaignManager() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
+  const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const qs = new URLSearchParams({ page: "1", per_page: "100" });
-      if (status !== "all") qs.set("status", status);
-      if (search.trim()) qs.set("search", search.trim());
-      const baseRows = rowsFrom(await adminApi(`campaigns?${qs}`));
-      // The campaigns list response does not consistently include analytics totals.
-      // Enrich each row from the real campaign overview endpoint so progress/counts are not guessed as zero.
-      const enriched: any[] = [];
-      for (let i = 0; i < baseRows.length; i += 8) {
-        const batch = baseRows.slice(i, i + 8);
-        const results = await Promise.all(batch.map(async (row) => {
-          const id = idOf(row);
-          if (!id) return row;
-          try {
-            const [overviewResult, detailResult] = await Promise.allSettled([
-              adminApi(`campaigns/${id}/overview`),
-              adminApi(`campaigns/${id}`),
-            ]);
-            const overview = overviewResult.status === "fulfilled" ? dataFrom(overviewResult.value) : {};
-            const detailData = detailResult.status === "fulfilled" ? dataFrom(detailResult.value) : {};
-            const detail = detailData?.campaign ?? detailData;
-            return { ...row, ...detail, __overview: overview };
-          } catch { return row; }
-        }));
-        enriched.push(...results);
-      }
-      setRows(enriched);
+      const makeQs = (campaignStatus: string) => {
+        const qs = new URLSearchParams({ page: "1", per_page: "100", status: campaignStatus });
+        if (search.trim()) qs.set("search", search.trim());
+        return qs;
+      };
+
+      // GrowFund's campaigns collection can default to launched campaigns even when
+      // `status=all` is supplied on some backend builds. Admin must also see campaigns
+      // awaiting review, so explicitly fetch pending campaigns and merge them into the
+      // collection. This stays at two collection requests and never restores the old
+      // per-campaign detail/overview request fan-out.
+      if (status === "all") {
+        const initial=rowsFrom(await adminApi(`campaigns?${makeQs("all")}`));
+        setRows(initial);
+        setLoading(false);
+        void (async()=>{const merged:any[]=[...initial];for(const st of ["pending","rejected","draft"]){try{merged.push(...rowsFrom(await adminApi(`campaigns?${makeQs(st)}`)));}catch{}}const byId=new Map<string,any>();merged.forEach((row,index)=>{const key=String(row?.id??row?.ID??row?.campaign_id??`row-${index}`);if(!byId.has(key))byId.set(key,row);});setRows(Array.from(byId.values()));})();
+      } else {
+        // Fetch the all collection first and filter locally when it contains the requested state.
+        // This prevents slow status endpoints from leaving the admin page stuck loading.
+        const allRows = rowsFrom(
+  await adminApi(`campaigns?${makeQs("all")}`)
+);
+
+const local = allRows.filter((r: any) =>
+  statusMatches(r, status)
+);
+
+if (local.length) {
+  setRows(local);
+} else {
+  // Some backend versions ignore the "trash" filter
+  // and return every campaign.
+  // Always filter the returned rows before displaying them.
+  const statusRows = rowsFrom(
+    await adminApi(`campaigns?${makeQs(status)}`)
+  );
+
+  setRows(
+    statusRows.filter((r: any) =>
+      statusMatches(r, status)
+    )
+  );
+}}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load campaigns.");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -186,7 +251,7 @@ export default function AdminCampaignManager() {
     setNotice("");
     try {
       const data = await adminApi(path, { method: "POST", body: JSON.stringify(payload) });
-      setNotice(data?.message || msg);
+setNotice(data?.message || msg);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed.");
@@ -194,6 +259,105 @@ export default function AdminCampaignManager() {
       setBusy(null);
     }
   }
+
+  async function duplicate(r: any) {
+  const id = idOf(r);
+
+  setBusy(id);
+  setError("");
+
+  try {
+    // Fetch the original campaign.
+    const full = dataFrom(
+      await adminApi(`campaigns/${id}`)
+    );
+
+    const source = full?.campaign ?? full;
+
+    // Only copy campaign fields that should belong
+    // to the new campaign.
+    //
+    // Do NOT copy:
+    // id
+    // created_at
+    // updated_at
+    // date_created
+    // timestamps
+    const payload: Record<string, any> = {};
+
+    const copyFields = [
+      "description",
+      "story",
+      "images",
+      "video",
+      "category",
+      "sub_category",
+      "start_date",
+      "end_date",
+      "location",
+      "tags",
+      "fundraiser_id",
+      "collaborators",
+      "show_collaborator_list",
+      "risk",
+      "has_goal",
+      "goal_type",
+      "reaching_action",
+      "confirmation_title",
+      "confirmation_description",
+      "provide_confirmation_pdf_receipt",
+      "goal_amount",
+      "allow_custom_donation",
+      "min_donation_amount",
+      "max_donation_amount",
+      "suggested_option_type",
+      "suggested_options",
+      "faqs",
+      "author_id",
+    ];
+
+    for (const field of copyFields) {
+      if (source?.[field] !== undefined) {
+        payload[field] = source[field];
+      }
+    }
+
+    payload.title =
+      `Copy of ${
+        source?.title ||
+        r?.title ||
+        `Campaign ${id}`
+      }`;
+
+    // A copied campaign starts as a new draft.
+    payload.status = "draft";
+
+    // Create an entirely new campaign.
+    // The backend will generate the new creation timestamp.
+    const result = await adminApi(
+      "campaigns/create",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    setNotice(
+      result?.message ||
+      "Campaign copied successfully."
+    );
+
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to copy campaign."
+    );
+  } finally {
+    setBusy(null);
+  }
+}
 
   async function approve(r: any) {
     const id = idOf(r);
@@ -222,32 +386,6 @@ export default function AdminCampaignManager() {
     await post(id, "campaign/update-featured-status", { ids: [id], is_featured: value }, value ? "Campaign featured." : "Campaign unfeatured.");
   }
 
-  async function duplicate(r: any) {
-    const id = idOf(r);
-    setBusy(id);
-    setError("");
-    try {
-      const full = dataFrom(await adminApi(`campaigns/${id}`));
-      const source = full?.campaign ?? full;
-      const payload: Record<string, any> = {};
-      const copyFields = [
-        "description", "story", "images", "video", "category", "sub_category", "start_date", "end_date", "location", "tags",
-        "fundraiser_id", "collaborators", "show_collaborator_list", "risk", "has_goal", "goal_type", "reaching_action",
-        "confirmation_title", "confirmation_description", "provide_confirmation_pdf_receipt", "goal_amount", "allow_custom_donation",
-        "min_donation_amount", "max_donation_amount", "suggested_option_type", "suggested_options", "faqs", "author_id",
-      ];
-      for (const field of copyFields) if (source?.[field] !== undefined) payload[field] = source[field];
-      payload.title = `Copy of ${source?.title || r?.title || `Campaign ${id}`}`;
-      payload.status = "draft";
-      const result = await adminApi("campaigns/create", { method: "POST", body: JSON.stringify(payload) });
-      setNotice(result?.message || "Campaign copied successfully.");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to copy campaign.");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   function openPostUpdate(r: any) {
     setUpdateCampaign(r);
@@ -395,16 +533,20 @@ export default function AdminCampaignManager() {
     }
   }
 
-  const visibleRows = useMemo(() => rows.filter((r) => {
-    if (!startDate && !endDate) return true;
-    const raw = createdDate(r);
-    if (!raw) return false;
-    const t = new Date(raw).getTime();
-    if (Number.isNaN(t)) return false;
-    if (startDate && t < new Date(`${startDate}T00:00:00`).getTime()) return false;
-    if (endDate && t > new Date(`${endDate}T23:59:59.999`).getTime()) return false;
-    return true;
-  }), [rows, startDate, endDate]);
+  const visibleRows = useMemo(() => rows.filter((r) => { const raw=createdDate(r); const d=raw?new Date(raw):null; if(startDate&&(!d||d<new Date(`${startDate}T00:00:00`)))return false; if(endDate&&(!d||d>new Date(`${endDate}T23:59:59`)))return false; return isDateInRange(raw,dateRange); }), [rows, dateRange, startDate, endDate]);
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
+  useEffect(() => {
+    if (!pageRows.length) return;
+    let cancelled = false;
+    void Promise.all(pageRows.map(async (r:any) => {
+      const cid=idOf(r); if(!cid) return [cid,0] as const;
+      try { const result=await adminApi(`donations/paginated?page=1&per_page=100&campaign_id=${cid}&orderby=id&order=desc`); const donationRows=rowsFrom(result); const count=donationRows.filter((d:any)=>{const payment=String(d?.payment_status??"").toLowerCase();const status=String(d?.status??"").toLowerCase();return payment?payment==="paid":["paid","completed","complete","successful","success"].includes(status)}).length; return [cid,count] as const; } catch { return [cid,0] as const; }
+    })).then(entries=>{if(!cancelled)setPaidCounts(current=>({...current,...Object.fromEntries(entries)}));});
+    return()=>{cancelled=true;};
+  }, [page, visibleRows]);
+
+  useEffect(() => setPage(1), [status, search, dateRange, startDate, endDate]);
 
   const allSelected = useMemo(() => visibleRows.length > 0 && visibleRows.every((r) => selected.includes(idOf(r))), [visibleRows, selected]);
   const toggleAll = () => setSelected(allSelected ? [] : visibleRows.map(idOf).filter(Boolean));
@@ -436,41 +578,43 @@ export default function AdminCampaignManager() {
           <option value="trash">Trash</option>
         </select>
         <div className="flex-1" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="rounded-md border border-ld bg-transparent px-3 py-2.5 sm:w-72" />
-        <input aria-label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
-        <input aria-label="End date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5" />
+        <div className="relative sm:w-72"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-ld bg-transparent px-3 py-2.5" />{search.trim()&&rows.length>0&&<div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border border-ld bg-white p-1 shadow-lg dark:bg-darkgray">{rows.slice(0,8).map((r:any)=>{const image=campaignImage(r),rid=idOf(r);return <Link key={rid} href={`/dashboard/campaigns/${rid}/overview`} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-lightgray">{image?<img src={String(image)} alt="" className="h-9 w-9 rounded-md object-cover"/>:<span className="h-9 w-9 rounded-md bg-lightgray"/>}<span className="min-w-0"><span className="block truncate font-medium">{r?.title||`Campaign #${rid}`}</span><span className="text-xs text-darklink">Campaign #{rid}</span></span></Link>})}</div>}</div>
+        <DatePresetSelect value={dateRange} onChange={setDateRange}/><input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={endDate} onChange={(e)=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/>
       </div>
 
       {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
       {error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
 
-      <div className="mt-4 overflow-x-auto">
-        <Table>
+      <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-campaigns-table" columns={["Select", "ID", "Campaign", "Creator", "Status", "Raised / Goal", "Donations", "Created", "State", "Actions"]}/></div><div className="mt-4 overflow-x-auto">
+        <Table className="admin-campaigns-table">
           <TableHeader><TableRow>
             <TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll} /></TableHead>
             <TableHead>ID</TableHead><TableHead>Featured</TableHead><TableHead>Campaign Name</TableHead><TableHead>Creator</TableHead><TableHead>Goal</TableHead><TableHead>Donations</TableHead><TableHead>Date Created</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={10} className="py-10 text-center">Loading campaigns…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={10} className="py-10 text-center text-darklink">No campaigns found.</TableCell></TableRow> : visibleRows.map((r) => {
-              const id = idOf(r), st = campaignStatus(r), isFeatured = Boolean(r.is_featured ?? r.featured), isBusy = busy === id;
-              const g = goal(r), a = raised(r), pct = g > 0 ? Math.min(100, Math.round((a / g) * 100)) : 0;
+            {loading ? <TableRow><TableCell colSpan={10} className="py-10 text-center">Loading campaigns…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={10} className="py-10 text-center text-darklink">No campaigns found.</TableCell></TableRow> : pageRows.map((r) => {
+   const id = idOf(r),
+         st = campaignStatus(r),
+            isFeatured = featured(r),
+                     isBusy = busy === id;            
+                       const g = goal(r), a = raised(r), pct = g > 0 ? Math.min(100, Math.round((a / g) * 100)) : 0;
               return <TableRow key={id}>
                 <TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={() => toggle(id)} /></TableCell>
                 <TableCell>#{id}</TableCell>
                 <TableCell><button disabled={isBusy} onClick={() => feature(r, !isFeatured)} className="text-xl" title={isFeatured ? "Unfeature" : "Feature"}><Icon icon={isFeatured ? "solar:star-bold" : "solar:star-line-duotone"} /></button></TableCell>
-                <TableCell><Link className="font-medium hover:text-primary" href={`/campaign/${id}`}>{r.title || r.campaign_name || `Campaign #${id}`}</Link></TableCell>
+                <TableCell><Link className="flex items-center gap-3 font-medium hover:text-primary" href={`/dashboard/campaigns/${id}/edit`}>{campaignImage(r) ? <img src={campaignImage(r)} alt="" className="h-11 w-11 rounded-md object-cover"/> : <span className="h-11 w-11 rounded-md bg-lightgray"/>}<span>{r.title || r.campaign_name || `Campaign #${id}`}</span></Link></TableCell>
                 <TableCell>{creator(r)}</TableCell>
                 <TableCell>{g > 0 ? <div className="min-w-48"><div className="text-xs">{pct}% funded</div><div className="my-1 h-1.5 rounded-full bg-lightgray"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div><div className="text-xs text-darklink">{money(a, r.currency || "$ ")} of {money(g, r.currency || "$ ")}</div></div> : <span className="text-darklink">-No Goal Set-</span>}</TableCell>
-                <TableCell>{donationCount(r)}</TableCell>
+                <TableCell>{paidCounts[id] ?? "…"}</TableCell>
                 <TableCell>{fmtDate(createdDate(r))}</TableCell>
                 <TableCell>{["pending", "review", "submitted"].includes(st) ? <div className="flex gap-2"><Button size="sm" variant="outline" className="text-success" disabled={isBusy} onClick={() => approve(r)} title="Approve"><Icon icon="solar:check-circle-bold" /></Button><Button size="sm" variant="outline" className="text-error" disabled={isBusy} onClick={() => decline(r)} title="Decline"><Icon icon="solar:close-circle-bold" /></Button></div> : <Badge variant={variants[st] || "lightPrimary"}>{st}</Badge>}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isBusy}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem onClick={() => openPostUpdate(r)}><Icon icon="solar:document-add-line-duotone" /> Post an update</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openUpdates(r)}><Icon icon="solar:notes-line-duotone" /> View updates</DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href={`/dashboard/campaigns/${id}/overview`}><Icon icon="solar:chart-2-line-duotone" /> Overview</Link></DropdownMenuItem>
-                    <DropdownMenuItem asChild><Link href={`/dashboard/campaigns/${id}/edit`}><Icon icon="solar:pen-2-line-duotone" /> Edit campaign</Link></DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => duplicate(r)}><Icon icon="solar:copy-line-duotone" /> Make a copy</DropdownMenuItem>
+                    <DropdownMenuItem asChild><Link href={`/campaign/${id}`}><Icon icon="solar:eye-line-duotone" /> Preview</Link></DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void duplicate(r)}> 
+                      <Icon icon="solar:copy-line-duotone" /> Make a copy</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {st === "trashed" || st === "trash" ? <DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem> : <DropdownMenuItem className="text-error focus:text-error" onClick={() => trash(r)}><Icon icon="solar:trash-bin-trash-line-duotone" /> Move to trash</DropdownMenuItem>}
                   </DropdownMenuContent></DropdownMenu>
@@ -480,6 +624,7 @@ export default function AdminCampaignManager() {
           </TableBody>
         </Table>
       </div>
+      <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
 
       <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
         <DialogContent className="max-w-2xl">

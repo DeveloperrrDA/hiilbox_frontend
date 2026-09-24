@@ -58,6 +58,12 @@ const SidebarContent: MenuItem[] = [
             url: "/dashboard/donations",
           },
           {
+            name: "Withdrawals",
+            icon: "solar:wallet-money-line-duotone",
+            id: uniqueId(),
+            url: "/dashboard/withdrawals",
+          },
+          {
             name: "Donors",
             icon: "solar:users-group-rounded-line-duotone",
             id: uniqueId(),
@@ -73,7 +79,7 @@ const SidebarContent: MenuItem[] = [
             name: "Analytics",
             icon: "solar:chart-line-duotone",
             id: uniqueId(),
-            url: "/dashboards/analytics",
+            url: "/dashboard/analytics",
           },
           {
             name: "CRM",

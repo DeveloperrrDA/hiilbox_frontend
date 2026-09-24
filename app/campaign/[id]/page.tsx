@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { getCampaign, getCampaignRecentDonations } from "@/lib/campaigns";
+import { getCampaign, getCampaignRecentDonations, getCampaignUpdates } from "@/lib/campaigns";
+import { type CampaignUpdate } from "@/lib/campaigns";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
@@ -17,10 +18,12 @@ interface CampaignPageProps {
 
 const CampaignTabs = ({ 
   activeTab, 
-  campaign 
+  campaign,
+  campaignUpdates 
 }: { 
   activeTab: string; 
-  campaign: any; 
+  campaign: any;
+  campaignUpdates: CampaignUpdate[];
 }) => {
   return (
     <>
@@ -78,16 +81,7 @@ const CampaignTabs = ({
             
           </div>
         </div>
-        <div className="hidden md:flex gap-4">
-          <Link
-              href={`/checkout?campaign=${campaign.id}&title=${encodeURIComponent(
-                campaign.title
-              )}`}
-              className="my-4 block w-full rounded-full bg-transparent border border-grey-500 px-6 py-3.5 text-center text-sm font-semibold text-grey-500 transition-colors"
-            >
-              Donate to this campaign
-          </Link>
-        </div>
+        
       </div>
       {/* --- TABS CONTENT --- */}
       <div className="grid grid-cols-12 gap-7">
@@ -109,9 +103,88 @@ const CampaignTabs = ({
         
         {activeTab === "updates" && (
           <div className="col-span-12">
-            <p className="whitespace-pre-line text-base leading-8 border-t border-[#e0e6eb] pt-4 text-[#5a6a85]">
-              Updates Section
-            </p>
+            
+            {/* Updates Header with Count Badge (Optional, matching the image) */}
+            <div className="flex items-center gap-3 border-t border-[#e0e6eb] pt-8 mb-8">
+              <h2 className="text-2xl font-bold text-dark dark:text-white">Updates</h2>
+              <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm font-semibold">
+                {campaignUpdates?.length || 0}
+              </span>
+            </div>
+
+            <div className="space-y-12">
+              {campaignUpdates?.map((update) => (
+                <div key={update.id} className="flex flex-col">
+                  
+                  {/* ==============================
+                      AUTHOR & META ROW
+                  ============================== */}
+                  <div className="flex items-center gap-3 mb-5">
+                    {/* Avatar */}
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                      {update.created_by_image ? (
+                        <img
+                          src={update.created_by_image}
+                          alt={update.created_by_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center font-bold text-gray-500 uppercase">
+                          {update.created_by_name?.charAt(0) || "U"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Meta Info (Date, Name, Role) */}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-dark dark:text-white">
+                          {/* You can format this date further if needed */}
+                          {new Date(update.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', day: 'numeric', year: 'numeric' 
+                          })}
+                        </span>
+                        
+                        {/* Green "NEW" Badge */}
+                        <span className="rounded bg-[#dcfce7] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-green-700 uppercase">
+                          New
+                        </span>
+                      </div>
+                      <div className="text-sm text-[#5a6a85]">
+                        {update.created_by_name} <span className="mx-1">•</span> {update.created_by_role}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ==============================
+                      CONTENT
+                  ============================== */}
+                  {/* Title */}
+                  <h3 className="mb-3 text-lg font-bold text-dark dark:text-white">
+                    {update.title}
+                  </h3>
+
+                  {/* Description */}
+                  <div className="text-base leading-8 text-[#5a6a85]">
+                    <p className="whitespace-pre-line line-clamp-4">
+                      {update.description}
+                    </p>
+                  </div>
+
+                  {/* Read More Link */}
+                  <button className="mt-3 text-left font-medium text-dark underline underline-offset-4 hover:text-primary dark:text-white w-max">
+                    Read more
+                  </button>
+                  
+                </div>
+              ))}
+
+              {/* Empty State fallback */}
+              {(!campaignUpdates || campaignUpdates.length === 0) && (
+                <p className="text-[#5a6a85] pt-4">No updates posted yet.</p>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -141,9 +214,33 @@ export default async function CampaignPage({
 
   const campaignId = Number(id);
   const [response, recentDonations] = await Promise.all([
-    getCampaign(campaignId),
-    getCampaignRecentDonations(campaignId),
-  ]);
+  getCampaign(campaignId),
+  getCampaignRecentDonations(campaignId),
+]);
+
+let campaignUpdatesResponse: Awaited<
+  ReturnType<typeof getCampaignUpdates>
+> = {
+  success: true,
+  data: [],
+  pagination: {
+    page: 1,
+    per_page: 10,
+  },
+};
+
+try {
+  campaignUpdatesResponse = await getCampaignUpdates({
+    page: 1,
+    per_page: 10,
+    campaign_id: campaignId,
+  });
+} catch (error) {
+  console.error(
+    `Unable to load updates for campaign ${campaignId}:`,
+    error
+  );
+}
 
   if (!response.success || !response.data) {
     return (
@@ -173,6 +270,7 @@ export default async function CampaignPage({
   }
 
   const campaign = response.data;
+  const extractedUpdates = campaignUpdatesResponse.data;
 
   const progress =
     campaign.goal > 0
@@ -293,6 +391,10 @@ export default async function CampaignPage({
 
             {/* Share */}
               <ShareCampaign title={campaign.title} />
+
+            <div className="mx-auto max-w-[1218px] px-6 py-10">
+              <CampaignTabs activeTab={activeTab} campaign={campaign} campaignUpdates={extractedUpdates} />
+            </div>
           </div>
 
           {/* ================= DONATION SIDEBAR ================= */}
@@ -395,9 +497,14 @@ export default async function CampaignPage({
                       {recentDonations.map((donation, index) => (
                         <div key={`${donation.id ?? "donation"}-${index}`} className="py-3">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-semibold text-[#111c2d]">
-                              {donation.is_anonymous ? "Anonymous" : donation.donor_name || "Anonymous"}
-                            </p>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/10 text-[#01A14B]">
+                                <Icon icon="solar:user-rounded-line-duotone" height={18} />
+                              </span>
+                              <p className="truncate text-sm font-semibold text-[#111c2d]">
+                                {donation.is_anonymous ? "Anonymous" : String(donation.donor_name || "Anonymous").trim().split(/\s+/)[0]}
+                              </p>
+                            </div>
                             <p className="text-sm font-semibold text-[#01A14B]">
                               {donation.currency ? `${donation.currency} ` : "$"}{Number(donation.amount || 0).toLocaleString()}
                             </p>
@@ -426,9 +533,7 @@ export default async function CampaignPage({
           </aside>
         </div>
       </div>
-      <div className="mx-auto max-w-[1218px] px-6 py-10">
-        <CampaignTabs activeTab={activeTab} campaign={campaign} />
-      </div>
+      
     </main>
     </ThemeShell>
   );
