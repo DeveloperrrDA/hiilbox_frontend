@@ -52,7 +52,7 @@ export default function AdminFundraiserManager() {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(1);
@@ -201,7 +201,21 @@ export default function AdminFundraiserManager() {
 
   return <CardBox className="w-full !max-w-none">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h5 className="card-title">Fundraisers</h5><p className="mt-1 text-sm text-darklink">Fundraiser details, created campaigns, approval status and joined date.</p></div><div className="flex gap-2"><Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone" /> Empty trash</Button><Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button><Icon icon="solar:user-plus-rounded-line-duotone" /> Create Fundraiser</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Create Fundraiser</DialogTitle></DialogHeader>{formMarkup("Create fundraiser", create)}</DialogContent></Dialog></div></div>
-    <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_200px]"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search fundraisers" className="rounded-md border border-ld bg-transparent px-3 py-2.5" /><select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3"><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="declined">Declined</option><option value="trash">Trash</option></select><DatePresetSelect value={dateRange} onChange={setDateRange}/><input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={endDate} onChange={(e)=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/></div>
+    <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_200px]"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search fundraisers" className="rounded-md border border-ld bg-transparent px-3 py-2.5" /><select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3"><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="declined">Declined</option><option value="trash">Trash</option></select><DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={(value) => {
+  setStartDate(value);
+  if (value) setDateRange("custom");
+}}
+onEndDateChange={(value) => {
+  setEndDate(value);
+  if (value) setDateRange("custom");
+}}
+/>
+</div>
     {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
     <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-fundraisers-table" columns={["Fundraiser Details", "Created Campaigns", "Status", "Joined Date", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-fundraisers-table"><TableHeader><TableRow><TableHead>Fundraiser Details</TableHead><TableHead>Created Campaigns</TableHead><TableHead>Status</TableHead><TableHead>Joined Date</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
       {loading ? <TableRow><TableCell colSpan={5} className="py-10 text-center">Loading fundraisers…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={5} className="py-10 text-center text-darklink">No fundraisers found. If this account has fundraisers, verify the logged-in admin JWT is valid.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = statusOf(r); const pending = ["pending", "review", "submitted", "inactive"].includes(st); return <TableRow key={id}>

@@ -7,6 +7,7 @@ import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisi
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -579,8 +580,14 @@ setNotice(data?.message || msg);
         </select>
         <div className="flex-1" />
         <div className="relative sm:w-72"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-ld bg-transparent px-3 py-2.5" />{search.trim()&&rows.length>0&&<div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border border-ld bg-white p-1 shadow-lg dark:bg-darkgray">{rows.slice(0,8).map((r:any)=>{const image=campaignImage(r),rid=idOf(r);return <Link key={rid} href={`/dashboard/campaigns/${rid}/overview`} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-lightgray">{image?<img src={String(image)} alt="" className="h-9 w-9 rounded-md object-cover"/>:<span className="h-9 w-9 rounded-md bg-lightgray"/>}<span className="min-w-0"><span className="block truncate font-medium">{r?.title||`Campaign #${rid}`}</span><span className="text-xs text-darklink">Campaign #{rid}</span></span></Link>})}</div>}</div>
-        <DatePresetSelect value={dateRange} onChange={setDateRange}/><input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={endDate} onChange={(e)=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/>
-      </div>
+<DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/>      </div>
 
       {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
       {error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
