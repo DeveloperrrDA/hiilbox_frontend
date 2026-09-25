@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import CardBox from "@/app/components/shared/CardBox";
 import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +19,20 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 const blank = { first_name: "", last_name: "", email: "", username: "", password: "", phone: "", image: "" };
 
 function statusOf(r: any) { return String(r?.status ?? r?.fundraiser_status ?? r?.approval_status ?? "pending").toLowerCase(); }
+function statusMatches(r: any, wanted: string) {
+  const actual = statusOf(r);
+
+  if (wanted === "all") return true;
+
+  const groups: Record<string, string[]> = {
+    pending: ["pending", "review", "submitted", "inactive"],
+    approved: ["approved", "active"],
+    declined: ["declined", "rejected", "denied"],
+    trash: ["trash", "trashed"],
+  };
+
+  return (groups[wanted] ?? [wanted]).includes(actual);
+}
 function isTrashedStatus(status: string) { return status === "trash" || status === "trashed"; }
 function deepValue(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") return undefined;
@@ -64,8 +79,69 @@ export default function AdminFundraiserManager() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const makeQ = (fundraiserStatus?: string) => { const q = new URLSearchParams({ page: "1", per_page: "100" }); if (fundraiserStatus) q.set("status", fundraiserStatus); if (search.trim()) q.set("search", search.trim()); return q; };
-      const baseRows:any[]=rowsFrom(await adminApi(`fundraisers/paginated?${makeQ(status === "all" ? undefined : status)}`));
+      const makeQ = (fundraiserStatus?: string) => {
+  const q = new URLSearchParams({
+    page: "1",
+    per_page: "100",
+  });
+
+  if (fundraiserStatus) {
+    q.set("status", fundraiserStatus);
+  }
+
+  if (search.trim()) {
+    q.set("search", search.trim());
+  }
+
+  return q;
+};
+
+const statusGroups: Record<string, string[]> = {
+  pending: ["pending", "review", "submitted", "inactive"],
+  approved: ["approved", "active"],
+  declined: ["declined", "rejected", "denied"],
+  trash: ["trash", "trashed"],
+};
+
+let baseRows: any[] = [];
+
+if (status === "all") {
+  baseRows = rowsFrom(
+    await adminApi(`fundraisers/paginated?${makeQ()}`)
+  );
+} else {
+  const statuses = statusGroups[status] ?? [status];
+
+  const results = await Promise.all(
+    statuses.map(async (backendStatus) => {
+      try {
+        return rowsFrom(
+          await adminApi(
+            `fundraisers/paginated?${makeQ(backendStatus)}`
+          )
+        );
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  const merged = results.flat();
+
+  const byId = new Map<number, any>();
+
+  for (const row of merged) {
+    const id = idOf(row);
+
+    if (id && !byId.has(id)) {
+      byId.set(id, row);
+    }
+  }
+
+  baseRows = Array.from(byId.values()).filter((row) =>
+    statusMatches(row, status)
+  );
+}
 
       // Render the fundraiser list immediately. Overview enrichment is useful for Created
       // Campaigns / Joined Date, but it must never block the entire page if one overview
@@ -191,10 +267,45 @@ export default function AdminFundraiserManager() {
   }
 
 
-  const visibleRows = useMemo(() => rows.filter((r) => { const st=statusOf(r); const statusOk=status==="all" || st===status || (status==="approved"&&st==="active") || (status==="declined"&&st==="rejected"); const raw=joinedDate(r),d=raw?new Date(raw):null; if(startDate&&(!d||d<new Date(`${startDate}T00:00:00`)))return false; if(endDate&&(!d||d>new Date(`${endDate}T23:59:59`)))return false; return statusOk && (!raw || isDateInRange(raw, dateRange)); }), [rows, dateRange, status, startDate, endDate]);
+const visibleRows = useMemo(() => {
+  return rows.filter((r) => {
+    if (!statusMatches(r, status)) {
+      return false;
+    }
+
+    const raw = joinedDate(r);
+    const d = raw ? new Date(raw) : null;
+
+    if (
+      startDate &&
+      (!d || d < new Date(`${startDate}T00:00:00`))
+    ) {
+      return false;
+    }
+
+    if (
+      endDate &&
+      (!d || d > new Date(`${endDate}T23:59:59`))
+    ) {
+      return false;
+    }
+
+    if (raw && !isDateInRange(raw, dateRange)) {
+      return false;
+    }
+
+    return true;
+  });
+}, [rows, dateRange, status, startDate, endDate]);
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
-  useEffect(() => setPage(1), [status, dateRange, startDate, endDate]);
+useEffect(() => setPage(1), [
+  status,
+  search,
+  dateRange,
+  startDate,
+  endDate,
+]);
 
   const formFields = [["first_name", "First name", true], ["last_name", "Last name", false], ["email", "Email", true], ["username", "Username", true], ["password", "Password", false], ["phone", "Phone", false], ["image", "Image / Avatar Media ID", false]] as const;
   const formMarkup = (submitLabel: string, submit: (e: FormEvent) => void) => <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">{formFields.map(([k, l, req]) => <label key={k} className="text-sm">{l}<input required={req} type={k === "password" ? "password" : k === "email" ? "email" : "text"} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2" /></label>)}<div className="sm:col-span-2 flex justify-end"><Button type="submit">{submitLabel}</Button></div></form>;
@@ -216,6 +327,79 @@ onEndDateChange={(value) => {
 }}
 />
 </div>
+{(status !== "all" ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">
+      Active filters:
+    </span>
+
+    {status !== "all" && (
+      <button
+        type="button"
+        onClick={() => setStatus("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {status} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date: {dateRange.replaceAll("_", " ")} ×
+      </button>
+    )}
+
+    {(startDate || endDate) && dateRange === "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date range: {startDate || "…"} – {endDate || "…"} ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("all");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
     {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
     <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-fundraisers-table" columns={["Fundraiser Details", "Created Campaigns", "Status", "Joined Date", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-fundraisers-table"><TableHeader><TableRow><TableHead>Fundraiser Details</TableHead><TableHead>Created Campaigns</TableHead><TableHead>Status</TableHead><TableHead>Joined Date</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
       {loading ? <TableRow><TableCell colSpan={5} className="py-10 text-center">Loading fundraisers…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={5} className="py-10 text-center text-darklink">No fundraisers found. If this account has fundraisers, verify the logged-in admin JWT is valid.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = statusOf(r); const pending = ["pending", "review", "submitted", "inactive"].includes(st); return <TableRow key={id}>
@@ -226,7 +410,13 @@ onEndDateChange={(value) => {
         <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuItem onClick={() => approve(r)}><Icon icon="solar:check-circle-line-duotone" /> Approve</DropdownMenuItem><DropdownMenuItem onClick={() => decline(r)}><Icon icon="solar:close-circle-line-duotone" /> Decline</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
       </TableRow>; })}
     </TableBody></Table></div>
-    <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
-    <Dialog open={editOpen} onOpenChange={setEditOpen}><DialogContent><DialogHeader><DialogTitle>Edit Fundraiser</DialogTitle></DialogHeader>{formMarkup("Save changes", saveEdit)}</DialogContent></Dialog>
+<ListPagination
+  page={page}
+  totalPages={totalPages}
+  totalRecords={visibleRows.length}
+  pageSize={10}
+  recordLabel="fundraisers"
+  onPageChange={setPage}
+/>    <Dialog open={editOpen} onOpenChange={setEditOpen}><DialogContent><DialogHeader><DialogTitle>Edit Fundraiser</DialogTitle></DialogHeader>{formMarkup("Save changes", saveEdit)}</DialogContent></Dialog>
   </CardBox>;
 }

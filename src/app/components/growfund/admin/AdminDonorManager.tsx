@@ -101,6 +101,64 @@ onEndDateChange={(value) => {
 }}
 />
 </div>
+{(status !== "all" ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">Active filters:</span>
+
+    {status !== "all" && (
+      <button
+        type="button"
+        onClick={() => setStatus("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {status} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date: {dateRange.replaceAll("_", " ")} ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("all");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
     {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
     <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-donors-table" columns={["Donor Details", "Donations", "Total Given", "Latest Donation", "Date Created", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-donors-table"><TableHeader><TableRow><TableHead>Donor Details</TableHead><TableHead>Donations</TableHead><TableHead>Total Given</TableHead><TableHead>Latest Donation</TableHead><TableHead>Date Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
       {loading ? <TableRow><TableCell colSpan={6} className="py-10 text-center">Loading donors…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No donors found.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = String(r.status || r.user_status || "active").toLowerCase(); const latest = latestDonation(r); return <TableRow key={id}>

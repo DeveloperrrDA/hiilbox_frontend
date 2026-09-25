@@ -24,8 +24,44 @@ function campaignIdOf(r:any){const v=r?.campaign_id??r?.campaign?.id;const n=Num
 function campaignName(r:any){return r?.campaign?.title??r?.campaign_title??r?.campaign_name??(campaignIdOf(r)?`Campaign #${campaignIdOf(r)}`:"—");}
 function donorName(r:any){const d=r?.donor??r?.user??{};const combined=[d?.first_name,d?.last_name].filter(Boolean).join(" ");return (r?.is_anonymous?"Anonymous":(d?.display_name||d?.name||combined||r?.donor_name||r?.display_name||r?.name||d?.email||r?.email))||"Anonymous";}
 function donorFirstName(r:any){if(r?.is_anonymous)return "Anonymous";const d=r?.donor??r?.user??{};return String(d?.first_name??r?.first_name??donorName(r)).trim().split(/\s+/)[0]||"Anonymous";}
-function donorType(r:any){return r?.donor_type??r?.user_type??(r?.user_id?"Registered":"Guest");}
-function dateOf(r:any){return r?.date??r?.created_at??r?.date_created??r?.created_date;}
+function donorType(r: any) {
+  const explicitType =
+    r?.donor_type ??
+    r?.user_type ??
+    r?.donor?.type ??
+    r?.user?.type;
+
+  if (explicitType) {
+    const value = String(explicitType).toLowerCase();
+
+    if (
+      value === "guest" ||
+      value === "anonymous"
+    ) {
+      return "Guest";
+    }
+
+    return "Registered";
+  }
+
+  const registeredId =
+    r?.user_id ??
+    r?.donor_id ??
+    r?.donor?.id ??
+    r?.user?.id ??
+    r?.donor?.user_id ??
+    r?.user?.user_id;
+
+  if (
+    registeredId !== undefined &&
+    registeredId !== null &&
+    Number(registeredId) > 0
+  ) {
+    return "Registered";
+  }
+
+  return "Guest";
+}function dateOf(r:any){return r?.date??r?.created_at??r?.date_created??r?.created_date;}
 function minor(value: any) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n / 100 : 0;
@@ -225,6 +261,81 @@ const toggle=(id:number)=>{
   onStartDateChange={setStartDate}
   onEndDateChange={setEndDate}
 /></div>
+{(status !== "all" ||
+  campaignId ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">
+      Active filters:
+    </span>
+
+    {status !== "all" && (
+      <button
+        type="button"
+        onClick={() => setStatus("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {status} ×
+      </button>
+    )}
+
+    {campaignId && (
+      <button
+        type="button"
+        onClick={() => setCampaignId("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Campaign ID: {campaignId} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        {dateRange === "custom"
+          ? `Date: ${startDate || "…"} – ${endDate || "…"}`
+          : `Date: ${dateRange.replaceAll("_", " ")}`}{" "}
+        ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("all");
+        setCampaignId("");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
   {notice&&<div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error&&<div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
   <div className="mt-4 w-full overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox
   checked={allSelected}
@@ -242,6 +353,7 @@ const toggle=(id:number)=>{
   totalPages={totalPages}
   totalRecords={totalRecords}
   pageSize={10}
+  recordLabel="donations"
   onPageChange={setPage}
 />
  </CardBox>;

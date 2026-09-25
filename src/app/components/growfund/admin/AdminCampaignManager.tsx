@@ -52,19 +52,22 @@ function campaignStatus(row: any) {
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
 
-  if (wanted === "trash") {
-    return ["trash", "trashed"].includes(actual);
-  }
+  if (wanted === "all") return true;
 
-  if (wanted === "declined") {
-    return ["declined", "denied", "rejected"].includes(actual);
-  }
+  const groups: Record<string, string[]> = {
+    pending: ["pending", "review", "submitted", "awaiting_review", "inactive"],
+    launched: ["launched"],
+    published: ["published"],
+    active: ["active"],
+    funded: ["funded"],
+    completed: ["completed", "complete"],
+    draft: ["draft"],
+    declined: ["declined", "denied", "rejected"],
+    cancelled: ["cancelled", "canceled"],
+    trash: ["trash", "trashed"],
+  };
 
-  if (wanted === "launched") {
-    return ["launched", "published", "active"].includes(actual);
-  }
-
-  return actual === wanted;
+  return (groups[wanted] ?? [wanted]).includes(actual);
 }
 
 function featured(row: any) {
@@ -169,11 +172,12 @@ export default function AdminCampaignManager() {
   const [notice, setNotice] = useState("");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [selected, setSelected] = useState<number[]>([]);
-  const [page, setPage] = useState(1);
+ const [selected, setSelected] = useState<number[]>([]);
+const [page, setPage] = useState(1);
+const [totalCampaigns, setTotalCampaigns] = useState(0);
   const [updateCampaign, setUpdateCampaign] = useState<any | null>(null);
   const [updateForm, setUpdateForm] = useState({ title: "", description: "" });
   const [updateImages, setUpdateImages] = useState<any[]>([]);
@@ -188,62 +192,154 @@ export default function AdminCampaignManager() {
   const [commentText, setCommentText] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
   const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
+function totalFromResponse(data: any, fallback: number) {
+  const candidates = [
+    data?.data?.total,
+    data?.total,
+    data?.data?.pagination?.total,
+    data?.pagination?.total,
+    data?.paginated?.total,
+    data?.meta?.total,
+  ];
 
+  for (const value of candidates) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+
+  return fallback;
+}
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const makeQs = (campaignStatus: string) => {
-        const qs = new URLSearchParams({ page: "1", per_page: "100", status: campaignStatus });
-        if (search.trim()) qs.set("search", search.trim());
-        return qs;
-      };
+  setLoading(true);
+  setError("");
 
-      // GrowFund's campaigns collection can default to launched campaigns even when
-      // `status=all` is supplied on some backend builds. Admin must also see campaigns
-      // awaiting review, so explicitly fetch pending campaigns and merge them into the
-      // collection. This stays at two collection requests and never restores the old
-      // per-campaign detail/overview request fan-out.
-      if (status === "all") {
-        const initial=rowsFrom(await adminApi(`campaigns?${makeQs("all")}`));
-        setRows(initial);
-        setLoading(false);
-        void (async()=>{const merged:any[]=[...initial];for(const st of ["pending","rejected","draft"]){try{merged.push(...rowsFrom(await adminApi(`campaigns?${makeQs(st)}`)));}catch{}}const byId=new Map<string,any>();merged.forEach((row,index)=>{const key=String(row?.id??row?.ID??row?.campaign_id??`row-${index}`);if(!byId.has(key))byId.set(key,row);});setRows(Array.from(byId.values()));})();
-      } else {
-        // Fetch the all collection first and filter locally when it contains the requested state.
-        // This prevents slow status endpoints from leaving the admin page stuck loading.
-        const allRows = rowsFrom(
-  await adminApi(`campaigns?${makeQs("all")}`)
-);
+  try {
+    async function fetchAllCampaigns(campaignStatus: string) {
+      const allRows: any[] = [];
+      let currentPage = 1;
+      let expectedTotal: number | null = null;
 
-const local = allRows.filter((r: any) =>
-  statusMatches(r, status)
-);
+      while (true) {
+        const qs = new URLSearchParams({
+          page: String(currentPage),
+          per_page: "100",
+          status: campaignStatus,
+        });
 
-if (local.length) {
-  setRows(local);
-} else {
-  // Some backend versions ignore the "trash" filter
-  // and return every campaign.
-  // Always filter the returned rows before displaying them.
-  const statusRows = rowsFrom(
-    await adminApi(`campaigns?${makeQs(status)}`)
-  );
+        if (search.trim()) {
+          qs.set("search", search.trim());
+        }
 
-  setRows(
-    statusRows.filter((r: any) =>
-      statusMatches(r, status)
-    )
-  );
-}}
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to load campaigns.");
-      setRows([]);
-    } finally {
-      setLoading(false);
+        const response = await adminApi(`campaigns?${qs}`);
+        const batch = rowsFrom(response);
+
+        if (expectedTotal === null) {
+          expectedTotal = totalFromResponse(response, batch.length);
+        }
+
+        allRows.push(...batch);
+
+        // No more rows.
+        if (batch.length === 0) break;
+
+        // We have reached the API's reported total.
+        if (
+          expectedTotal !== null &&
+          expectedTotal > 0 &&
+          allRows.length >= expectedTotal
+        ) {
+          break;
+        }
+
+        // A short page means this was the last page.
+        if (batch.length < 100) break;
+
+        currentPage += 1;
+
+        // Safety guard against a broken API repeatedly returning the same page.
+        if (currentPage > 1000) break;
+      }
+
+      return allRows;
     }
-  }, [status, search]);
 
+    if (status === "all") {
+      const results = await Promise.allSettled([
+        fetchAllCampaigns("all"),
+        fetchAllCampaigns("pending"),
+        fetchAllCampaigns("rejected"),
+        fetchAllCampaigns("draft"),
+      ]);
+
+      const merged: any[] = [];
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          merged.push(...result.value);
+        }
+      }
+
+      const byId = new Map<string, any>();
+
+      merged.forEach((row, index) => {
+        const key = String(
+          row?.id ??
+            row?.ID ??
+            row?.campaign_id ??
+            `row-${index}`
+        );
+
+        if (!byId.has(key)) {
+          byId.set(key, row);
+        }
+      });
+
+      const completeRows = Array.from(byId.values());
+
+      setRows(completeRows);
+      setTotalCampaigns(completeRows.length);
+    } else {
+      /*
+       * First load the complete "all" collection and check whether
+       * it already contains campaigns with the requested status.
+       */
+      const allRows = await fetchAllCampaigns("all");
+
+      const local = allRows.filter((r: any) =>
+        statusMatches(r, status)
+      );
+
+      if (local.length) {
+        setRows(local);
+        setTotalCampaigns(local.length);
+      } else {
+        /*
+         * Some backend versions do not include every status in
+         * the "all" collection, so load that status explicitly.
+         */
+        const statusRows = await fetchAllCampaigns(status);
+
+        const filtered = statusRows.filter((r: any) =>
+          statusMatches(r, status)
+        );
+
+        setRows(filtered);
+        setTotalCampaigns(filtered.length);
+      }
+    }
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to load campaigns."
+    );
+
+    setRows([]);
+    setTotalCampaigns(0);
+  } finally {
+    setLoading(false);
+  }
+}, [status, search]);
   useEffect(() => void load(), [load]);
 
   async function post(id: number, path: string, payload: any, msg: string) {
@@ -534,8 +630,38 @@ setNotice(data?.message || msg);
     }
   }
 
-  const visibleRows = useMemo(() => rows.filter((r) => { const raw=createdDate(r); const d=raw?new Date(raw):null; if(startDate&&(!d||d<new Date(`${startDate}T00:00:00`)))return false; if(endDate&&(!d||d>new Date(`${endDate}T23:59:59`)))return false; return isDateInRange(raw,dateRange); }), [rows, dateRange, startDate, endDate]);
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+const visibleRows = useMemo(() => {
+  return rows.filter((r) => {
+    // Status
+    if (!statusMatches(r, status)) {
+      return false;
+    }
+
+    // Date
+    const raw = createdDate(r);
+    const d = raw ? new Date(raw) : null;
+
+    if (
+      startDate &&
+      (!d || d < new Date(`${startDate}T00:00:00`))
+    ) {
+      return false;
+    }
+
+    if (
+      endDate &&
+      (!d || d > new Date(`${endDate}T23:59:59`))
+    ) {
+      return false;
+    }
+
+    if (!isDateInRange(raw, dateRange)) {
+      return false;
+    }
+
+    return true;
+  });
+}, [rows, status, dateRange, startDate, endDate]);  const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {
     if (!pageRows.length) return;
@@ -588,7 +714,77 @@ setNotice(data?.message || msg);
   onStartDateChange={setStartDate}
   onEndDateChange={setEndDate}
 />      </div>
+{(status !== "all" ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">Active filters:</span>
 
+    {status !== "all" && (
+      <button
+        type="button"
+        onClick={() => setStatus("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {status} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date: {dateRange.replaceAll("_", " ")} ×
+      </button>
+    )}
+
+    {(startDate || endDate) && dateRange === "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date range: {startDate || "…"} – {endDate || "…"} ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("all");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
       {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
       {error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
 
@@ -631,8 +827,7 @@ setNotice(data?.message || msg);
           </TableBody>
         </Table>
       </div>
-      <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
-
+<ListPagination page={page} totalPages={totalPages} totalRecords={visibleRows.length} pageSize={10} recordLabel="campaigns" onPageChange={setPage} />
       <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader>

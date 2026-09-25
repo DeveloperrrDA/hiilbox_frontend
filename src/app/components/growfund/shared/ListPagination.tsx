@@ -8,12 +8,14 @@ type ListPaginationProps = {
   totalRecords: number;
   pageSize?: number;
   onPageChange: (page: number) => void;
+  recordLabel?: string;
 };
 
 export default function ListPagination({
   page,
   totalPages,
   totalRecords,
+recordLabel = "records",
   pageSize = 10,
   onPageChange,
 }: ListPaginationProps) {
@@ -46,7 +48,7 @@ export default function ListPagination({
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-darklink">
-        Total records: {totalRecords} · Page {page} of {safeTotalPages} ·{" "}
+        Total {recordLabel}: {totalRecords} · Page {page} of {safeTotalPages} ·{" "}
         {pageSize} items per page
       </p>
 

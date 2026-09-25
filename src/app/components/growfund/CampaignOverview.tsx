@@ -116,7 +116,7 @@ export default function CampaignOverview({ id }: { id: string }) {
   const [campaign, setCampaign] = useState<AnyRecord>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
   const [paidDonationCount, setPaidDonationCount] = useState<number | null>(null);
   const [donationRows, setDonationRows] = useState<any[]>([]);
   const load = useCallback(async () => {

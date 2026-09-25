@@ -17,8 +17,44 @@ function value(r:any,...keys:string[]){for(const k of keys){if(r?.[k]!==undefine
 function campaignId(r:any){return Number(r?.campaign?.id??value(r,"campaign_id")??0);}
 function rawDate(r:any){return value(r,"created_at","date_created","date","created");}
 function dateValue(r:any){const raw=rawDate(r),d=raw?new Date(raw):null;return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString():"—";}
-function donorType(r:any){return r?.donor_type??r?.user_type??(r?.user_id?"Registered":"Guest");}
-function minor(v:any){
+function donorType(r: any) {
+  const explicitType =
+    r?.donor_type ??
+    r?.user_type ??
+    r?.donor?.type ??
+    r?.user?.type;
+
+  if (explicitType) {
+    const value = String(explicitType).toLowerCase();
+
+    if (
+      value === "guest" ||
+      value === "anonymous"
+    ) {
+      return "Guest";
+    }
+
+    return "Registered";
+  }
+
+  const registeredId =
+    r?.user_id ??
+    r?.donor_id ??
+    r?.donor?.id ??
+    r?.user?.id ??
+    r?.donor?.user_id ??
+    r?.user?.user_id;
+
+  if (
+    registeredId !== undefined &&
+    registeredId !== null &&
+    Number(registeredId) > 0
+  ) {
+    return "Registered";
+  }
+
+  return "Guest";
+}function minor(v:any){
   const n=Number(v??0);
   return Number.isFinite(n)?n/100:0;
 }
