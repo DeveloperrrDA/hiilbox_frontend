@@ -31,17 +31,120 @@ function campaignGoal(c:any){return num(c,"goal_amount","goal","target_amount","
 function money(v:number){return `$${v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;}
 function formatDate(d:Date|null){return d?d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"—";}
 function dayKey(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
-function bucketData(donations:any[],range:DateRangeKey,mode:"revenue"|"donors"){
-  const {start,end}=getDateRange(range);
-  const startDay=new Date(start);startDay.setHours(0,0,0,0);
-  const endDay=new Date(end);endDay.setHours(0,0,0,0);
-  const days=Math.max(1,Math.round((endDay.getTime()-startDay.getTime())/86400000)+1);
-  const count=days<=2?days:days<=7?days:days<=31?10:days<=100?12:12;
-  const bucketDays=Math.max(1,Math.ceil(days/count));
-  const result:{label:string;value:number;keys:Set<string>;start:Date;end:Date}[]=[];
-  for(let i=0;i<count;i++){const a=new Date(startDay);a.setDate(startDay.getDate()+i*bucketDays);if(a>endDay)break;const b=new Date(a);b.setDate(a.getDate()+bucketDays-1);if(b>endDay)b.setTime(endDay.getTime());const label=b.getTime()===a.getTime()?a.toLocaleDateString(undefined,{month:"short",day:"numeric"}):`${a.toLocaleDateString(undefined,{month:"short",day:"numeric"})} - ${b.toLocaleDateString(undefined,{month:"short",day:"numeric"})}`;result.push({label,value:0,keys:new Set(),start:a,end:b});}
-  for(const r of donations){if(!isSuccessful(r))continue;const d=donationDate(r);if(!d||!isDateInRange(d,range))continue;const bucket=result.find(b=>d.getTime()>=b.start.getTime()&&d.getTime()<=new Date(b.end.getFullYear(),b.end.getMonth(),b.end.getDate(),23,59,59,999).getTime());if(!bucket)continue;if(mode==="revenue")bucket.value+=donationAmount(r);else bucket.keys.add(donorKey(r));}
-  return result.map(b=>({label:b.label,value:mode==="revenue"?b.value:b.keys.size}));
+function bucketData(
+  donations: any[],
+  range: DateRangeKey,
+  mode: "revenue" | "donors"
+) {
+  const { start, end } = getDateRange(range);
+
+  const startDay = new Date(start);
+  startDay.setHours(0, 0, 0, 0);
+
+  const endDay = new Date(end);
+  endDay.setHours(23, 59, 59, 999);
+
+  const days = Math.max(
+    1,
+    Math.round(
+      (endDay.getTime() - startDay.getTime()) / 86400000
+    ) + 1
+  );
+
+  const count =
+    days <= 2
+      ? days
+      : days <= 7
+        ? days
+        : days <= 31
+          ? 10
+          : 12;
+
+  const bucketDays = Math.max(1, Math.ceil(days / count));
+
+  const result: {
+    label: string;
+    value: number;
+    keys: Set<string>;
+    start: Date;
+    end: Date;
+  }[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const bucketStart = new Date(startDay);
+    bucketStart.setDate(startDay.getDate() + i * bucketDays);
+
+    if (bucketStart > endDay) break;
+
+    const bucketEnd = new Date(bucketStart);
+    bucketEnd.setDate(bucketStart.getDate() + bucketDays - 1);
+    bucketEnd.setHours(23, 59, 59, 999);
+
+    if (bucketEnd > endDay) {
+      bucketEnd.setTime(endDay.getTime());
+    }
+
+    const label =
+      bucketStart.toDateString() === bucketEnd.toDateString()
+        ? bucketStart.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })
+        : `${bucketStart.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })} - ${bucketEnd.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })}`;
+
+    result.push({
+      label,
+      value: 0,
+      keys: new Set<string>(),
+      start: bucketStart,
+      end: bucketEnd,
+    });
+  }
+
+  for (const r of donations) {
+    if (!isSuccessful(r)) continue;
+
+    const donationDateValue = donationDate(r);
+
+    if (donationDateValue === null) continue;
+
+    if (
+      !isDateInRange(
+        donationDateValue.toISOString(),
+        range
+      )
+    ) {
+      continue;
+    }
+
+    const bucket = result.find(
+      (item) =>
+        donationDateValue.getTime() >= item.start.getTime() &&
+        donationDateValue.getTime() <= item.end.getTime()
+    );
+
+    if (bucket === undefined) continue;
+
+    if (mode === "revenue") {
+      bucket.value += donationAmount(r);
+    } else {
+      bucket.keys.add(donorKey(r));
+    }
+  }
+
+  return result.map((bucket) => ({
+    label: bucket.label,
+    value:
+      mode === "revenue"
+        ? bucket.value
+        : bucket.keys.size,
+  }));
 }
 
 function metricNumber(value:any):number|undefined{if(value===undefined||value===null||value==="")return undefined;const direct=Number(value);if(Number.isFinite(direct))return direct;if(typeof value==="object"){for(const key of ["value","amount","total","count","data"]){const n=metricNumber(value?.[key]);if(n!==undefined)return n;}}return undefined;}
@@ -95,8 +198,33 @@ export default function RoleAnalytics(){
       setDonations(scoped);
     }}catch(e){setError(e instanceof Error?e.message:"Unable to load analytics.");setDonations([]);setCampaigns([]);}finally{setLoading(false);}})();},[role]);
 
-  const filtered=useMemo(()=>donations.filter(r=>{const d=donationDate(r);if(!d)return false;if(startDate&&d<new Date(`${startDate}T00:00:00`))return false;if(endDate&&d>new Date(`${endDate}T23:59:59`))return false;return isDateInRange(d,range);}),[donations,range,startDate,endDate]);
-  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
+const filtered = useMemo(
+  () =>
+    donations.filter((r) => {
+      const d = donationDate(r);
+      if (!d) return false;
+
+      if (range === "custom") {
+        if (
+          startDate &&
+          d < new Date(`${startDate}T00:00:00`)
+        ) {
+          return false;
+        }
+
+        if (
+          endDate &&
+          d > new Date(`${endDate}T23:59:59`)
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+
+return isDateInRange(d.toISOString(), range);    }),
+  [donations, range, startDate, endDate]
+);  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
   const revenue=useMemo(()=>bucketData(donations,range,"revenue"),[donations,range]);
   const donorTrend=useMemo(()=>bucketData(donations,range,"donors"),[donations,range]);
@@ -109,7 +237,17 @@ export default function RoleAnalytics(){
   const donorOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:2},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.16)"},xaxis:{categories:donorTrend.map(x=>x.label),tickAmount:4,labels:{hideOverlappingLabels:true,style:{colors:"#7c8798"}}},yaxis:{min:0,forceNiceScale:true,labels:{formatter:(v:number)=>String(Math.round(v)),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>`${Math.round(v)} donor${Math.round(v)===1?"":"s"}`}},colors:["#9b63ff"],fill:{type:"gradient",gradient:{opacityFrom:.2,opacityTo:.02}}};
   const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{label:"Net Donation",value:money(stats.net),bg:"bg-[#e7f7ef]",icon:"solar:wallet-money-line-duotone"},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
   return <div className="space-y-7">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">{role==="fundraiser"?"Real performance data from donations to your campaigns only.":"Performance from campaigns created by this admin account only."}</p></div><div className="flex flex-wrap gap-2"><DatePresetSelect value={range} onChange={setRange} className="bg-white dark:bg-darkgray"/><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-white px-3 py-2.5 dark:bg-darkgray"/><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-white px-3 py-2.5 dark:bg-darkgray"/></div></div>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">{role==="fundraiser"?"Real performance data from donations to your campaigns only.":"Performance from campaigns created by this admin account only."}</p></div><div className="flex flex-wrap gap-2">
+  <DatePresetSelect
+    value={range}
+    onChange={setRange}
+    startDate={startDate}
+    endDate={endDate}
+    onStartDateChange={setStartDate}
+    onEndDateChange={setEndDate}
+    className="bg-white dark:bg-darkgray"
+  />
+</div></div>
     {error&&<div className="rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
     <div className="grid grid-cols-12 gap-6">{cards.map(c=><div key={c.label} className={`col-span-12 rounded-2xl p-6 sm:col-span-6 xl:col-span-3 ${c.bg} dark:bg-darkgray`}><div className="flex items-start justify-between"><div><p className="text-base text-darklink">{c.label}</p><h3 className="mt-3 text-3xl font-medium text-dark dark:text-white">{loading?"…":c.value}</h3></div><Icon icon={c.icon} height={28} className="text-darklink"/></div></div>)}</div>
     <CardBox><h5 className="card-title">Revenue for Period</h5><div className="mt-4 min-h-[330px]">{loading?<div className="flex h-[330px] items-center justify-center text-sm text-darklink">Loading revenue…</div>:<Chart options={revenueOptions} series={[{name:"Revenue",data:revenue.map(x=>Number(x.value.toFixed(2)))}]} type="area" height={330}/>}</div></CardBox>
