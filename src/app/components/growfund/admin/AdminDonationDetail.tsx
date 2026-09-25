@@ -44,11 +44,34 @@ function badgeVariant(status: string): "lightSuccess" | "lightError" | "lightWar
   return "lightPrimary";
 }
 
+function activityTitle(activity: any) {
+  const raw = deepValue(activity, [
+    "title",
+    "activity_title",
+    "action",
+    "event",
+    "activity_type",
+    "type",
+  ]);
+
+  if (!raw) return "Donation activity";
+
+  const value = String(raw)
+    .replace(/[_-]+/g, " ")
+    .trim();
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function activityText(activity: any) {
-  return String(
-    deepValue(activity, ["description", "message", "activity", "content", "title", "action", "event"]) ??
-      "Donation activity",
-  );
+  const text = deepValue(activity, [
+    "description",
+    "message",
+    "content",
+    "activity",
+  ]);
+
+  return text ? String(text) : "";
 }
 
 function activityDate(activity: any) {
@@ -121,8 +144,14 @@ export default function AdminDonationDetail({ donationId }: Props) {
   const timeline = useMemo(() => {
     if (activities.length) return activities;
     if (!donationId) return [];
-    return [{ id: `created-${donationId}`, description: "created this donation", date: createdAt }];
-  }, [activities, donationId, createdAt]);
+return [
+  {
+    id: `created-${donationId}`,
+    title: "Created donation",
+    description: "Donation was created.",
+    date: createdAt,
+  },
+];  }, [activities, donationId, createdAt]);
 
   async function deleteDonation() {
     if (!confirm("Move this donation to trash?")) return;
@@ -209,10 +238,16 @@ export default function AdminDonationDetail({ donationId }: Props) {
         </span>
 
         <p className="font-medium">
-          {activityText(activity)}
-        </p>
+  {activityTitle(activity)}
+</p>
 
-        {activityDate(activity) && (
+{activityText(activity) && (
+  <p className="mt-1 text-sm text-darklink">
+    {activityText(activity)}
+  </p>
+)}
+
+{activityDate(activity) && (
           <p className="mt-1 text-xs text-darklink">
             {fmtDate(activityDate(activity))}
           </p>

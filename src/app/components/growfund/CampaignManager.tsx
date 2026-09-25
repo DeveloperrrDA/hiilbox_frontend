@@ -11,7 +11,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
-
+import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
+import {
+  getDateRange,
+  formatDateParam,
+    isDateInRange,
+  type DateRangeKey,
+} from "@/lib/dashboard/dateRanges";
 type Campaign = {
   [key: string]: any;
   id: number;
@@ -32,7 +38,36 @@ const statusVariants: Record<string, any> = {
   published: "lightSuccess", pending: "lightWarning", draft: "lightPrimary", funded: "lightSuccess",
   declined: "lightError", trashed: "lightError", completed: "lightSuccess", cancelled: "lightError",
 };
+function campaignStatus(row: any) {
+  return String(
+    row?.status ??
+    row?.campaign_status ??
+    row?.post_status ??
+    "unknown"
+  )
+    .trim()
+    .toLowerCase();
+}
 
+function statusMatches(row: any, wanted: string) {
+  const actual = campaignStatus(row);
+
+  if (wanted === "all") return true;
+
+  const groups: Record<string, string[]> = {
+    pending: ["pending", "review", "submitted", "awaiting_review", "inactive"],
+    published: ["published"],
+    active: ["active"],
+    funded: ["funded"],
+    completed: ["completed", "complete"],
+    draft: ["draft"],
+    declined: ["declined", "denied", "rejected"],
+    cancelled: ["cancelled", "canceled"],
+    trash: ["trash", "trashed"],
+  };
+
+  return (groups[wanted] ?? [wanted]).includes(actual);
+}
 export default function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +76,7 @@ export default function CampaignManager() {
   const [notice, setNotice] = useState("");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(1);
@@ -58,21 +94,85 @@ export default function CampaignManager() {
   const token = () => typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
 
   const load = useCallback(async () => {
-    const accessToken = token();
-    if (!accessToken) { setError("Please sign in to manage your campaigns."); setLoading(false); return; }
-    setLoading(true); setError("");
-    const params = new URLSearchParams();
-    if (filter !== "all") params.set("status", filter);
-    if (search.trim()) params.set("search", search.trim());
-    try {
-      const response = await fetch(`/api/dashboard/campaigns?${params}`, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.message || "Unable to load campaigns.");
-      setCampaigns(Array.isArray(data?.data) ? data.data : []);
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to load campaigns."); }
-    finally { setLoading(false); }
-  }, [filter, search]);
+  const accessToken = token();
 
+  if (!accessToken) {
+    setError("Please sign in to manage your campaigns.");
+    setLoading(false);
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+
+  try {
+async function fetchCampaigns(status: string): Promise<Campaign[]> {
+        const params = new URLSearchParams();
+
+      params.set("status", status);
+
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
+
+      const response = await fetch(
+        `/api/dashboard/campaigns?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Unable to load campaigns.");
+      }
+
+      return Array.isArray(data?.data) ? data.data : [];
+    }
+
+    if (filter === "all") {
+      const rows = await fetchCampaigns("all");
+      setCampaigns(rows);
+      return;
+    }
+
+    // First check the normal "all" collection.
+    const allRows = await fetchCampaigns("all");
+
+    const localMatches = allRows.filter((campaign) =>
+      statusMatches(campaign, filter)
+    );
+
+    if (localMatches.length > 0) {
+      setCampaigns(localMatches);
+      return;
+    }
+
+    // Some statuses may not be included in the backend's "all" response,
+    // so request the selected status directly as a fallback.
+    const statusRows = await fetchCampaigns(filter);
+
+    setCampaigns(
+      statusRows.filter((campaign) =>
+        statusMatches(campaign, filter)
+      )
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to load campaigns."
+    );
+
+    setCampaigns([]);
+  } finally {
+    setLoading(false);
+  }
+}, [filter, search]);
   useEffect(() => { load(); }, [load]);
 
   async function action(id: number, path: string, payload: object, confirmText?: string) {
@@ -181,15 +281,37 @@ export default function CampaignManager() {
   }
 
 
-  const filteredCampaigns = useMemo(() => campaigns.filter((c) => {
-    const raw = c?.created_at ?? c?.date_created ?? c?.start_date ?? c?.created;
-    if (!raw) return !startDate && !endDate;
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return false;
-    if (startDate && d < new Date(`${startDate}T00:00:00`)) return false;
-    if (endDate && d > new Date(`${endDate}T23:59:59`)) return false;
+  const filteredCampaigns = useMemo(() => {
+  return campaigns.filter((c) => {
+    const raw =
+      c?.created_at ??
+      c?.date_created ??
+      c?.start_date ??
+      c?.created;
+
+    const d = raw ? new Date(raw) : null;
+
+    if (
+      startDate &&
+      (!d || d < new Date(`${startDate}T00:00:00`))
+    ) {
+      return false;
+    }
+
+    if (
+      endDate &&
+      (!d || d > new Date(`${endDate}T23:59:59`))
+    ) {
+      return false;
+    }
+
+    if (!isDateInRange(raw, dateRange)) {
+      return false;
+    }
+
     return true;
-  }), [campaigns, startDate, endDate]);
+  });
+}, [campaigns, dateRange, startDate, endDate]);
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / 10));
   const visibleCampaigns = filteredCampaigns.slice((page - 1) * 10, page * 10);
   useEffect(() => {
@@ -208,8 +330,10 @@ export default function CampaignManager() {
     return () => { cancelled = true; };
   }, [page, campaigns]);
 
-  useEffect(() => setPage(1), [filter, search, startDate, endDate]);
-
+useEffect(
+  () => setPage(1),
+  [filter, search, dateRange, startDate, endDate]
+);
   const totals = useMemo(() => ({
     all: campaigns.length,
     raised: campaigns.reduce((sum, c) => sum + Number(c.raised_amount ?? c.fund_raised ?? 0), 0),
@@ -236,13 +360,102 @@ export default function CampaignManager() {
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="relative flex-1"><Icon icon="solar:magnifer-linear" className="absolute left-3 top-5 -translate-y-1/2 text-darklink" height={20}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search your campaigns" className="w-full rounded-md border border-ld bg-transparent py-2.5 pl-10 pr-3 outline-none focus:border-primary"/>{search.trim()&&campaigns.length>0&&<div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border border-ld bg-white p-1 shadow-lg dark:bg-darkgray">{campaigns.slice(0,8).map(c=>{const image=campaignImage(c);return <Link key={c.id} href={`/dashboard/campaigns/${c.id}/edit`} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-lightgray">{image?<img src={String(image)} alt="" className="h-9 w-9 rounded-md object-cover"/>:<span className="h-9 w-9 rounded-md bg-lightgray"/>}<span className="min-w-0"><span className="block truncate font-medium">{c.title||`Campaign #${c.id}`}</span><span className="text-xs text-darklink">Campaign #{c.id}</span></span></Link>})}</div>}</div>
-        <select value={filter} onChange={e=>setFilter(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5 outline-none focus:border-primary">
-          <option value="all">All statuses</option><option value="published">Published</option><option value="pending">Pending</option><option value="draft">Draft</option><option value="funded">Funded</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="declined">Declined</option><option value="trash">Trash</option>
-        </select>
-        <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5 outline-none focus:border-primary"/>
-        <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5 outline-none focus:border-primary"/>
+       <select
+  value={filter}
+  onChange={(e) => setFilter(e.target.value)}
+  className="rounded-md border border-ld bg-transparent px-3 py-2.5 outline-none focus:border-primary"
+>
+  <option value="all">All statuses</option>
+  <option value="active">Active</option>
+  <option value="published">Published</option>
+  <option value="pending">Pending</option>
+  <option value="draft">Draft</option>
+  <option value="funded">Funded</option>
+  <option value="completed">Completed</option>
+  <option value="cancelled">Cancelled</option>
+  <option value="declined">Declined</option>
+  <option value="trash">Trash</option>
+</select>
+        <DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/>
       </div>
+{(filter !== "all" ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">Active filters:</span>
 
+    {filter !== "all" && (
+      <button
+        type="button"
+        onClick={() => setFilter("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {filter} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date: {dateRange.replaceAll("_", " ")} ×
+      </button>
+    )}
+
+    {(startDate || endDate) && dateRange === "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date range: {startDate || "…"} – {endDate || "…"} ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setFilter("all");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
       {notice && <div className="mt-5 rounded-md border border-success/30 bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
       {error && <div className="mt-5 rounded-md border border-error/30 bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
       <div className="mt-4 flex justify-end">
@@ -293,8 +506,46 @@ export default function CampaignManager() {
           })}
         </TableBody></Table>
       </div>
-      <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
-    </CardBox>
+<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <p className="text-sm text-darklink">
+    Page {page} of {totalPages} · Total campaigns: {filteredCampaigns.length}
+  </p>
+
+  <div className="flex flex-wrap items-center gap-2">
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={page <= 1}
+      onClick={() => setPage((p) => Math.max(1, p - 1))}
+    >
+      Previous
+    </Button>
+
+    {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+      (pageNumber) => (
+        <Button
+          key={pageNumber}
+          size="sm"
+          variant={page === pageNumber ? "default" : "outline"}
+          onClick={() => setPage(pageNumber)}
+        >
+          {pageNumber}
+        </Button>
+      )
+    )}
+
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={page >= totalPages}
+      onClick={() =>
+        setPage((p) => Math.min(totalPages, p + 1))
+      }
+    >
+      Next
+    </Button>
+  </div>
+</div>    </CardBox>
     <Dialog open={Boolean(updatesCampaign)} onOpenChange={v=>!v&&setUpdatesCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Campaign updates</DialogTitle></DialogHeader>{updatesCampaign&&<div className="flex items-center justify-between rounded-md border border-ld p-3"><div><div className="font-medium">{updatesCampaign.title||`Campaign #${updatesCampaign.id}`}</div><div className="text-xs text-darklink">Updates linked to campaign #{updatesCampaign.id}</div></div><Button size="sm" onClick={()=>{const c=updatesCampaign;setUpdatesCampaign(null);openPostUpdate(c)}}><Icon icon="solar:add-circle-line-duotone"/> Post an update</Button></div>}<div className="max-h-[55vh] overflow-auto">{updatesLoading?<div className="py-10 text-center text-darklink">Loading updates…</div>:campaignUpdates.length===0?<div className="py-10 text-center text-darklink">No updates have been posted for this campaign.</div>:<div className="divide-y divide-border">{campaignUpdates.map((u:any,i:number)=><div key={String(u?.id??u?.post_id??i)} className="py-4"><div className="font-medium">{u?.title||u?.post_title||`Update #${u?.id??i+1}`}</div><div className="mt-1 whitespace-pre-wrap text-sm text-darklink">{u?.description||u?.content||u?.post_content||""}</div></div>)}</div>}</div></DialogContent></Dialog>
     <Dialog open={Boolean(updateCampaign)} onOpenChange={v=>!v&&setUpdateCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader><div className="space-y-4"><label className="block text-sm">Title<input value={updateTitle} onChange={e=>setUpdateTitle(e.target.value)} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Update<textarea value={updateDescription} onChange={e=>setUpdateDescription(e.target.value)} rows={6} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Image<input type="file" accept="image/*" onChange={e=>void uploadUpdateImage(e.target.files)} className="mt-1 block w-full text-sm" /></label>{updateImages.length>0&&<p className="text-xs text-success">{updateImages.length} image(s) uploaded.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setUpdateCampaign(null)}>Cancel</Button><Button onClick={()=>void submitPostUpdate()} disabled={postingUpdate||uploadingImage}>{postingUpdate?"Posting…":uploadingImage?"Uploading…":"Post update"}</Button></div></div></DialogContent></Dialog>
   </div>;

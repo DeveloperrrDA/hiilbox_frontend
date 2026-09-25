@@ -10,7 +10,7 @@ import {
 import CardBox from "@/app/components/shared/CardBox";
 import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
 import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
-
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -155,7 +155,36 @@ function fundraiserIdFromRow(row: any) {
       0
   );
 }
+function decisionDate(row: any, status: string) {
+  if (
+    status === "approved" ||
+    status === "declined" ||
+    status === "rejected"
+  ) {
+    return deepValue(row, [
+      "approved_at",
+      "declined_at",
+      "rejected_at",
+      "approval_date",
+      "decline_date",
+      "updated_at",
+    ]);
+  }
 
+  return undefined;
+}
+
+function fmtDateTime(value: any) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString();
+}
 export default function AdminWithdrawalManager() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] =
@@ -533,31 +562,58 @@ export default function AdminWithdrawalManager() {
           onChange={setDateRange}
         />
 
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) =>
-            setStartDate(
-              e.target.value
-            )
-          }
-          aria-label="Start Date"
-          className="rounded-md border border-ld bg-transparent px-3 py-2.5"
-        />
-
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) =>
-            setEndDate(
-              e.target.value
-            )
-          }
-          aria-label="End Date"
-          className="rounded-md border border-ld bg-transparent px-3 py-2.5"
-        />
+       
       </div>
+{(search ||
+  status !== "all" ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+    <span className="text-darklink">
+      Active filters:
+    </span>
 
+    {search && (
+      <Badge variant="lightPrimary">
+        Search: {search}
+      </Badge>
+    )}
+
+    {status !== "all" && (
+      <Badge variant="lightPrimary">
+        Status: {status}
+      </Badge>
+    )}
+
+    {dateRange !== "all" && (
+      <Badge variant="lightPrimary">
+        Date: {dateRange.replaceAll("_", " ")}
+      </Badge>
+    )}
+
+    {(startDate || endDate) && (
+      <Badge variant="lightPrimary">
+        Custom: {startDate || "…"} – {endDate || "…"}
+      </Badge>
+    )}
+
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        setSearch("");
+        setStatus("all");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+      }}
+    >
+      Clear filters
+    </Button>
+  </div>
+)}
       {notice && (
         <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">
           {notice}
@@ -648,6 +704,8 @@ export default function AdminWithdrawalManager() {
 
                   const st =
                     requestStatus(row);
+
+                    const statusDate = decisionDate(row, st);
 
                   const fundraiser =
                     fundraiserFromRow(
@@ -767,14 +825,32 @@ export default function AdminWithdrawalManager() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge
-                          variant={statusVariant(
-                            st
-                          )}
-                        >
-                          {st}
-                        </Badge>
-                      </TableCell>
+  <div className="flex items-center gap-2">
+    <Badge variant={statusVariant(st)}>
+      {st}
+    </Badge>
+
+    {["approved", "declined", "rejected"].includes(st) &&
+      statusDate && (
+        <button
+          type="button"
+          title={`${
+            st === "approved"
+              ? "Approved"
+              : "Declined"
+          }: ${fmtDateTime(statusDate)}`}
+          aria-label={`${
+            st === "approved"
+              ? "Approved"
+              : "Declined"
+          } on ${fmtDateTime(statusDate)}`}
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-ld text-xs font-semibold text-darklink hover:bg-lightgray"
+        >
+          i
+        </button>
+      )}
+  </div>
+</TableCell>
 
                       <TableCell>
                         {fmtDate(
@@ -836,43 +912,13 @@ export default function AdminWithdrawalManager() {
         </Table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-sm text-darklink">
-          Page {page} of{" "}
-          {totalPages} · 10 items
-          per page
-        </p>
-
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() =>
-              setPage(
-                (p) => p - 1
-              )
-            }
-          >
-            Previous
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={
-              page >= totalPages
-            }
-            onClick={() =>
-              setPage(
-                (p) => p + 1
-              )
-            }
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+     <ListPagination
+  page={page}
+  totalPages={totalPages}
+  totalRecords={visibleRows.length}
+  pageSize={10}
+  onPageChange={setPage}
+/>
     </CardBox>
   );
 }

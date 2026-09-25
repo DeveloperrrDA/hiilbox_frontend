@@ -122,8 +122,8 @@ export default function FundraiserWallet() {
         `fundraiser/wallet/info?fundraiser_id=${id}`
       );
 
-      setWallet(unwrap(data));
-    } catch (e) {
+console.log("WALLET RESPONSE:", unwrap(data));
+setWallet(unwrap(data));    } catch (e) {
       setError(
         e instanceof Error
           ? e.message
@@ -138,19 +138,19 @@ export default function FundraiserWallet() {
     load();
   }, []);
 
-  const available = useMemo(
-    () =>
-      firstNumber(wallet, [
-        "available_balance",
-        "withdrawable_balance",
-        "available",
-        "wallet_balance",
-        "balance",
-        "net_balance",
-        "current_balance",
-      ]),
-    [wallet]
-  );
+ const walletBalance = useMemo(
+  () =>
+    firstNumber(wallet, [
+      "wallet_balance",
+      "net_balance",
+      "current_balance",
+      "balance",
+      "available_balance",
+      "withdrawable_balance",
+      "available",
+    ]),
+  [wallet]
+);
 
   const pending = useMemo(
     () =>
@@ -165,6 +165,7 @@ export default function FundraiserWallet() {
   const withdrawn = useMemo(
     () =>
       firstNumber(wallet, [
+        "total_withdrawal_amount",
         "withdrawn_amount",
         "total_withdrawn",
         "total_withdrawals",
@@ -173,27 +174,31 @@ export default function FundraiserWallet() {
     [wallet]
   );
 
-  const netBalance = useMemo(() => {
-    const explicit = deepValue(wallet, [
-      "net_balance",
-      "wallet_balance",
-      "current_balance",
-      "balance",
-    ]);
+const netBalance = useMemo(() => {
+  const explicit = deepValue(wallet, [
+    "net_balance",
+    "wallet_balance",
+    "current_balance",
+    "balance",
+  ]);
 
-    if (
-      explicit !== undefined &&
-      explicit !== null &&
-      explicit !== ""
-    ) {
-      return firstNumber(
-        { value: explicit },
-        ["value"]
-      );
-    }
+  if (
+    explicit !== undefined &&
+    explicit !== null &&
+    explicit !== ""
+  ) {
+    return firstNumber(
+      { value: explicit },
+      ["value"]
+    );
+  }
 
-    return available;
-  }, [wallet, available]);
+  return walletBalance;
+}, [wallet, walletBalance]);
+const available = useMemo(
+  () => Math.max(0, netBalance - pending),
+  [netBalance, pending]
+);
 
   async function requestWithdrawal(
     e: React.FormEvent

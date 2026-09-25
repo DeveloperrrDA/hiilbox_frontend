@@ -9,7 +9,12 @@ import {
 
 import CardBox from "@/app/components/shared/CardBox";
 import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
-
+import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
+import {
+  isDateInRange,
+  type DateRangeKey,
+} from "@/lib/dashboard/dateRanges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,16 +41,42 @@ function pick(r: any, ...keys: string[]) {
 
   return undefined;
 }
+function decisionDate(r: any, status: string) {
+  const normalizedStatus = status.toLowerCase();
 
+  if (
+    normalizedStatus === "approved" ||
+    normalizedStatus === "declined" ||
+    normalizedStatus === "rejected"
+  ) {
+    return pick(r, "updated_at");
+  }
+
+  return undefined;
+}
+function fmtDateTime(value: any) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString();
+}
 export default function FundraiserWithdrawals() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] =
+  useState<DateRangeKey>("all");
 
-  const [page, setPage] = useState(1);
+const [startDate, setStartDate] = useState("");
+const [endDate, setEndDate] = useState("");
+
+const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     const id = currentUserId();
@@ -83,8 +114,9 @@ export default function FundraiserWithdrawals() {
         `fundraiser/withdrawal/requests/paginated?${q.toString()}`
       );
 
-      setRows(dashboardRows(data));
-    } catch (e) {
+const withdrawalRows = dashboardRows(data);
+
+setRows(dashboardRows(data));   } catch (e) {
       setRows([]);
 
       setError(
@@ -103,21 +135,54 @@ export default function FundraiserWithdrawals() {
 
   useEffect(() => {
     setPage(1);
-  }, [startDate, endDate]);
+}, [dateRange, startDate, endDate]);
+  const filteredRows = useMemo(() => {
+  return rows.filter((r) => {
+    const raw = pick(
+      r,
+      "created_at",
+      "date_created",
+      "created",
+      "date"
+    );
 
-  const pages = Math.max(
-    1,
-    Math.ceil(rows.length / 10)
-  );
+    const d = raw ? new Date(raw) : null;
 
-  const visible = useMemo(
-    () =>
-      rows.slice(
-        (page - 1) * 10,
-        page * 10
-      ),
-    [rows, page]
-  );
+    if (
+      startDate &&
+      (!d || d < new Date(`${startDate}T00:00:00`))
+    ) {
+      return false;
+    }
+
+    if (
+      endDate &&
+      (!d || d > new Date(`${endDate}T23:59:59`))
+    ) {
+      return false;
+    }
+
+    if (!isDateInRange(raw, dateRange)) {
+      return false;
+    }
+
+    return true;
+  });
+}, [rows, dateRange, startDate, endDate]);
+
+const pages = Math.max(
+  1,
+  Math.ceil(filteredRows.length / 10)
+);
+
+const visible = useMemo(
+  () =>
+    filteredRows.slice(
+      (page - 1) * 10,
+      page * 10
+    ),
+  [filteredRows, page]
+);
 
   return (
     <CardBox className="w-full !max-w-none">
@@ -135,25 +200,14 @@ export default function FundraiserWithdrawals() {
         </div>
 
         <div className="flex gap-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) =>
-              setStartDate(e.target.value)
-            }
-            aria-label="Start Date"
-            className="rounded-md border border-ld bg-transparent px-3 py-2.5"
-          />
-
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) =>
-              setEndDate(e.target.value)
-            }
-            aria-label="End Date"
-            className="rounded-md border border-ld bg-transparent px-3 py-2.5"
-          />
+         <DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/>
         </div>
       </div>
 
@@ -209,7 +263,7 @@ export default function FundraiserWithdrawals() {
                     "request_status"
                   ) ?? "pending"
                 );
-
+                 const statusDate = decisionDate(r, status);
                 const raw = pick(
                   r,
                   "created_at",
@@ -266,23 +320,45 @@ export default function FundraiserWithdrawals() {
                     <TableCell>
                       {String(method ?? "—")}
                     </TableCell>
+<TableCell>
+  <div className="flex items-center gap-2">
+    <Badge
+      variant={
+        status.toLowerCase() === "approved"
+          ? "lightSuccess"
+          : ["declined", "rejected"].includes(
+                status.toLowerCase()
+              )
+            ? "lightError"
+            : "lightWarning"
+      }
+    >
+      {status}
+    </Badge>
 
-                    <TableCell>
-                      <Badge
-                        variant={
-                          status.toLowerCase() ===
-                          "approved"
-                            ? "lightSuccess"
-                            : status.toLowerCase() ===
-                                "declined"
-                              ? "lightError"
-                              : "lightWarning"
-                        }
-                      >
-                        {status}
-                      </Badge>
-                    </TableCell>
-
+    {["approved", "declined", "rejected"].includes(
+      status.toLowerCase()
+    ) &&
+      statusDate && (
+        <button
+          type="button"
+          title={`${
+            status.toLowerCase() === "approved"
+              ? "Approved"
+              : "Declined"
+          }: ${fmtDateTime(statusDate)}`}
+          aria-label={`${
+            status.toLowerCase() === "approved"
+              ? "Approved"
+              : "Declined"
+          } on ${fmtDateTime(statusDate)}`}
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-ld text-xs font-semibold text-darklink hover:bg-lightgray"
+        >
+          i
+        </button>
+      )}
+  </div>
+</TableCell>
                     <TableCell>
                       {d &&
                       !Number.isNaN(d.getTime())
@@ -311,36 +387,12 @@ export default function FundraiserWithdrawals() {
         </Table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-sm text-darklink">
-          Page {page} of {pages} · 10 items per
-          page
-        </p>
-
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() =>
-              setPage((p) => p - 1)
-            }
-          >
-            Previous
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page >= pages}
-            onClick={() =>
-              setPage((p) => p + 1)
-            }
-          >
-            Next
-          </Button>
-        </div>
-      </div>
-    </CardBox>
+     <ListPagination
+  page={page}
+  totalPages={pages}
+  totalRecords={filteredRows.length}
+  pageSize={10}
+  onPageChange={setPage}
+/>   </CardBox>
   );
 }
