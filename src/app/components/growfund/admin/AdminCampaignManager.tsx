@@ -23,17 +23,17 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
-  published: "lightSuccess",
+  published: "lightPrimary",
   approved: "lightSuccess",
   pending: "lightWarning",
-  draft: "lightPrimary",
+  draft: "lightGray",
   declined: "lightError",
   denied: "lightError",
   rejected: "lightError",
   trashed: "lightError",
   trash: "lightError",
   funded: "lightSuccess",
-  completed: "lightSuccess",
+  completed: "lightPrimary",
   cancelled: "lightError",
 };
 
@@ -535,6 +535,7 @@ setNotice(data?.message || msg);
 
   const visibleRows = useMemo(() => rows.filter((r) => { const raw=createdDate(r); const d=raw?new Date(raw):null; if(startDate&&(!d||d<new Date(`${startDate}T00:00:00`)))return false; if(endDate&&(!d||d>new Date(`${endDate}T23:59:59`)))return false; return isDateInRange(raw,dateRange); }), [rows, dateRange, startDate, endDate]);
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const totalCampaigns = visibleRows.length;
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {
     if (!pageRows.length) return;
@@ -624,7 +625,69 @@ setNotice(data?.message || msg);
           </TableBody>
         </Table>
       </div>
-      <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-sm text-darklink">
+          Page {page} of {totalPages} · 10 items per page | {totalCampaigns} Campaigns
+        </p>
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            disabled={page <= 1} 
+            onClick={() => setPage((p) => p - 1)}
+          >
+            Previous
+          </Button>
+
+          {/* DYNAMIC NUMBERED PAGES WITH ELLIPSIS */}
+          {(() => {
+            let pages = [];
+            if (totalPages <= 5) {
+              pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+            } else {
+              if (page <= 3) {
+                pages = [1, 2, 3, 4, '...', totalPages];
+              } else if (page >= totalPages - 2) {
+                pages = [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+              } else {
+                pages = [1, '...', page - 1, page, page + 1, '...', totalPages];
+              }
+            }
+
+            return pages.map((p, index) => {
+              if (p === '...') {
+                return (
+                  <span 
+                    key={`ellipsis-${index}`} 
+                    className="flex items-center justify-center px-2 text-sm text-gray-500"
+                  >
+                    ...
+                  </span>
+                );
+              }
+              return (
+                <Button
+                  key={p}
+                  size="sm"
+                  variant={page === p ? "default" : "outline"} 
+                  onClick={() => setPage(p as number)}
+                >
+                  {p}
+                </Button>
+              );
+            });
+          })()}
+
+          <Button 
+            size="sm" 
+            variant="outline" 
+            disabled={page >= totalPages} 
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
 
       <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
         <DialogContent className="max-w-2xl">

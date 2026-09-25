@@ -141,7 +141,8 @@ export default function AdminDonationManager(){
  const [createOpen,setCreateOpen]=useState(false);const [createForm,setCreateForm]=useState({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});
  const [visible,setVisible]=useState<Record<ColumnKey,boolean>>(()=>Object.fromEntries(Object.keys(labels).map(k=>[k,true])) as Record<ColumnKey,boolean>);
  const visibleCount=useMemo(()=>Object.values(visible).filter(Boolean).length+2,[visible]);
- const load=useCallback(async()=>{setLoading(true);setError("");try{const q=new URLSearchParams({page:String(page),per_page:"10",orderby:"id",order:"desc"});if(status!=="all")q.set("status",status);if(search.trim())q.set("search",search.trim());if(campaignId)q.set("campaign_id",campaignId);if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);const data=await adminApi(`donations/paginated?${q}`);const list=rowsFrom(data);setRows(list);setTotalPages(totalPagesFrom(data,page,list.length));}catch(e){setError(e instanceof Error?e.message:"Unable to load donations.");setRows([]);}finally{setLoading(false);}},[status,search,campaignId,startDate,endDate,page]);
+ const [totalDonations, setTotalDonations] = useState(0);
+ const load=useCallback(async()=>{setLoading(true);setError("");try{const q=new URLSearchParams({page:String(page),per_page:"10",orderby:"id",order:"desc"});if(status!=="all")q.set("status",status);if(search.trim())q.set("search",search.trim());if(campaignId)q.set("campaign_id",campaignId);if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);const data=await adminApi(`donations/paginated?${q}`);const list=rowsFrom(data);setRows(list);setTotalPages(totalPagesFrom(data,page,list.length));setTotalDonations( data?.total ?? data?.data?.total ?? data?.pagination?.total ?? data?.data?.pagination?.total ?? list.length );}catch(e){setError(e instanceof Error?e.message:"Unable to load donations.");setRows([]);}finally{setLoading(false);}},[status,search,campaignId,startDate,endDate,page]);
  useEffect(()=>void load(),[load]);useEffect(()=>setPage(1),[status,search,campaignId,startDate,endDate]);
  async function act(id:number,path:string,payload:any,msg:string){setBusy(id);setError("");setNotice("");try{const d=await adminApi(path,{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||msg);await load();}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(null);}}
  async function trash(r:any){const id=idOf(r);if(confirm("Move this donation to trash?"))await act(id,`donation/${id}/delete`,{is_permanent:false},"Donation moved to trash.");}
@@ -153,9 +154,71 @@ export default function AdminDonationManager(){
   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h5 className="card-title">Donations</h5><p className="mt-1 text-sm text-darklink">Manage donation records, statuses and trash.</p></div><div className="flex flex-wrap gap-2">{selected.length>0&&<><Button variant="outline" onClick={()=>bulk("restore")}><Icon icon="solar:restart-line-duotone"/> Restore selected</Button><Button variant="outline" onClick={()=>bulk("trash")}>Trash selected</Button></>}<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline"><Icon icon="solar:settings-minimalistic-line-duotone"/> Show/Hide Columns</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuLabel>Columns</DropdownMenuLabel><DropdownMenuSeparator/>{(Object.keys(labels) as ColumnKey[]).map(k=><DropdownMenuCheckboxItem key={k} checked={visible[k]} onCheckedChange={v=>setVisible(x=>({...x,[k]:Boolean(v)}))}>{labels[k]}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu><Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone"/> Empty trash</Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button><Icon icon="solar:add-circle-line-duotone"/> New Donation</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>New Donation</DialogTitle></DialogHeader><form onSubmit={createDonation} className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Campaign ID<input required type="number" value={createForm.campaign_id} onChange={e=>setCreateForm({...createForm,campaign_id:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Amount<input required min="0" step="0.01" type="number" value={createForm.amount} onChange={e=>setCreateForm({...createForm,amount:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Donor email<input type="email" value={createForm.email} onChange={e=>setCreateForm({...createForm,email:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Payment method<input value={createForm.payment_method} onChange={e=>setCreateForm({...createForm,payment_method:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Status<select value={createForm.status} onChange={e=>setCreateForm({...createForm,status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option></select></label><label className="text-sm">Payment status<select value={createForm.payment_status} onChange={e=>setCreateForm({...createForm,payment_status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label className="sm:col-span-2 text-sm">Notes<textarea value={createForm.notes} onChange={e=>setCreateForm({...createForm,notes:e.target.value})} rows={3} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="sm:col-span-2 flex items-center gap-2 text-sm"><Checkbox checked={createForm.is_anonymous} onCheckedChange={v=>setCreateForm({...createForm,is_anonymous:Boolean(v)})}/> Anonymous donation</label><div className="sm:col-span-2 flex justify-end"><Button type="submit">Create donation</Button></div></form></DialogContent></Dialog></div></div>
   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5"><option value="all">All Statuses</option><option value="completed">Completed</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="declined">Declined</option><option value="trash">Trash</option></select><input value={campaignId} onChange={e=>setCampaignId(e.target.value)} placeholder="Campaign ID" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} aria-label="Start Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} aria-label="End Date" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/></div>
   {notice&&<div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error&&<div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
-  <div className="mt-4 w-full overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll}/></TableHead>{visible.donationId&&<TableHead>Donation ID</TableHead>}{visible.amount&&<TableHead>Amount</TableHead>}{visible.campaign&&<TableHead>Campaign</TableHead>}{visible.donor&&<TableHead>Donor Name</TableHead>}{visible.donorType&&<TableHead>Donor Type</TableHead>}{visible.date&&<TableHead>Date</TableHead>}{visible.status&&<TableHead>Status</TableHead>}{visible.net&&<TableHead>Net Amount</TableHead>}{visible.gateway&&<TableHead>Gateway Fee</TableHead>}{visible.platform&&<TableHead>Platform Fee</TableHead>}{visible.tip&&<TableHead>Tip</TableHead>}<TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+  <div className="mt-4 w-full overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll}/></TableHead>{visible.donationId&&<TableHead>ID</TableHead>}{visible.amount&&<TableHead>Amount</TableHead>}{visible.campaign&&<TableHead>Campaign</TableHead>}{visible.donor&&<TableHead>Donor Name</TableHead>}{visible.donorType&&<TableHead>Donor Type</TableHead>}{visible.date&&<TableHead>Date</TableHead>}{visible.status&&<TableHead>Status</TableHead>}{visible.net&&<TableHead>Net Amount</TableHead>}{visible.gateway&&<TableHead>Gateway Fee</TableHead>}{visible.platform&&<TableHead>Platform Fee</TableHead>}{visible.tip&&<TableHead>Tip</TableHead>}<TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
    {loading?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center">Loading donations…</TableCell></TableRow>:rows.length===0?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center text-darklink">No donations found.</TableCell></TableRow>:rows.map(r=>{const id=idOf(r),st=statusOf(r),currency=r?.currency_symbol||r?.currency||"$",cid=campaignIdOf(r);return <TableRow key={id}><TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={()=>toggle(id)}/></TableCell>{visible.donationId&&<TableCell className="font-medium">{id?`#${id}`:"—"}</TableCell>}{visible.amount&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="font-medium text-success hover:underline">{money(r?.amount,currency)}</button></TableCell>}{visible.campaign&&<TableCell className="max-w-80"><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex max-w-full items-center gap-3 text-left hover:text-primary">{campaignImage(r)?<img src={campaignImage(r)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover"/>:<span className="h-10 w-10 shrink-0 rounded-md bg-lightgray"/>}<span className="truncate">{campaignName(r)}</span></button></TableCell>}{visible.donor&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex items-center gap-2 hover:text-primary"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><span>{donorFirstName(r)}</span></button></TableCell>}{visible.donorType&&<TableCell><Badge variant="lightPrimary">{donorType(r)}</Badge></TableCell>}{visible.date&&<TableCell>{fmtDate(dateOf(r))}</TableCell>}{visible.status&&<TableCell><Badge variant={["completed","approved","paid"].includes(st)?"lightSuccess":isTrashedStatus(st)||["declined","failed"].includes(st)?"lightError":"lightWarning"}>{st}</Badge></TableCell>}{visible.net&&<TableCell className="font-medium text-success">{money(netAmount(r),currency)}</TableCell>}{visible.gateway&&<TableCell>{money(gatewayFee(r),currency)}</TableCell>}{visible.platform&&<TableCell>{money(platformFee(r),currency)}</TableCell>}{visible.tip&&<TableCell>{money(tipAmount(r),currency)}</TableCell>}<TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy===id}><Icon icon="solar:menu-dots-bold"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>router.push(`/dashboard/donations/${id}`)}><Icon icon="solar:eye-line-duotone"/> View donation</DropdownMenuItem><DropdownMenuItem className="text-error" disabled={isTrashedStatus(st)} onClick={()=>trash(r)}><Icon icon="solar:trash-bin-trash-line-duotone"/> Move to trash</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>;})}
   </TableBody></Table></div>
-  <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page}{totalPages>page?` of ${totalPages}`:""} · 10 items per page</p><div className="flex gap-2"><Button variant="outline" size="sm" disabled={page<=1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</Button><Button variant="outline" size="sm" disabled={loading||rows.length<10||page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
+  <div className="mt-4 flex items-center justify-between">
+    <p className="text-sm text-darklink">
+      Page {page}{totalPages > page ? ` of ${totalPages}` : ""} · 10 items per page | {totalDonations} Donations
+    </p>
+    <div className="flex gap-2">
+      <Button 
+        variant="outline" 
+        size="sm" 
+        disabled={page <= 1 || loading} 
+        onClick={() => setPage(p => Math.max(1, p - 1))}
+      >
+        Previous
+      </Button>
+
+      {/* DYNAMIC NUMBERED PAGES WITH ELLIPSIS */}
+      {(() => {
+        let pages = [];
+        if (totalPages <= 5) {
+          pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+        } else {
+          if (page <= 3) {
+            pages = [1, 2, 3, 4, '...', totalPages];
+          } else if (page >= totalPages - 2) {
+            pages = [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+          } else {
+            pages = [1, '...', page - 1, page, page + 1, '...', totalPages];
+          }
+        }
+
+        return pages.map((p, index) => {
+          if (p === '...') {
+            return (
+              <span 
+                key={`ellipsis-${index}`} 
+                className="flex items-center justify-center px-2 text-sm text-gray-500"
+              >
+                ...
+              </span>
+            );
+          }
+          return (
+            <Button
+              key={p}
+              size="sm"
+              variant={page === p ? "default" : "outline"} 
+              onClick={() => setPage(p as number)}
+            >
+              {p}
+            </Button>
+          );
+        });
+      })()}
+
+      <Button 
+        variant="outline" 
+        size="sm" 
+        disabled={loading || rows.length < 10 || page >= totalPages} 
+        onClick={() => setPage(p => p + 1)}
+      >
+        Next
+      </Button>
+    </div>
+  </div>
  </CardBox>;
 }

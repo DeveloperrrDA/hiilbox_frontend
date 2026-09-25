@@ -13,6 +13,7 @@ import { Icon } from "@iconify/react";
 import { adminApi, dataFrom, fmtDate, idOf, money, nameOf, rowsFrom } from "./adminApi";
 import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
 import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
+import { useRouter } from "next/navigation";
 
 const blank = { first_name: "", last_name: "", email: "", username: "", password: "", phone: "" };
 function donationCount(r: any) { return Number(r?.number_of_contributions ?? r?.donations_count ?? r?.donation_count ?? r?.total_donations ?? r?.donations?.length ?? 0); }
@@ -22,6 +23,7 @@ function createdDate(r: any) { return r?.joined_at ?? r?.date_created ?? r?.crea
 function isTrashedStatus(status: string) { return status === "trash" || status === "trashed"; }
 
 export default function AdminDonorManager() {
+  const router=useRouter();
   const [rows, setRows] = useState<any[]>([]), [loading, setLoading] = useState(true), [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [search, setSearch] = useState(""), [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
@@ -77,6 +79,7 @@ const [open, setOpen] = useState(false),
 
   const visibleRows = useMemo(() => rows.filter((r:any)=>{const st=String(r.status||r.user_status||"active").toLowerCase(),raw=createdDate(r),d=raw?new Date(raw):null;if(startDate&&(!d||d<new Date(`${startDate}T00:00:00`)))return false;if(endDate&&(!d||d>new Date(`${endDate}T23:59:59`)))return false;return (status==="all"||st===status)&&isDateInRange(raw,dateRange);}), [rows,status,dateRange,startDate,endDate]);
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const totalDonors = visibleRows.length;
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => setPage(1), [status,dateRange,search,startDate,endDate]);
 
@@ -90,10 +93,72 @@ const [open, setOpen] = useState(false),
     <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-donors-table" columns={["Donor Details", "Donations", "Total Given", "Latest Donation", "Date Created", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-donors-table"><TableHeader><TableRow><TableHead>Donor Details</TableHead><TableHead>Donations</TableHead><TableHead>Total Given</TableHead><TableHead>Latest Donation</TableHead><TableHead>Date Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
       {loading ? <TableRow><TableCell colSpan={6} className="py-10 text-center">Loading donors…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No donors found.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = String(r.status || r.user_status || "active").toLowerCase(); const latest = latestDonation(r); return <TableRow key={id}>
         <TableCell><div className="flex items-start gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><div><Link href={`/dashboard/donors/${id}`} className="font-medium hover:text-primary">{String(r?.first_name || nameOf(r) || `Donor #${id}`).trim().split(/\s+/)[0]}</Link><div className="text-xs text-darklink">{r.email || r.user_email || "—"}{r.phone ? ` · ${r.phone}` : ""}</div></div></div></TableCell><TableCell>{donationCount(r)}</TableCell><TableCell>{money(totalGiven(r), r.currency || "$ ")}</TableCell><TableCell>{latest && typeof latest === "object" ? `${latest.amount != null ? `${money(latest.amount, latest.currency || r.currency || "$ ")} · ` : ""}${fmtDate(latest.date || latest.created_at)}` : latest != null ? money(latest, r.currency || "$ ") : "—"}</TableCell><TableCell>{fmtDate(createdDate(r))}</TableCell>
-        <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
+        <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuItem onClick={()=>router.push(`/dashboard/donors/${id}`)}><Icon icon="solar:eye-line-duotone"/> View donor</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
       </TableRow>; })}
     </TableBody></Table></div>
-    <div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {totalPages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
+    <div className="mt-4 flex items-center justify-between">
+      <p className="text-sm text-darklink">
+        Page {page} of {totalPages} · 10 items per page | {totalDonors} Donors
+      </p>
+      <div className="flex gap-2">
+        <Button 
+          size="sm" 
+          variant="outline" 
+          disabled={page <= 1} 
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+
+        {/* DYNAMIC NUMBERED PAGES WITH ELLIPSIS */}
+        {(() => {
+          let pages = [];
+          if (totalPages <= 5) {
+            pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+          } else {
+            if (page <= 3) {
+              pages = [1, 2, 3, 4, '...', totalPages];
+            } else if (page >= totalPages - 2) {
+              pages = [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+            } else {
+              pages = [1, '...', page - 1, page, page + 1, '...', totalPages];
+            }
+          }
+
+          return pages.map((p, index) => {
+            if (p === '...') {
+              return (
+                <span 
+                  key={`ellipsis-${index}`} 
+                  className="flex items-center justify-center px-2 text-sm text-gray-500"
+                >
+                  ...
+                </span>
+              );
+            }
+            return (
+              <Button
+                key={p}
+                size="sm"
+                variant={page === p ? "default" : "outline"} 
+                onClick={() => setPage(p as number)}
+              >
+                {p}
+              </Button>
+            );
+          });
+        })()}
+
+        <Button 
+          size="sm" 
+          variant="outline" 
+          disabled={page >= totalPages} 
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
 <Dialog open={editOpen} onOpenChange={setEditOpen}>
   <DialogContent>
     <DialogHeader>
