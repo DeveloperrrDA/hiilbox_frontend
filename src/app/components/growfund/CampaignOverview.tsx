@@ -117,6 +117,8 @@ export default function CampaignOverview({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeKey>("all");
+  const [startDate, setStartDate] = useState("");
+const [endDate, setEndDate] = useState("");
   const [paidDonationCount, setPaidDonationCount] = useState<number | null>(null);
   const [donationRows, setDonationRows] = useState<any[]>([]);
   const load = useCallback(async () => {
@@ -129,16 +131,31 @@ export default function CampaignOverview({ id }: { id: string }) {
     setLoading(true);
     setError("");
     try {
-     const range = dateRangeParams(dateRange);
+   const range =
+  dateRange === "custom"
+    ? {
+        start_date: startDate,
+        end_date: endDate,
+      }
+    : dateRangeParams(dateRange);
 
 const qs = new URLSearchParams();
+if (dateRange === "all") {
+  const today = new Date();
+  const oneYearAgo = new Date(today);
 
-if (range.start_date) {
-  qs.set("start_date", range.start_date);
-}
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
 
-if (range.end_date) {
-  qs.set("end_date", range.end_date);
+  qs.set("start_date", oneYearAgo.toISOString().slice(0, 10));
+  qs.set("end_date", today.toISOString().slice(0, 10));
+} else {
+  if (range.start_date) {
+    qs.set("start_date", range.start_date);
+  }
+
+  if (range.end_date) {
+    qs.set("end_date", range.end_date);
+  }
 }
 
 const headers = { Authorization: `Bearer ${token}` };
@@ -196,15 +213,22 @@ setCampaign(unwrapPayload(campaignJson, "campaign"));
     } finally {
       setLoading(false);
     }
-  }, [id, dateRange]);
-
+}, [id, dateRange, startDate, endDate]);
   useEffect(() => {
-    if (sessionStorage.getItem("growfund_campaign_updated") === id) {
-      setUpdatedNotice(true);
-      sessionStorage.removeItem("growfund_campaign_updated");
-    }
-    void load();
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (sessionStorage.getItem("growfund_campaign_updated") === id) {
+    setUpdatedNotice(true);
+    sessionStorage.removeItem("growfund_campaign_updated");
+  }
+}, [id]);
+
+useEffect(() => {
+  // For custom dates, wait until both start and end are selected.
+  if (dateRange === "custom" && (!startDate || !endDate)) {
+    return;
+  }
+
+  void load();
+}, [load, dateRange, startDate, endDate]);// eslint-disable-line react-hooks/exhaustive-deps
 
   const currency = textFrom(data, ["currency", "currency_code"]) || textFrom(campaign, ["currency", "currency_code"]) || "USD";
   const metrics = data?.metrics ?? {};
@@ -474,8 +498,14 @@ const revenueChartSeries = useMemo(
           <p className="mt-1 text-sm text-darklink">GrowFund campaign overview{rangeStart || rangeEnd ? ` · ${rangeStart || "…"} to ${rangeEnd || "…"}` : " · defaults to GrowFund's last 30 days"}.</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <DatePresetSelect value={dateRange} onChange={setDateRange} />
-          <Button onClick={() => void load()} disabled={loading}><Icon icon="solar:filter-line-duotone" /> Apply</Button>
+<DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/> 
           <Button variant="outline" asChild><Link href={`/dashboard/campaigns/${id}/edit`}><Icon icon="solar:pen-2-line-duotone" /> Edit</Link></Button>
         </div>
       </div>

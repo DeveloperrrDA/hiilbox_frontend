@@ -226,6 +226,47 @@ return isDateInRange(d.toISOString(), range);    }),
   [donations, range, startDate, endDate]
 );  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
+  const revenueBreakdown = useMemo(() => {
+  const grouped = new Map<
+    string,
+    {
+      date: string;
+      donors: Set<string>;
+      totalDonation: number;
+      netDonation: number;
+    }
+  >();
+
+  for (const donation of successful) {
+    const date = donationDate(donation);
+
+    if (!date) continue;
+
+    const key = dayKey(date);
+
+    const current = grouped.get(key) ?? {
+      date: key,
+      donors: new Set<string>(),
+      totalDonation: 0,
+      netDonation: 0,
+    };
+
+    current.donors.add(donorKey(donation));
+    current.totalDonation += donationAmount(donation);
+    current.netDonation += donationNet(donation);
+
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((row) => ({
+      date: row.date,
+      donors: row.donors.size,
+      totalDonation: row.totalDonation,
+      netDonation: row.netDonation,
+    }));
+}, [successful]);
   const revenue=useMemo(()=>bucketData(donations,range,"revenue"),[donations,range]);
   const donorTrend=useMemo(()=>bucketData(donations,range,"donors"),[donations,range]);
   const topCampaigns=useMemo(()=>{const map=new Map<number,{id:number,title:string,total:number,count:number,donors:Set<string>,goal:number}>();for(const c of campaigns){const id=Number(c?.id||0);if(id)map.set(id,{id,title:campaignName(c),total:0,count:0,donors:new Set(),goal:campaignGoal(c)});}for(const r of successful){const id=campaignId(r);if(!id)continue;const x=map.get(id)||{id,title:campaignTitle(r)||`Campaign #${id}`,total:0,count:0,donors:new Set<string>(),goal:0};x.total+=donationAmount(r);x.count++;x.donors.add(donorKey(r));map.set(id,x);}return [...map.values()].sort((a,b)=>b.total-a.total).slice(0,5);},[campaigns,successful]);
@@ -255,5 +296,85 @@ return isDateInRange(d.toISOString(), range);    }),
       <CardBox className="col-span-12 lg:col-span-4"><h5 className="card-title">Donor Over Time</h5><div className="mt-4 min-h-[300px]">{loading?<div className="flex h-[300px] items-center justify-center text-sm text-darklink">Loading donors…</div>:<Chart options={donorOptions} series={[{name:"Donors",data:donorTrend.map(x=>x.value)}]} type="area" height={300}/>}</div></CardBox></div>
     <div className="grid grid-cols-12 gap-7"><CardBox className="col-span-12 lg:col-span-6"><h5 className="card-title">Top Donors</h5><div className="mt-5 divide-y divide-ld">{topDonors.length?topDonors.map(d=><div key={d.key} className="flex items-center justify-between gap-4 py-4 first:pt-0"><div className="min-w-0"><p className="truncate font-medium text-dark dark:text-white">{d.name}</p><p className="mt-1 truncate text-sm text-darklink">{d.count} donation{d.count===1?"":"s"}{d.email?` · ${d.email}`:""}</p></div><span className="rounded-md bg-lightprimary px-3 py-1.5 text-sm font-semibold text-primary">{money(d.total)}</span></div>):<p className="py-10 text-center text-sm text-darklink">No donors in this period.</p>}</div></CardBox>
       <CardBox className="col-span-12 lg:col-span-6"><h5 className="card-title">Recent Donations</h5><div className="mt-5 divide-y divide-ld">{recent.length?recent.map(r=><div key={donationId(r)} className="flex items-start justify-between gap-4 py-4 first:pt-0"><div className="min-w-0"><div className="flex items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><p className="truncate font-medium text-dark dark:text-white">{donorFirstName(r)}</p></div><p className="mt-1 truncate text-sm text-darklink">{campaignTitle(r)||campaignName(campaigns.find(c=>Number(c.id)===campaignId(r))||{id:campaignId(r)})} · {formatDate(donationDate(r))}</p></div><div className="text-right"><span className="rounded-md bg-lightsuccess px-2.5 py-1 text-sm font-semibold text-success">{money(donationAmount(r))}</span>{donationStatus(r)&&<p className="mt-2 text-xs capitalize text-darklink">{donationStatus(r)}</p>}</div></div>):<p className="py-10 text-center text-sm text-darklink">No recent donations in this period.</p>}</div></CardBox></div>
+  <CardBox>
+  <div className="flex items-center gap-2">
+    <h5 className="card-title">Revenue Breakdown</h5>
+    <Icon
+      icon="solar:info-circle-line-duotone"
+      height={18}
+      className="text-darklink"
+    />
+  </div>
+
+  <div className="mt-6 overflow-x-auto">
+    <table className="w-full min-w-[800px] text-left">
+      <thead>
+        <tr className="border-b border-ld">
+          <th className="px-3 py-4 font-medium text-darklink">
+            Date
+          </th>
+          <th className="px-3 py-4 font-medium text-darklink">
+            Donors
+          </th>
+          <th className="px-3 py-4 font-medium text-darklink">
+            Total Donation
+          </th>
+          <th className="px-3 py-4 font-medium text-darklink">
+            Net Donation
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {loading ? (
+          <tr>
+            <td
+              colSpan={4}
+              className="px-3 py-8 text-center text-darklink"
+            >
+              Loading revenue breakdown...
+            </td>
+          </tr>
+        ) : revenueBreakdown.length === 0 ? (
+          <tr>
+            <td
+              colSpan={4}
+              className="px-3 py-8 text-center text-darklink"
+            >
+              No revenue data available for this period.
+            </td>
+          </tr>
+        ) : (
+          revenueBreakdown.map((row, index) => (
+            <tr
+              key={`${row.date}-${index}`}
+              className={
+                index % 2 === 1
+                  ? "bg-lightgray dark:bg-darkgray"
+                  : ""
+              }
+            >
+              <td className="px-3 py-5">
+                {row.date}
+              </td>
+
+              <td className="px-3 py-5">
+                {row.donors.toLocaleString()}
+              </td>
+
+              <td className="px-3 py-5">
+                {money(row.totalDonation)}
+              </td>
+
+              <td className="px-3 py-5">
+                {money(row.netDonation)}
+              </td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+</CardBox>
   </div>;
 }

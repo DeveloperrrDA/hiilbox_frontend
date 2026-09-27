@@ -69,12 +69,19 @@ const SidebarContent: MenuItem[] = [
             id: uniqueId(),
             url: "/dashboard/donors",
           },
+
+          {
+  name: "Users",
+  icon: "solar:users-group-rounded-line-duotone",
+  url: "/dashboard/users",
+},
           {
             name: "Fundraisers",
             icon: "solar:user-heart-rounded-line-duotone",
             id: uniqueId(),
             url: "/dashboard/fundraisers",
           },
+          
           {
   name: "KYC",
   icon: "solar:shield-check-line-duotone",

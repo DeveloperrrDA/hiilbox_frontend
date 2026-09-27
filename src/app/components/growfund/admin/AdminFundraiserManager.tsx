@@ -160,7 +160,21 @@ if (status === "all") {
   }, [status, search]);
 
   useEffect(() => void load(), [load]);
+useEffect(() => {
+  async function testUsersApi() {
+    try {
+      const result = await adminApi(
+        "users/paginated?page=1&per_page=10&orderby=id&order=desc"
+      );
 
+      console.log("ADMIN USERS RESPONSE:", result);
+    } catch (error) {
+      console.error("ADMIN USERS ERROR:", error);
+    }
+  }
+
+  void testUsersApi();
+}, []);
   async function action(r: any, actionName: string, reason?: string) {
     const id = idOf(r); setBusy(id); setError("");
     try {

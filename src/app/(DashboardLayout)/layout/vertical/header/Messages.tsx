@@ -3,6 +3,7 @@ import Link from "next/link";
 import * as MessagesData from "./Data";
 import React, { useContext, useEffect } from "react";
 import Image from "next/image";
+import { dashboardApi } from "@/lib/dashboard/api";
 import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
 import SimpleBar from "simplebar-react";
 import "simplebar-react/dist/simplebar.min.css";
@@ -21,7 +22,7 @@ const Messages = () => {
   const { activeDir } = useContext(CustomizerContext);
 useEffect(() => {
   const user = savedDashboardUser();
-
+console.log("MESSAGES SAVED DASHBOARD USER:", user);
   if (dashboardRole(user) !== "fundraiser") {
     return;
   }
@@ -34,26 +35,16 @@ useEffect(() => {
   }
 
   async function loadActivities() {
-    try {
-      const response = await fetch(
-        `/api/dashboard/fundraiser/${fundraiserId}/activities?page=1&per_page=10&orderby=id&order=desc`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        }
-      );
+  try {
+    const data = await dashboardApi(
+      `fundraiser/${fundraiserId}/activities?page=1&per_page=10&orderby=id&order=desc`
+    );
 
-      const data = await response.json().catch(() => null);
-
-      console.log("FUNDRAISER ACTIVITIES STATUS:", response.status);
-      console.log("FUNDRAISER ACTIVITIES:", data);
-    } catch (error) {
-      console.error("Unable to load fundraiser activities:", error);
-    }
+    console.log("FUNDRAISER ACTIVITIES:", data);
+  } catch (error) {
+    console.error("Unable to load fundraiser activities:", error);
   }
-
+}
   void loadActivities();
 }, []);
   return (

@@ -39,7 +39,7 @@ const SidebarLayout = () => {
       const byName = new Map((section.children || []).map((x: any) => [x.name, x]));
       if (role === "admin") {
         section.children = [
-          { ...(byName.get("Overview") || {}), name: "Home" }, byName.get("Campaigns"), byName.get("Donations"), byName.get("Withdrawals"), byName.get("Donors"), byName.get("Fundraisers"),    byName.get("KYC"), byName.get("Analytics"),
+          { ...(byName.get("Overview") || {}), name: "Home" }, byName.get("Campaigns"), byName.get("Donations"), byName.get("Withdrawals"), byName.get("Donors"), byName.get("Fundraisers"), byName.get("Users"),   byName.get("KYC"), byName.get("Analytics"),
         ].filter(Boolean);
       } else if (role === "fundraiser") {
         section.children = [
