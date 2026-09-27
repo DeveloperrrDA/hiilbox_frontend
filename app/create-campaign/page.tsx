@@ -31,7 +31,49 @@ const choiceButton = (active: boolean) =>
       ? "border-[#01A14B] bg-[#e9f8ef] text-[#017f3b]"
       : "border-[#e0e6eb] bg-white text-[#5a6a85] hover:border-[#01A14B]/50"
   }`;
+function getYouTubeVideoId(value: string) {
+  if (!value.trim()) return null;
 
+  try {
+    const url = new URL(value.trim());
+
+    if (url.hostname === "youtu.be") {
+      return url.pathname.split("/").filter(Boolean)[0] || null;
+    }
+
+    if (
+      url.hostname === "youtube.com" ||
+      url.hostname === "www.youtube.com" ||
+      url.hostname === "m.youtube.com"
+    ) {
+      if (url.pathname === "/watch") {
+        return url.searchParams.get("v");
+      }
+
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (
+        parts[0] === "embed" ||
+        parts[0] === "shorts" ||
+        parts[0] === "live"
+      ) {
+        return parts[1] || null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getYouTubeThumbnail(value: string) {
+  const id = getYouTubeVideoId(value);
+
+  return id
+    ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+    : null;
+}
 export default function CreateCampaignPage() {
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
@@ -45,7 +87,7 @@ export default function CreateCampaignPage() {
   } | null>(null);
   const [images, setImages] = useState<Uploaded[]>([]);
   const [video, setVideo] = useState<Uploaded | null>(null);
-
+const [youtubeUrl, setYoutubeUrl] = useState("");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -194,6 +236,13 @@ export default function CreateCampaignPage() {
       currentStep === 1 &&
       (!form.title.trim() || !form.description.trim() || !form.story.trim())
     ) {
+      if (
+  youtubeUrl.trim() &&
+  !getYouTubeVideoId(youtubeUrl)
+) {
+  setError("Enter a valid YouTube video URL.");
+  return false;
+}
       setError("Enter a campaign title, description, and story before continuing.");
       return false;
     }
@@ -296,6 +345,11 @@ export default function CreateCampaignPage() {
               },
             }
           : {}),
+          ...(youtubeUrl.trim()
+  ? {
+      video_url: youtubeUrl.trim(),
+    }
+  : {}),
         has_goal: true,
         goal_type: form.goal_type,
         goal_amount: goalAmount,
@@ -522,35 +576,134 @@ export default function CreateCampaignPage() {
                     )}
                   </div>
 
-                  <div>
-                    <label className={label}>Video</label>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className={input}
-                      onChange={(event) => uploadMedia(event.target.files, "video")}
-                    />
-                    <p className="mt-2 text-xs text-[#5a6a85]">
-                      {uploadingVideo
-                        ? "Uploading video..."
-                        : video
-                          ? `${video.filename} uploaded.`
-                          : "Upload one campaign video."}
-                    </p>
+                 <div>
+  <label className={label}>Video</label>
 
-                    {video && (
-                      <div className="mt-4 rounded-xl border border-[#e0e6eb] p-4">
-                        <video controls className="aspect-video w-full rounded-lg bg-black" src={video.url} />
-                        <button
-                          type="button"
-                          onClick={() => setVideo(null)}
-                          className="mt-3 rounded-lg border border-[#e0e6eb] px-3 py-2 text-xs font-bold"
-                        >
-                          Remove video
-                        </button>
-                      </div>
-                    )}
-                  </div>
+  <p className="mt-2 text-xs text-[#5a6a85]">
+    Upload a video or add a YouTube link.
+  </p>
+
+  {/* Local video upload */}
+  <div className="mt-4">
+    <label className="text-xs font-bold uppercase tracking-wide text-[#5a6a85]">
+      Upload video
+    </label>
+
+    <input
+      type="file"
+      accept="video/*"
+      className={input}
+      disabled={Boolean(youtubeUrl.trim())}
+      onChange={(event) =>
+        uploadMedia(event.target.files, "video")
+      }
+    />
+
+    <p className="mt-2 text-xs text-[#5a6a85]">
+      {uploadingVideo
+        ? "Uploading video..."
+        : video
+          ? `${video.filename} uploaded.`
+          : "Upload one campaign video."}
+    </p>
+  </div>
+
+  {/* Divider */}
+  <div className="my-5 flex items-center gap-3">
+    <div className="h-px flex-1 bg-[#e0e6eb]" />
+
+    <span className="text-xs font-bold uppercase tracking-wide text-[#8a98ad]">
+      Or
+    </span>
+
+    <div className="h-px flex-1 bg-[#e0e6eb]" />
+  </div>
+
+  {/* YouTube */}
+  <div>
+    <label className="text-xs font-bold uppercase tracking-wide text-[#5a6a85]">
+      YouTube link
+    </label>
+
+    <input
+      type="url"
+      className={input}
+      value={youtubeUrl}
+      disabled={Boolean(video)}
+      onChange={(event) => {
+        setYoutubeUrl(event.target.value);
+        setError("");
+      }}
+      placeholder="https://www.youtube.com/watch?v=..."
+    />
+
+    {youtubeUrl.trim() &&
+      !getYouTubeVideoId(youtubeUrl) && (
+        <p className="mt-2 text-xs font-semibold text-red-600">
+          Enter a valid YouTube video URL.
+        </p>
+      )}
+  </div>
+
+  {/* Uploaded video preview */}
+  {video && (
+    <div className="mt-4 rounded-xl border border-[#e0e6eb] p-4">
+      <video
+        controls
+        className="aspect-video w-full rounded-lg bg-black"
+        src={video.url}
+      />
+
+      <button
+        type="button"
+        onClick={() => setVideo(null)}
+        className="mt-3 rounded-lg border border-[#e0e6eb] px-3 py-2 text-xs font-bold"
+      >
+        Remove video
+      </button>
+    </div>
+  )}
+
+  {/* YouTube preview */}
+  {youtubeUrl.trim() &&
+    getYouTubeThumbnail(youtubeUrl) && (
+      <div className="mt-4 overflow-hidden rounded-xl border border-[#e0e6eb] bg-white">
+        <div className="relative">
+          <img
+            src={getYouTubeThumbnail(youtubeUrl)!}
+            alt="YouTube video thumbnail"
+            className="aspect-video w-full object-cover"
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-xl text-white shadow-lg">
+              ▶
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 p-4">
+          <div>
+            <p className="text-sm font-bold text-[#111c2d]">
+              YouTube video
+            </p>
+
+            <p className="mt-1 break-all text-xs text-[#5a6a85]">
+              {youtubeUrl}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setYoutubeUrl("")}
+            className="shrink-0 rounded-lg border border-[#e0e6eb] px-3 py-2 text-xs font-bold"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    )}
+</div>
                 </div>
               </div>
             )}
