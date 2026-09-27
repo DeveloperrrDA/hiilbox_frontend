@@ -76,6 +76,12 @@ const SidebarContent: MenuItem[] = [
             url: "/dashboard/fundraisers",
           },
           {
+  name: "KYC",
+  icon: "solar:shield-check-line-duotone",
+  id: uniqueId(),
+  url: "/dashboard/kyc",
+},
+          {
             name: "Analytics",
             icon: "solar:chart-line-duotone",
             id: uniqueId(),

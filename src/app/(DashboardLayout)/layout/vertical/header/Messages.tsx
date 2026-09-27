@@ -1,8 +1,9 @@
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import * as MessagesData from "./Data";
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import Image from "next/image";
+import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
 import SimpleBar from "simplebar-react";
 import "simplebar-react/dist/simplebar.min.css";
 
@@ -18,7 +19,43 @@ import { Button } from "@/components/ui/button";
 
 const Messages = () => {
   const { activeDir } = useContext(CustomizerContext);
+useEffect(() => {
+  const user = savedDashboardUser();
 
+  if (dashboardRole(user) !== "fundraiser") {
+    return;
+  }
+
+  const fundraiserId = Number(user?.id);
+  const token = localStorage.getItem("access_token") || "";
+
+  if (!fundraiserId || !token) {
+    return;
+  }
+
+  async function loadActivities() {
+    try {
+      const response = await fetch(
+        `/api/dashboard/fundraiser/${fundraiserId}/activities?page=1&per_page=10&orderby=id&order=desc`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      console.log("FUNDRAISER ACTIVITIES STATUS:", response.status);
+      console.log("FUNDRAISER ACTIVITIES:", data);
+    } catch (error) {
+      console.error("Unable to load fundraiser activities:", error);
+    }
+  }
+
+  void loadActivities();
+}, []);
   return (
     <div className="relative group/menu">
       <DropdownMenu dir={activeDir === "rtl" ? "rtl" : "ltr"}>

@@ -129,13 +129,30 @@ export default function CampaignOverview({ id }: { id: string }) {
     setLoading(true);
     setError("");
     try {
-      const range = dateRangeParams(dateRange);
-      const qs = new URLSearchParams({ start_date: range.start_date, end_date: range.end_date });
-      const headers = { Authorization: `Bearer ${token}` };
-      const isAdmin = dashboardRole(savedDashboardUser()) === "admin";
-      const overviewUrl = isAdmin
-        ? `/api/admin/growfund/campaigns/${id}/overview?${qs.toString()}`
-        : `/api/dashboard/campaigns/${id}/overview?${qs.toString()}`;
+     const range = dateRangeParams(dateRange);
+
+const qs = new URLSearchParams();
+
+if (range.start_date) {
+  qs.set("start_date", range.start_date);
+}
+
+if (range.end_date) {
+  qs.set("end_date", range.end_date);
+}
+
+const headers = { Authorization: `Bearer ${token}` };
+const isAdmin = dashboardRole(savedDashboardUser()) === "admin";
+
+const queryString = qs.toString();
+
+const overviewUrl = isAdmin
+  ? `/api/admin/growfund/campaigns/${id}/overview${
+      queryString ? `?${queryString}` : ""
+    }`
+  : `/api/dashboard/campaigns/${id}/overview${
+      queryString ? `?${queryString}` : ""
+    }`;
       const campaignUrl = isAdmin
         ? `/api/admin/growfund/campaigns/${id}`
         : `/api/dashboard/campaigns/${id}`;

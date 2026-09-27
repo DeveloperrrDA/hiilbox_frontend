@@ -24,6 +24,7 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
+ paused: "lightWarning",
   published: "lightPrimary",
   approved: "lightSuccess",
   pending: "lightWarning",
@@ -39,14 +40,64 @@ const variants: Record<string, any> = {
 };
 
 function campaignStatus(row: any) {
-  return String(
-    row?.status ??
-    row?.campaign_status ??
-    row?.post_status ??
-    "unknown"
-  )
-    .trim()
-    .toLowerCase();
+  const normalize = (value: any) =>
+    String(value ?? "").trim().toLowerCase();
+
+  /*
+   * Campaigns can contain both a primary lifecycle status
+   * (for example "published") and a more specific/current status
+   * (for example "paused" or "funded").
+   *
+   * Prefer the more specific status when one exists.
+   */
+  const candidates = [
+    row?.secondary_status,
+    row?.campaign_secondary_status,
+    row?.current_status,
+    row?.state,
+    row?.campaign_state,
+    row?.status,
+    row?.campaign_status,
+    row?.post_status,
+  ]
+    .map(normalize)
+    .filter(Boolean);
+
+  if (!candidates.length) {
+    return "unknown";
+  }
+
+  const priority = [
+    "cancelled",
+    "canceled",
+    "funded",
+    "completed",
+    "complete",
+    "paused",
+    "declined",
+    "denied",
+    "rejected",
+    "trash",
+    "trashed",
+    "active",
+    "launched",
+    "published",
+    "approved",
+    "pending",
+    "review",
+    "submitted",
+    "awaiting_review",
+    "inactive",
+    "draft",
+  ];
+
+  for (const wanted of priority) {
+    if (candidates.includes(wanted)) {
+      return wanted;
+    }
+  }
+
+  return candidates[0];
 }
 
 function statusMatches(row: any, wanted: string) {
@@ -60,6 +111,7 @@ function statusMatches(row: any, wanted: string) {
     published: ["published"],
     active: ["active"],
     funded: ["funded"],
+    paused: ["paused"],
     completed: ["completed", "complete"],
     draft: ["draft"],
     declined: ["declined", "denied", "rejected"],
@@ -698,6 +750,7 @@ const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
           <option value="pending">Pending</option>
           <option value="launched">Launched</option>
           <option value="published">Published</option>
+          <option value="paused">Paused</option>
           <option value="active">Active</option>
           <option value="funded">Funded</option>
           <option value="completed">Completed</option>
