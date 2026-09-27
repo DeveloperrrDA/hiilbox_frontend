@@ -201,10 +201,41 @@ const [startDate,setStartDate]=useState(""),[endDate,setEndDate]=useState(""),[p
 const [dateRange, setDateRange] = useState<DateRangeKey>("all");
 const [visible,setVisible]=useState<Record<ColumnKey,boolean>>(()=>Object.fromEntries(Object.keys(labels).map(k=>[k,true])) as Record<ColumnKey,boolean>);
  const visibleCount=useMemo(()=>Object.values(visible).filter(Boolean).length+2,[visible]);
- const load=useCallback(async()=>{setLoading(true);setError("");try{const q=new URLSearchParams({page:String(page),per_page:"10",orderby:"id",order:"desc"});if(status!=="all")q.set("status",status);if(search.trim())q.set("search",search.trim());if(campaignId)q.set("campaign_id",campaignId);if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);const data=await adminApi(`donations/paginated?${q}`);const list=rowsFrom(data);
-setRows(list);
-setTotalPages(totalPagesFrom(data,page,list.length));
-setTotalRecords(totalRecordsFrom(data,list.length));}catch(e){setError(e instanceof Error?e.message:"Unable to load donations.");setRows([]);}finally{setLoading(false);}},[status,search,campaignId,startDate,endDate,page]);
+const load = useCallback(async () => {
+  setLoading(true);
+  setError("");
+
+  try {
+    const q = new URLSearchParams({
+      page: String(page),
+      per_page: "10",
+      orderby: "id",
+      order: "desc",
+    });
+
+    if (status !== "all") q.set("status", status);
+    if (search.trim()) q.set("search", search.trim());
+    if (campaignId) q.set("campaign_id", campaignId);
+    if (startDate) q.set("start_date", startDate);
+    if (endDate) q.set("end_date", endDate);
+
+    const data = await adminApi(`donations/paginated?${q}`);
+
+    const list = rowsFrom(data);
+
+    setRows(list);
+    setTotalPages(totalPagesFrom(data, page, list.length));
+    setTotalRecords(totalRecordsFrom(data, list.length));
+  } catch (e) {
+    setError(
+      e instanceof Error ? e.message : "Unable to load donations."
+    );
+    setRows([]);
+  } finally {
+    setLoading(false);
+  }
+}, [status, search, campaignId, startDate, endDate, page]);
+
  useEffect(()=>void load(),[load]);useEffect(()=>setPage(1),[status,search,campaignId,startDate,endDate]);
  async function act(id:number,path:string,payload:any,msg:string){setBusy(id);setError("");setNotice("");try{const d=await adminApi(path,{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||msg);await load();}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(null);}}
  async function trash(r:any){const id=idOf(r);if(confirm("Move this donation to trash?"))await act(id,`donation/${id}/delete`,{is_permanent:false},"Donation moved to trash.");}
@@ -337,18 +368,204 @@ const toggle=(id:number)=>{
   </div>
 )}
   {notice&&<div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error&&<div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
-  <div className="mt-4 w-full overflow-x-auto"><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox
-  checked={allSelected}
-  onCheckedChange={()=>toggleAll()}
-  aria-label="Select all donations on this page"
-/></TableHead>{visible.donationId&&<TableHead>Donation ID</TableHead>}{visible.amount&&<TableHead>Amount</TableHead>}{visible.campaign&&<TableHead>Campaign</TableHead>}{visible.donor&&<TableHead>Donor Name</TableHead>}{visible.donorType&&<TableHead>Donor Type</TableHead>}{visible.date&&<TableHead>Date</TableHead>}{visible.status&&<TableHead>Status</TableHead>}{visible.net&&<TableHead>Net Amount</TableHead>}{visible.gateway&&<TableHead>Gateway Fee</TableHead>}{visible.platform&&<TableHead>Platform Fee</TableHead>}{visible.tip&&<TableHead>Tip</TableHead>}<TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
-   {loading?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center">Loading donations…</TableCell></TableRow>:rows.length===0?<TableRow><TableCell colSpan={visibleCount} className="py-10 text-center text-darklink">No donations found.</TableCell></TableRow>:rows.map(r=>{const id=idOf(r),st=statusOf(r),currency=r?.currency_symbol||r?.currency||"$",cid=campaignIdOf(r);return <TableRow key={id}><TableCell><Checkbox
-  checked={selected.includes(id)}
-  onCheckedChange={()=>toggle(id)}
-  aria-label={`Select donation ${id}`}
-/></TableCell>{visible.donationId&&<TableCell className="font-medium">{id?`#${id}`:"—"}</TableCell>}{visible.amount&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="font-medium text-success hover:underline">{money(r?.amount,currency)}</button></TableCell>}{visible.campaign&&<TableCell className="max-w-80"><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex max-w-full items-center gap-3 text-left hover:text-primary">{campaignImage(r)?<img src={campaignImage(r)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover"/>:<span className="h-10 w-10 shrink-0 rounded-md bg-lightgray"/>}<span className="truncate">{campaignName(r)}</span></button></TableCell>}{visible.donor&&<TableCell><button type="button" onClick={()=>router.push(`/dashboard/donations/${id}`)} className="flex items-center gap-2 hover:text-primary"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><span>{donorFirstName(r)}</span></button></TableCell>}{visible.donorType&&<TableCell><Badge variant="lightPrimary">{donorType(r)}</Badge></TableCell>}{visible.date&&<TableCell>{fmtDate(dateOf(r))}</TableCell>}{visible.status&&<TableCell><Badge variant={["completed","approved","paid"].includes(st)?"lightSuccess":isTrashedStatus(st)||["declined","failed"].includes(st)?"lightError":"lightWarning"}>{st}</Badge></TableCell>}{visible.net&&<TableCell className="font-medium text-success">{money(netAmount(r),currency)}</TableCell>}{visible.gateway&&<TableCell>{money(gatewayFee(r),currency)}</TableCell>}{visible.platform&&<TableCell>{money(platformFee(r),currency)}</TableCell>}{visible.tip&&<TableCell>{money(tipAmount(r),currency)}</TableCell>}<TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy===id}><Icon icon="solar:menu-dots-bold"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>router.push(`/dashboard/donations/${id}`)}><Icon icon="solar:eye-line-duotone"/> View donation</DropdownMenuItem><DropdownMenuItem className="text-error" disabled={isTrashedStatus(st)} onClick={()=>trash(r)}><Icon icon="solar:trash-bin-trash-line-duotone"/> Move to trash</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>;})}
-  </TableBody></Table></div>
- <ListPagination
+<div className="mt-4 w-full overflow-x-auto">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead className="w-10">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={() => toggleAll()}
+            aria-label="Select all donations on this page"
+          />
+        </TableHead>
+
+        {visible.donationId && <TableHead>Donation ID</TableHead>}
+        {visible.amount && <TableHead>Amount</TableHead>}
+        {visible.campaign && <TableHead>Campaign</TableHead>}
+        {visible.donor && <TableHead>Donor Name</TableHead>}
+        {visible.donorType && <TableHead>Donor Type</TableHead>}
+        {visible.date && <TableHead>Date</TableHead>}
+        {visible.status && <TableHead>Status</TableHead>}
+        {visible.net && <TableHead>Net Amount</TableHead>}
+        {visible.gateway && <TableHead>Gateway Fee</TableHead>}
+        {visible.platform && <TableHead>Platform Fee</TableHead>}
+        {visible.tip && <TableHead>Tip</TableHead>}
+        <TableHead className="text-right">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+
+    <TableBody>
+      {loading ? (
+        <TableRow>
+          <TableCell colSpan={visibleCount} className="py-10 text-center">
+            Loading donations…
+          </TableCell>
+        </TableRow>
+      ) : rows.length === 0 ? (
+        <TableRow>
+          <TableCell
+            colSpan={visibleCount}
+            className="py-10 text-center text-darklink"
+          >
+            No donations found.
+          </TableCell>
+        </TableRow>
+      ) : (
+        rows.map((r) => {
+          const id = idOf(r);
+          const st = statusOf(r);
+          const currency = r?.currency_symbol || r?.currency || "$";
+
+          return (
+            <TableRow key={id}>
+              <TableCell>
+                <Checkbox
+                  checked={selected.includes(id)}
+                  onCheckedChange={() => toggle(id)}
+                  aria-label={`Select donation ${id}`}
+                />
+              </TableCell>
+
+              {visible.donationId && (
+                <TableCell className="font-medium">
+                  {id ? `#${id}` : "—"}
+                </TableCell>
+              )}
+
+              {visible.amount && (
+                <TableCell>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/dashboard/donations/${id}`)}
+                    className="font-medium text-success hover:underline"
+                  >
+                    {money(r?.amount, currency)}
+                  </button>
+                </TableCell>
+              )}
+
+              {visible.campaign && (
+                <TableCell className="max-w-80">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/dashboard/donations/${id}`)}
+                    className="flex max-w-full items-center gap-3 text-left hover:text-primary"
+                  >
+                    {campaignImage(r) ? (
+                      <img
+                        src={campaignImage(r)}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-md object-cover"
+                      />
+                    ) : (
+                      <span className="h-10 w-10 shrink-0 rounded-md bg-lightgray" />
+                    )}
+
+                    <span className="truncate">{campaignName(r)}</span>
+                  </button>
+                </TableCell>
+              )}
+
+              {visible.donor && (
+                <TableCell>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/dashboard/donations/${id}`)}
+                    className="flex items-center gap-2 hover:text-primary"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary">
+                      <Icon
+                        icon="solar:user-rounded-line-duotone"
+                        height={18}
+                      />
+                    </span>
+                    <span>{donorFirstName(r)}</span>
+                  </button>
+                </TableCell>
+              )}
+
+              {visible.donorType && (
+                <TableCell>
+                  <Badge variant="lightPrimary">{donorType(r)}</Badge>
+                </TableCell>
+              )}
+
+              {visible.date && <TableCell>{fmtDate(dateOf(r))}</TableCell>}
+
+              {visible.status && (
+                <TableCell>
+                  <Badge
+                    variant={
+                      ["completed", "approved", "paid"].includes(st)
+                        ? "lightSuccess"
+                        : isTrashedStatus(st) ||
+                            ["declined", "failed"].includes(st)
+                          ? "lightError"
+                          : "lightWarning"
+                    }
+                  >
+                    {st}
+                  </Badge>
+                </TableCell>
+              )}
+
+              {visible.net && (
+                <TableCell className="font-medium text-success">
+                  {money(netAmount(r), currency)}
+                </TableCell>
+              )}
+
+              {visible.gateway && (
+                <TableCell>{money(gatewayFee(r), currency)}</TableCell>
+              )}
+
+              {visible.platform && (
+                <TableCell>{money(platformFee(r), currency)}</TableCell>
+              )}
+
+              {visible.tip && (
+                <TableCell>{money(tipAmount(r), currency)}</TableCell>
+              )}
+
+              <TableCell className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={busy === id}>
+                      <Icon icon="solar:menu-dots-bold" />
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.push(`/dashboard/donations/${id}`)
+                      }
+                    >
+                      <Icon icon="solar:eye-line-duotone" />
+                      View donation
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      className="text-error"
+                      disabled={isTrashedStatus(st)}
+                      onClick={() => trash(r)}
+                    >
+                      <Icon icon="solar:trash-bin-trash-line-duotone" />
+                      Move to trash
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          );
+        })
+      )}
+    </TableBody>
+  </Table>
+</div>
+
+<ListPagination
   page={page}
   totalPages={totalPages}
   totalRecords={totalRecords}

@@ -475,10 +475,12 @@ useEffect(
         <Table className="campaign-list-table">
           <TableHeader>
   <TableRow>
-    <TableHead>Campaign ID</TableHead>
+    <TableHead>ID</TableHead>
     <TableHead>Campaign</TableHead>
+    <TableHead>Creator</TableHead>
     <TableHead>Status</TableHead>
     <TableHead>Raised / Goal</TableHead>
+    <TableHead>Donations</TableHead>
     <TableHead>State</TableHead>
     <TableHead>Ends</TableHead>
     <TableHead className="text-right">Actions</TableHead>
@@ -506,46 +508,8 @@ useEffect(
           })}
         </TableBody></Table>
       </div>
-<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <p className="text-sm text-darklink">
-    Page {page} of {totalPages} · Total campaigns: {filteredCampaigns.length}
-  </p>
 
-  <div className="flex flex-wrap items-center gap-2">
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={page <= 1}
-      onClick={() => setPage((p) => Math.max(1, p - 1))}
-    >
-      Previous
-    </Button>
-
-    {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-      (pageNumber) => (
-        <Button
-          key={pageNumber}
-          size="sm"
-          variant={page === pageNumber ? "default" : "outline"}
-          onClick={() => setPage(pageNumber)}
-        >
-          {pageNumber}
-        </Button>
-      )
-    )}
-
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={page >= totalPages}
-      onClick={() =>
-        setPage((p) => Math.min(totalPages, p + 1))
-      }
-    >
-      Next
-    </Button>
-  </div>
-</div>    </CardBox>
+</CardBox>
     <Dialog open={Boolean(updatesCampaign)} onOpenChange={v=>!v&&setUpdatesCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Campaign updates</DialogTitle></DialogHeader>{updatesCampaign&&<div className="flex items-center justify-between rounded-md border border-ld p-3"><div><div className="font-medium">{updatesCampaign.title||`Campaign #${updatesCampaign.id}`}</div><div className="text-xs text-darklink">Updates linked to campaign #{updatesCampaign.id}</div></div><Button size="sm" onClick={()=>{const c=updatesCampaign;setUpdatesCampaign(null);openPostUpdate(c)}}><Icon icon="solar:add-circle-line-duotone"/> Post an update</Button></div>}<div className="max-h-[55vh] overflow-auto">{updatesLoading?<div className="py-10 text-center text-darklink">Loading updates…</div>:campaignUpdates.length===0?<div className="py-10 text-center text-darklink">No updates have been posted for this campaign.</div>:<div className="divide-y divide-border">{campaignUpdates.map((u:any,i:number)=><div key={String(u?.id??u?.post_id??i)} className="py-4"><div className="font-medium">{u?.title||u?.post_title||`Update #${u?.id??i+1}`}</div><div className="mt-1 whitespace-pre-wrap text-sm text-darklink">{u?.description||u?.content||u?.post_content||""}</div></div>)}</div>}</div></DialogContent></Dialog>
     <Dialog open={Boolean(updateCampaign)} onOpenChange={v=>!v&&setUpdateCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader><div className="space-y-4"><label className="block text-sm">Title<input value={updateTitle} onChange={e=>setUpdateTitle(e.target.value)} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Update<textarea value={updateDescription} onChange={e=>setUpdateDescription(e.target.value)} rows={6} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Image<input type="file" accept="image/*" onChange={e=>void uploadUpdateImage(e.target.files)} className="mt-1 block w-full text-sm" /></label>{updateImages.length>0&&<p className="text-xs text-success">{updateImages.length} image(s) uploaded.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setUpdateCampaign(null)}>Cancel</Button><Button onClick={()=>void submitPostUpdate()} disabled={postingUpdate||uploadingImage}>{postingUpdate?"Posting…":uploadingImage?"Uploading…":"Post update"}</Button></div></div></DialogContent></Dialog>
   </div>;

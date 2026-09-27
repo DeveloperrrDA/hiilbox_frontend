@@ -62,7 +62,8 @@ const batches = await Promise.all(
 ); const seen=new Set<number>();const onlyPaid=batches.flat().filter((d:any)=>{const donationId=Number(d?.id??d?.donation_id??0);if(donationId&&seen.has(donationId))return false;if(donationId)seen.add(donationId);return completed(d)});setDon(onlyPaid)}}catch{setDon([])}}}catch(e){setError(e instanceof Error?e.message:"Unable to load details.");}finally{setLoading(false)}})()},[id,kind]);
  const sorted=useMemo(()=>[...don].sort((a,b)=>(donationDate(b)?.getTime()||0)-(donationDate(a)?.getTime()||0)),[don]);const pages=Math.max(1,Math.ceil(sorted.length/10)),pageRows=sorted.slice((page-1)*10,page*10);
  if(loading)return <CardBox>Loading…</CardBox>;if(error)return <CardBox><div className="rounded-md bg-lighterror px-4 py-3 text-error">{error}</div></CardBox>;
- const name=[p.first_name,p.last_name].filter(Boolean).join(" ")||p.display_name||p.name||`${kind} #${id}`,scopedTotal=don.reduce((s,d)=>s+donationAmount(d),0),total=kind==="fundraiser"?scopedTotal:(don.length?scopedTotal:Number(p.total_given??p.total_contributions??0)),count=kind==="fundraiser"?don.length:(don.length||Number(p.donations_count??p.number_of_contributions??0)),avg=count?total/count:0,camps =
+ const u = p?.user ?? p?.donor ?? p?.fundraiser ?? p?.profile ?? p;
+ const name=[u.first_name,u.last_name].filter(Boolean).join(" ")||u.display_name||u.name||`${kind} #${id}`,scopedTotal=don.reduce((s,d)=>s+donationAmount(d),0),total=kind==="fundraiser"?scopedTotal:(don.length?scopedTotal:Number(p.total_given??p.total_contributions??0)),count=kind==="fundraiser"?don.length:(don.length||Number(p.donations_count??p.number_of_contributions??0)),avg=count?total/count:0,camps =
   kind === "fundraiser"
     ? campaigns.length
     : new Set(
@@ -144,16 +145,16 @@ const batches = await Promise.all(
   ],
 ].map(([a,b])=><CardBox key={String(a)}><p className="text-darklink">{a}</p><h3 className="mt-3 text-2xl font-semibold">{b}</h3></CardBox>)}</div><div className="grid gap-5 lg:grid-cols-[430px_1fr]"><CardBox>
   <div className="flex items-center gap-4">
-    {p.avatar_url ||
-    p.profile_image ||
-    p.image ||
-    p.avatar ? (
+    {u.avatar_url ||
+    u.profile_image ||
+    u.image ||
+    u.avatar ? (
       <img
         src={
-          p.avatar_url ??
-          p.profile_image ??
-          p.image ??
-          p.avatar
+          u.avatar_url ??
+          u.profile_image ??
+          u.image.url ??
+          u.avatar
         }
         alt={name}
         className="h-16 w-16 rounded-full object-cover"
@@ -185,8 +186,8 @@ const batches = await Promise.all(
       </p>
 
       <p className="mt-1 break-all font-medium">
-        {p.email ??
-          p.user_email ??
+        {u.email ??
+          u.user_email ??
           "—"}
       </p>
     </div>
@@ -206,25 +207,25 @@ const batches = await Promise.all(
   "yes",
 ].includes(
   typeof (
-    p.is_verified ??
-    p.verified ??
-    p.email_verified ??
-    p.is_email_verified ??
-    p.verification_status
+    u.is_verified ??
+    u.verified ??
+    u.email_verified ??
+    u.is_email_verified ??
+    u.verification_status
   ) === "string"
     ? (
-        p.is_verified ??
-        p.verified ??
-        p.email_verified ??
-        p.is_email_verified ??
-        p.verification_status
+        u.is_verified ??
+        u.verified ??
+        u.email_verified ??
+        u.is_email_verified ??
+        u.verification_status
       ).toLowerCase()
     : (
-        p.is_verified ??
-        p.verified ??
-        p.email_verified ??
-        p.is_email_verified ??
-        p.verification_status
+        u.is_verified ??
+        u.verified ??
+        u.email_verified ??
+        u.is_email_verified ??
+        u.verification_status
       )
 ) ?  (
           <span className="inline-flex rounded-full bg-lightsuccess px-3 py-1 text-xs font-medium text-success">
@@ -244,15 +245,15 @@ const batches = await Promise.all(
       </p>
 
       <p className="mt-1 font-medium">
-        {p.joined_at ||
-        p.user_registered ||
-        p.date_created ||
-        p.created_at
+        {u.joined_at ||
+        u.user_registered ||
+        u.date_created ||
+        u.created_at
           ? new Date(
-              p.joined_at ??
-                p.user_registered ??
-                p.date_created ??
-                p.created_at
+              u.joined_at ??
+                u.user_registered ??
+                u.date_created ??
+                u.created_at
             ).toLocaleDateString()
           : "—"}
       </p>

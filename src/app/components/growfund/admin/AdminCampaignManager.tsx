@@ -24,17 +24,17 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
-  published: "lightSuccess",
+  published: "lightPrimary",
   approved: "lightSuccess",
   pending: "lightWarning",
-  draft: "lightPrimary",
+  draft: "lightGray",
   declined: "lightError",
   denied: "lightError",
   rejected: "lightError",
   trashed: "lightError",
   trash: "lightError",
   funded: "lightSuccess",
-  completed: "lightSuccess",
+  completed: "lightPrimary",
   cancelled: "lightError",
 };
 
@@ -661,7 +661,9 @@ const visibleRows = useMemo(() => {
 
     return true;
   });
-}, [rows, status, dateRange, startDate, endDate]);  const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+}, [rows, status, dateRange, startDate, endDate]);
+
+const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {
     if (!pageRows.length) return;
@@ -827,7 +829,14 @@ const visibleRows = useMemo(() => {
           </TableBody>
         </Table>
       </div>
-<ListPagination page={page} totalPages={totalPages} totalRecords={visibleRows.length} pageSize={10} recordLabel="campaigns" onPageChange={setPage} />
+<ListPagination
+  page={page}
+  totalPages={totalPages}
+  totalRecords={visibleRows.length}
+  pageSize={10}
+  recordLabel="campaigns"
+  onPageChange={setPage}
+/>
       <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader>

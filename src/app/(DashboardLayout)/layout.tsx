@@ -34,7 +34,7 @@ export default function Layout({
               className={` ${
                 isLayout == "full"
                   ? "w-full py-[30px] md:px-[30px] px-5"
-                  : " container mx-auto py-[30px]"
+                  : " container-full mx-10 py-[30px]"
               } ${activeLayout == "horizontal" ? "xl:mt-3" : ""}
             `}
             >

@@ -41,7 +41,11 @@ function deepValue(input: any, keys: string[]): any {
   return undefined;
 }
 function createdCampaigns(r: any) {
-  const value = r?.__campaign_count ?? deepValue(r?.__overview, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]) ?? deepValue(r, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]);
+  const value = r?.total_campaign_created ??
+    r?.__campaign_count ??
+    deepValue(r?.__overview, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]) ??
+    deepValue(r, ["created_campaigns", "campaign_count", "campaigns_count", "total_campaigns", "campaigns"]);
+
   return Number(Array.isArray(value) ? value.length : value ?? 0);
 }
 function joinedDate(r: any) {
@@ -77,9 +81,11 @@ export default function AdminFundraiserManager() {
   const [editingId, setEditingId] = useState(0);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
+
     try {
-      const makeQ = (fundraiserStatus?: string) => {
+const makeQ = (fundraiserStatus?: string) => {
   const q = new URLSearchParams({
     page: "1",
     per_page: "100",
@@ -127,7 +133,6 @@ if (status === "all") {
   );
 
   const merged = results.flat();
-
   const byId = new Map<number, any>();
 
   for (const row of merged) {
@@ -143,46 +148,9 @@ if (status === "all") {
   );
 }
 
-      // Render the fundraiser list immediately. Overview enrichment is useful for Created
-      // Campaigns / Joined Date, but it must never block the entire page if one overview
-      // request is slow or unavailable.
+      // Instantly set the rows. No background loops needed!
       setRows(baseRows);
-      setLoading(false);
 
-      // Load the campaign collection once as a reliable fallback for Created Campaigns.
-      // Do not block rendering, and do not replace a valid overview count with a guessed zero.
-      void adminApi(`campaigns?page=1&per_page=100&status=all`).then((campaignData) => {
-        const campaignRows = rowsFrom(campaignData);
-        const counts = new Map<number, number>();
-        for (const campaign of campaignRows) {
-          const owner = Number(campaign?.author?.id ?? campaign?.author_id ?? campaign?.fundraiser?.id ?? campaign?.fundraiser_id ?? campaign?.user_id ?? campaign?.created_by ?? campaign?.owner_id ?? 0);
-          if (owner) counts.set(owner, (counts.get(owner) || 0) + 1);
-        }
-        setRows((current) => current.map((row) => counts.has(idOf(row)) ? { ...row, __campaign_count: counts.get(idOf(row)) } : row));
-      }).catch(() => undefined);
-
-      for (let i = 0; i < baseRows.length; i += 6) {
-        const batch = baseRows.slice(i, i + 6);
-        const results = await Promise.all(batch.map(async (row) => {
-          const id = idOf(row);
-          if (!id) return row;
-          try {
-            const controller = new AbortController();
-            const timer = window.setTimeout(() => controller.abort(), 7000);
-            try {
-              const overview = dataFrom(await adminApi(`fundraiser/${id}/overview`, { signal: controller.signal }));
-              return { ...row, __overview: overview };
-            } finally {
-              window.clearTimeout(timer);
-            }
-          } catch {
-            return row;
-          }
-        }));
-
-        const byId = new Map(results.map((row) => [idOf(row), row]));
-        setRows((current) => current.map((row) => byId.get(idOf(row)) ?? row));
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load fundraisers.");
       setRows([]);
@@ -298,6 +266,7 @@ const visibleRows = useMemo(() => {
   });
 }, [rows, dateRange, status, startDate, endDate]);
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const totalFundraisers = visibleRows.length;
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
 useEffect(() => setPage(1), [
   status,
@@ -405,13 +374,5 @@ useEffect(() => setPage(1), [
         <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuItem onClick={() => approve(r)}><Icon icon="solar:check-circle-line-duotone" /> Approve</DropdownMenuItem><DropdownMenuItem onClick={() => decline(r)}><Icon icon="solar:close-circle-line-duotone" /> Decline</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
       </TableRow>; })}
     </TableBody></Table></div>
-<ListPagination
-  page={page}
-  totalPages={totalPages}
-  totalRecords={visibleRows.length}
-  pageSize={10}
-  recordLabel="fundraisers"
-  onPageChange={setPage}
-/>    <Dialog open={editOpen} onOpenChange={setEditOpen}><DialogContent><DialogHeader><DialogTitle>Edit Fundraiser</DialogTitle></DialogHeader>{formMarkup("Save changes", saveEdit)}</DialogContent></Dialog>
   </CardBox>;
 }

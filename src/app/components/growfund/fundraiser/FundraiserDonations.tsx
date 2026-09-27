@@ -154,37 +154,217 @@ const [page, setPage] = useState(1);
  const filtered=useMemo(()=>rows.filter(r=>{if(campaignFilter&&String(campaignId(r))!==campaignFilter)return false;const raw=rawDate(r);if(!raw)return !startDate&&!endDate;const d=new Date(raw);if(Number.isNaN(d.getTime()))return false;if(startDate&&d<new Date(`${startDate}T00:00:00`))return false;if(endDate&&d>new Date(`${endDate}T23:59:59`))return false;return true;}),[rows,campaignFilter,startDate,endDate]);
 useEffect(() => {
   setPage(1);
-}, [campaignFilter, dateRange, startDate, endDate]);const pages=Math.max(1,Math.ceil(filtered.length/10));const visibleRows=filtered.slice((page-1)*10,page*10);
- return <CardBox className="w-full !max-w-none"><div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h5 className="card-title">Donations</h5><p className="mt-1 text-sm text-darklink">Donations received by your campaigns only.</p></div><div className="grid gap-2 sm:grid-cols-2">
-  <select
-    value={campaignFilter}
-    onChange={(e) => setCampaignFilter(e.target.value)}
-    className="rounded-md border border-ld bg-transparent px-3 py-2.5"
-  >
-    <option value="">All Campaigns</option>
+}, [campaignFilter, dateRange, startDate, endDate]);
 
-    {campaigns.map((c) => (
-      <option key={c.id} value={c.id}>
-        {c.title || `Campaign #${c.id}`}
-      </option>
-    ))}
-  </select>
+const pages = Math.max(1, Math.ceil(filtered.length / 10));
+const visibleRows = filtered.slice((page - 1) * 10, page * 10);
 
-  <DatePresetSelect
-    value={dateRange}
-    onChange={setDateRange}
-    startDate={startDate}
-    endDate={endDate}
-    onStartDateChange={setStartDate}
-    onEndDateChange={setEndDate}
-  />
-</div></div>{error&&<div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}<div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="fundraiser-donations-table" columns={["Donation", "Campaign", "Donor", "Donor Type", "Amount", "Status", "Date", "Actions"]}/></div><div className="mt-5 overflow-x-auto"><Table className="fundraiser-donations-table"><TableHeader><TableRow><TableHead>Donation</TableHead><TableHead>Campaign</TableHead><TableHead>Donor</TableHead><TableHead>Donor Type</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{loading?<TableRow><TableCell colSpan={8} className="py-10 text-center text-darklink">Loading donations…</TableCell></TableRow>:visibleRows.length?visibleRows.map((r,i)=>{const status=String(value(r,"payment_status","status")??"unknown"),cid=campaignId(r),donor=r?.donor??r?.user??{},donorName=[donor?.first_name,donor?.last_name].filter(Boolean).join(" ")||value(r,"donor_name","name")||donor?.display_name||value(r,"email")||"Anonymous",donorFirst=String(donor?.first_name||value(r,"first_name")||donorName).trim().split(/\s+/)[0]||"Anonymous",did=value(r,"id","donation_id");return <TableRow key={String(did??i)} className="cursor-pointer" onClick={()=>did&&router.push(`/dashboard/donations/${did}`)}><TableCell className="font-medium">#{did??"—"}</TableCell><TableCell><div className="flex items-center gap-3">{campaignImage(r)?<img src={campaignImage(r)} alt="" className="h-10 w-10 rounded-md object-cover"/>:<span className="h-10 w-10 shrink-0 rounded-md bg-lightgray"/>}<span>{r?.campaign?.title??names.get(cid)??`Campaign #${cid||"—"}`}</span></div></TableCell><TableCell><div className="flex items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><span>{donorFirst}</span></div></TableCell><TableCell><Badge variant="lightPrimary">{donorType(r)}</Badge></TableCell><TableCell className="font-medium text-success">
-  ${Number(value(r,"amount") ?? 0).toFixed(2)}
-</TableCell><TableCell><Badge variant={["paid","completed","successful","success"].includes(status.toLowerCase())?"lightSuccess":"lightPrimary"}>{status}</Badge></TableCell><TableCell>{dateValue(r)}</TableCell><TableCell className="text-right"><button className="text-sm font-medium text-primary hover:underline" onClick={e=>{e.stopPropagation();did&&router.push(`/dashboard/donations/${did}`)}}>View donation</button></TableCell></TableRow>}):<TableRow><TableCell colSpan={8} className="py-10 text-center text-darklink">No donations found for this period.</TableCell></TableRow>}</TableBody></Table></div><ListPagination
-  page={page}
-  totalPages={pages}
-  totalRecords={filtered.length}
-  pageSize={10}
-  onPageChange={setPage}
-/></CardBox>;
+return (
+  <CardBox className="w-full !max-w-none">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h5 className="card-title">Donations</h5>
+        <p className="mt-1 text-sm text-darklink">
+          Donations received by your campaigns only.
+        </p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select
+          value={campaignFilter}
+          onChange={(e) => setCampaignFilter(e.target.value)}
+          className="rounded-md border border-ld bg-transparent px-3 py-2.5"
+        >
+          <option value="">All Campaigns</option>
+
+          {campaigns.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title || `Campaign #${c.id}`}
+            </option>
+          ))}
+        </select>
+
+        <DatePresetSelect
+          value={dateRange}
+          onChange={setDateRange}
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+        />
+      </div>
+    </div>
+
+    {error && (
+      <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">
+        {error}
+      </div>
+    )}
+
+    <div className="mt-4 flex justify-end">
+      <ColumnVisibilityControl
+        tableClass="fundraiser-donations-table"
+        columns={[
+          "Donation",
+          "Campaign",
+          "Donor",
+          "Donor Type",
+          "Amount",
+          "Status",
+          "Date",
+          "Actions",
+        ]}
+      />
+    </div>
+
+    <div className="mt-5 overflow-x-auto">
+      <Table className="fundraiser-donations-table">
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID</TableHead>
+            <TableHead>Campaign</TableHead>
+            <TableHead>Donor</TableHead>
+            <TableHead>Donor Type</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={8} className="py-10 text-center text-darklink">
+                Loading donations…
+              </TableCell>
+            </TableRow>
+          ) : visibleRows.length ? (
+            visibleRows.map((r, i) => {
+              const status = String(
+                value(r, "payment_status", "status") ?? "unknown"
+              );
+              const cid = campaignId(r);
+              const donor = r?.donor ?? r?.user ?? {};
+              const donorName =
+                [donor?.first_name, donor?.last_name]
+                  .filter(Boolean)
+                  .join(" ") ||
+                value(r, "donor_name", "name") ||
+                donor?.display_name ||
+                value(r, "email") ||
+                "Anonymous";
+              const donorFirst =
+                String(
+                  donor?.first_name ||
+                    value(r, "first_name") ||
+                    donorName
+                )
+                  .trim()
+                  .split(/\s+/)[0] || "Anonymous";
+              const did = value(r, "id", "donation_id");
+
+              return (
+                <TableRow
+                  key={String(did ?? i)}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    did && router.push(`/dashboard/donations/${did}`)
+                  }
+                >
+                  <TableCell className="font-medium">
+                    #{did ?? "—"}
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      {campaignImage(r) ? (
+                        <img
+                          src={campaignImage(r)}
+                          alt=""
+                          className="h-10 w-10 rounded-md object-cover"
+                        />
+                      ) : (
+                        <span className="h-10 w-10 shrink-0 rounded-md bg-lightgray" />
+                      )}
+
+                      <span>
+                        {r?.campaign?.title ??
+                          names.get(cid) ??
+                          `Campaign #${cid || "—"}`}
+                      </span>
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary">
+                        <Icon
+                          icon="solar:user-rounded-line-duotone"
+                          height={18}
+                        />
+                      </span>
+                      <span>{donorFirst}</span>
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <Badge variant="lightPrimary">{donorType(r)}</Badge>
+                  </TableCell>
+
+                  <TableCell className="font-medium text-success">
+                    ${netAmount(r).toFixed(2)}
+                  </TableCell>
+
+                  <TableCell>
+                    <Badge
+                      variant={
+                        ["paid", "completed", "successful", "success"].includes(
+                          status.toLowerCase()
+                        )
+                          ? "lightSuccess"
+                          : "lightPrimary"
+                      }
+                    >
+                      {status}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell>{dateValue(r)}</TableCell>
+
+                  <TableCell className="text-right">
+                    <button
+                      className="text-sm font-medium text-primary hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        did && router.push(`/dashboard/donations/${did}`);
+                      }}
+                    >
+                      View donation
+                    </button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          ) : (
+            <TableRow>
+              <TableCell colSpan={8} className="py-10 text-center text-darklink">
+                No donations found for this period.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+
+    <ListPagination
+      page={page}
+      totalPages={pages}
+      totalRecords={filtered.length}
+      pageSize={10}
+      recordLabel="donations"
+      onPageChange={setPage}
+    />
+  </CardBox>
+);
 }
