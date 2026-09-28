@@ -47,6 +47,27 @@ export interface CampaignUpdateImage {
   date: string;
 }
 
+export interface CategoryImage {
+  id: string;
+  filename: string;
+  url: string;
+  sizes?: {
+    medium?: CampaignImageSize;
+    thumbnail?: CampaignImageSize;
+    woocommerce_thumbnail?: CampaignImageSize;
+    woocommerce_gallery_thumbnail?: CampaignImageSize;
+  };
+  height: number;
+  width: number;
+  filesize: number;
+  mime: string;
+  type: string;
+  thumb: string | null;
+  author: string;
+  author_name: string;
+  date: string;
+}
+
 export interface CampaignPerson {
   id: string;
   first_name: string;
@@ -206,6 +227,20 @@ export interface CampaignUpdate {
 
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  parent_id: number;
+
+  image: CategoryImage[];
+  
+  count: number;
+  is_default: boolean;
+  level: number;
+}
+
 export interface CampaignPagination {
   page: number;
   per_page: number;
@@ -228,6 +263,11 @@ export interface CampaignUpdatesResponse {
   success: boolean;
   data: CampaignUpdate[];
   pagination: CampaignUpdatePagination;
+}
+
+export interface CategoryResponse {
+  success: boolean;
+  data: Category[];
 }
 
 export interface GetCampaignsParams {
@@ -291,6 +331,13 @@ function normalizeCampaignUpdateImages(raw: any): CampaignUpdateImage[] {
     return [parsed as CampaignUpdateImage];
   }
 
+  return [];
+}
+
+function normalizeCategoryImages(raw: any): CategoryImage[] {
+  const parsed = parseMaybeJson(raw?.image);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") return Object.values(parsed) as CategoryImage[];
   return [];
 }
 
@@ -702,7 +749,7 @@ function normalizeCampaign(raw: any): Campaign {
 }
 
 /**
- * Normalize a raw campaign from the WordPress/GrowFund API
+ * Normalize a raw campaign update from the WordPress/GrowFund API
  * into the structure expected by the Next.js frontend.
  */
 function normalizeCampaignUpdate(raw: any): CampaignUpdate {
@@ -730,6 +777,32 @@ function normalizeCampaignUpdate(raw: any): CampaignUpdate {
     created_at: String(raw?.created_at ?? ""),
     comments: Number(raw?.comments ?? ""),
     likes: Number(raw?.likes ?? ""),
+
+  };
+}
+
+/**
+ * Normalize a raw category from the WordPress/GrowFund API
+ * into the structure expected by the Next.js frontend.
+ */
+function normalizeCategory(raw: any): Category {
+  const normalizedImages = normalizeCategoryImages(raw);
+
+  
+
+  return {
+    id: Number(raw?.id ?? 0),
+
+    name: String(raw?.name ?? ""),
+    slug: String(raw?.slug ?? ""),
+
+    image: normalizedImages,
+
+    description: String(raw?.description ?? ""),
+    parent_id: Number(raw?.parent_id ?? 0),
+    count: Number(raw?.count ?? 0),
+    is_default: Boolean(raw?.is_default ?? false),
+    level: Number(raw?.level ?? 0),
 
   };
 }
@@ -936,6 +1009,50 @@ function extractCampaigns(
  * data
  */
 function extractCampaignUpdates(
+  responseData: any
+): any[] {
+  if (
+    Array.isArray(responseData?.data)
+  ) {
+    return responseData.data;
+  }
+
+  if (
+    Array.isArray(
+      responseData?.paginated?.results
+    )
+  ) {
+    return responseData.paginated.results;
+  }
+
+  if (
+    Array.isArray(responseData?.results)
+  ) {
+    return responseData.results;
+  }
+
+  if (
+    Array.isArray(responseData)
+  ) {
+    return responseData;
+  }
+
+  return [];
+}
+
+/**
+ * Extract categories from the different response
+ * structures returned by the GrowFund API.
+ *
+ * Your current backend response uses:
+ *
+ * paginated.results
+ *
+ * not:
+ *
+ * data
+ */
+function extractCategories(
   responseData: any
 ): any[] {
   if (
@@ -1437,6 +1554,93 @@ console.log(
     data: campaignupdates,
 
     pagination,
+  };
+}
+
+/**
+ * Get Categories.
+ */
+export async function getCategories(
+  
+): Promise<CategoryResponse> {
+  // Build the query safely and natively
+  
+
+  
+
+  const baseUrl =
+    getApiBaseUrl();
+
+const endpoint =
+  `/api/categories/list`;
+
+const response =
+  typeof window === "undefined"
+    ? await growfundServerFetch(
+        `/categories/list`
+      )
+    : await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+  let data: any = null;
+
+  try {
+  data =
+    await response.json();
+} catch {
+  data = null;
+}
+
+console.log(
+  "CATEGORIES DEBUG:",
+  JSON.stringify(data, null, 2)
+);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ??
+        "Failed to load categories."
+    );
+  }
+
+  const rawCategories =
+    extractCategories(data);
+
+ const categories = rawCategories
+  .map((update) => {
+    try {
+      return normalizeCategory(update);
+    } catch (error) {
+      console.error(
+        "Unable to normalize categories:",
+        update?.id,
+        error
+      );
+
+      return null;
+    }
+  })
+  .filter(
+    (update): update is Category =>
+      update !== null
+  );
+
+  
+
+  return {
+    success:
+      Boolean(
+        data?.success ??
+        true
+      ),
+
+    data: categories,
+
+    
   };
 }
 

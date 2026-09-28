@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import CampaignCard from "@/app/components/front-pages/CampaignCard";
 import ThemeShell from "@/components/theme/ThemeShell";
-import { getCampaigns, type CampaignsResponse } from "@/lib/campaigns";
+import { getCampaigns, type CampaignsResponse, getCategories, type CategoryResponse } from "@/lib/campaigns";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,7 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
   const perPage = 12;
 
   let response: CampaignsResponse | null = null;
+   let Categoryresponse: CategoryResponse | null = null;
   let errorMessage = "";
 
   try {
@@ -48,10 +49,17 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
     errorMessage = error instanceof Error ? error.message : "Unable to load campaigns.";
   }
 
+  try {
+    Categoryresponse = await getCategories();
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : "Unable to load categories.";
+  }
+
   const campaigns = response?.data ?? [];
   const total = response?.pagination.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(page, totalPages);
+  const categories = Categoryresponse?.data ?? [];
 
   return (
     <ThemeShell>
@@ -87,6 +95,20 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
                 Search
               </button>
             </form>
+              <div className="flex flex-row justify-center gap-5 mt-5 ">
+                {categories.map((category) => (
+                    
+                      <button
+                        key={category.id}
+                        type="submit"
+                        className="min-h-10 rounded-xl bg-transparent border border-darkgray/50 dark:border-lightgray px-7 text-sm font-bold text-darkgray dark:text-lightgray transition hover:bg-primary hover:text-white"
+                      >
+                        {category.name}
+                      </button>
+                    
+                  )
+                )}
+              </div>
           </div>
         </section>
 
