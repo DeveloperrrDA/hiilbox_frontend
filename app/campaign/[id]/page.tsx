@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { getCampaign, getCampaignRecentDonations, getCampaignUpdates } from "@/lib/campaigns";
+import {
+  getCampaign,
+  getCampaignRecentDonations,
+  getCampaignUpdates,
+} from "@/lib/campaigns";
 import { type CampaignUpdate } from "@/lib/campaigns";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
@@ -453,8 +457,8 @@ try {
                        ${campaign.goal.toLocaleString()}USD
                     </p>
                     <p className="mt-1 text-sm/4 text-[#5a6a85]">
-                       {campaign.number_of_contributions.toLocaleString()} Donations
-                    </p>
+  {recentDonations.length.toLocaleString()} Donations
+</p>
                   </div>
 
                   

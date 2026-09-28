@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { getCampaign, getCampaignRecentDonations } from "@/lib/campaigns";
+import {
+  getCampaign,
+  getCampaignRecentDonations,
+  getCampaignUpdates,
+} from "@/lib/campaigns";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
 
@@ -294,9 +298,9 @@ export default async function CampaignPage({
                     <p className="mt-2 text-lg text-[#667085]">
                       of ${campaign.goal.toLocaleString()}
                     </p>
-                    <p className="mt-1 text-sm text-[#667085]">
-                      {Math.max(campaign.number_of_contributions, recentDonations.length).toLocaleString()} donations
-                    </p>
+                   <p className="mt-1 text-sm text-[#667085]">
+  {recentDonations.length.toLocaleString()} donations
+</p>
                   </div>
                 </div>
 

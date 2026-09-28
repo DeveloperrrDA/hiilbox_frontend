@@ -278,8 +278,19 @@ function normalizeCampaignImages(raw: any): CampaignImage[] {
 
 function normalizeCampaignUpdateImages(raw: any): CampaignUpdateImage[] {
   const parsed = parseMaybeJson(raw?.image);
-  if (Array.isArray(parsed)) return parsed;
-  if (parsed && typeof parsed === "object") return Object.values(parsed) as CampaignUpdateImage[];
+
+  if (Array.isArray(parsed)) {
+    return parsed;
+  }
+
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    ("url" in parsed || "id" in parsed)
+  ) {
+    return [parsed as CampaignUpdateImage];
+  }
+
   return [];
 }
 
@@ -1321,13 +1332,13 @@ export async function getCampaignUpdates(
   const baseUrl =
     getApiBaseUrl();
 
- const endpoint =
-  `/api/campaigns/updates${query ? `?${query}` : ""}`;
+const endpoint =
+  `/api/campaign/updates/paginated${query ? `?${query}` : ""}`;
 
 const response =
   typeof window === "undefined"
     ? await growfundServerFetch(
-        `/campaigns/updates${query ? `?${query}` : ""}`
+        `/campaign/updates/paginated${query ? `?${query}` : ""}`
       )
     : await fetch(endpoint, {
         method: "GET",
@@ -1339,11 +1350,17 @@ const response =
   let data: any = null;
 
   try {
-    data =
-      await response.json();
-  } catch {
-    data = null;
-  }
+  data =
+    await response.json();
+} catch {
+  data = null;
+}
+
+console.log(
+  "CAMPAIGN UPDATES DEBUG:",
+  params.campaign_id,
+  JSON.stringify(data, null, 2)
+);
 
   if (!response.ok) {
     throw new Error(
