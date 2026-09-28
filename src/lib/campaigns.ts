@@ -205,7 +205,41 @@ export interface CampaignUpdate {
   likes: number;
 
 }
+export interface CampaignComment {
+  id: string;
+  post_id: number;
+  comment_parent: number;
+  author_id: number;
+  author_name: string;
+  author_image: string | null;
+  created_at: string;
+  content: string;
+  comment_type: string;
+  comment_approved: boolean;
+  replies?: {
+    results?: CampaignComment[];
+    total?: number;
+    count?: number;
+    per_page?: number;
+    current_page?: number;
+    has_more?: boolean;
+    overall?: number;
+  };
+}
 
+export interface CampaignCommentsResponse {
+  success: boolean;
+  data: {
+    results: CampaignComment[];
+    total: number;
+    count: number;
+    per_page: number;
+    current_page: number;
+    has_more: boolean;
+    overall: number;
+  };
+  message?: string;
+}
 export interface CampaignPagination {
   page: number;
   per_page: number;

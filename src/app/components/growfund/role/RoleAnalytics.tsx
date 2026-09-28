@@ -34,16 +34,27 @@ function dayKey(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padS
 function bucketData(
   donations: any[],
   range: DateRangeKey,
-  mode: "revenue" | "donors"
+  mode: "revenue" | "donors",
+  customStartDate = "",
+  customEndDate = ""
 ) {
-  const { start, end } = getDateRange(range);
+  let { start, end } = getDateRange(range);
+
+  if (range === "custom") {
+    if (customStartDate) {
+      start = new Date(`${customStartDate}T00:00:00`);
+    }
+
+    if (customEndDate) {
+      end = new Date(`${customEndDate}T23:59:59.999`);
+    }
+  }
 
   const startDay = new Date(start);
   startDay.setHours(0, 0, 0, 0);
 
   const endDay = new Date(end);
   endDay.setHours(23, 59, 59, 999);
-
   const days = Math.max(
     1,
     Math.round(
@@ -114,14 +125,18 @@ function bucketData(
 
     if (donationDateValue === null) continue;
 
-    if (
-      !isDateInRange(
-        donationDateValue.toISOString(),
-        range
-      )
-    ) {
-      continue;
-    }
+   if (range === "custom") {
+  if (donationDateValue < startDay || donationDateValue > endDay) {
+    continue;
+  }
+} else if (
+  !isDateInRange(
+    donationDateValue.toISOString(),
+    range
+  )
+) {
+  continue;
+}
 
     const bucket = result.find(
       (item) =>
@@ -267,8 +282,29 @@ return isDateInRange(d.toISOString(), range);    }),
       netDonation: row.netDonation,
     }));
 }, [successful]);
-  const revenue=useMemo(()=>bucketData(donations,range,"revenue"),[donations,range]);
-  const donorTrend=useMemo(()=>bucketData(donations,range,"donors"),[donations,range]);
+ const revenue = useMemo(
+  () =>
+    bucketData(
+      filtered,
+      range,
+      "revenue",
+      startDate,
+      endDate
+    ),
+  [filtered, range, startDate, endDate]
+);
+
+const donorTrend = useMemo(
+  () =>
+    bucketData(
+      filtered,
+      range,
+      "donors",
+      startDate,
+      endDate
+    ),
+  [filtered, range, startDate, endDate]
+);
   const topCampaigns=useMemo(()=>{const map=new Map<number,{id:number,title:string,total:number,count:number,donors:Set<string>,goal:number}>();for(const c of campaigns){const id=Number(c?.id||0);if(id)map.set(id,{id,title:campaignName(c),total:0,count:0,donors:new Set(),goal:campaignGoal(c)});}for(const r of successful){const id=campaignId(r);if(!id)continue;const x=map.get(id)||{id,title:campaignTitle(r)||`Campaign #${id}`,total:0,count:0,donors:new Set<string>(),goal:0};x.total+=donationAmount(r);x.count++;x.donors.add(donorKey(r));map.set(id,x);}return [...map.values()].sort((a,b)=>b.total-a.total).slice(0,5);},[campaigns,successful]);
   const topDonors=useMemo(()=>{const map=new Map<string,{key:string,name:string,email:string,total:number,count:number}>();for(const r of successful){const key=donorKey(r);const x=map.get(key)||{key,name:donorName(r),email:donorEmail(r),total:0,count:0};x.total+=donationAmount(r);x.count++;map.set(key,x);}return[...map.values()].sort((a,b)=>b.total-a.total).slice(0,5);},[successful]);
   const recent=useMemo(()=>[...filtered].sort((a,b)=>(donationDate(b)?.getTime()||0)-(donationDate(a)?.getTime()||0)).slice(0,6),[filtered]);
