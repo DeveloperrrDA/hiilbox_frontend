@@ -43,63 +43,30 @@ function campaignStatus(row: any) {
   const normalize = (value: any) =>
     String(value ?? "").trim().toLowerCase();
 
-  /*
-   * Campaigns can contain both a primary lifecycle status
-   * (for example "published") and a more specific/current status
-   * (for example "paused" or "funded").
-   *
-   * Prefer the more specific status when one exists.
-   */
-  const candidates = [
+  const secondaryStatus = [
     row?.secondary_status,
     row?.campaign_secondary_status,
     row?.current_status,
     row?.state,
     row?.campaign_state,
-    row?.status,
-    row?.campaign_status,
-    row?.post_status,
   ]
     .map(normalize)
-    .filter(Boolean);
+    .find(Boolean);
 
-  if (!candidates.length) {
-    return "unknown";
+  if (secondaryStatus) {
+    return secondaryStatus;
   }
 
-  const priority = [
-    "cancelled",
-    "canceled",
-    "funded",
-    "completed",
-    "complete",
-    "paused",
-    "declined",
-    "denied",
-    "rejected",
-    "trash",
-    "trashed",
-    "active",
-    "launched",
-    "published",
-    "approved",
-    "pending",
-    "review",
-    "submitted",
-    "awaiting_review",
-    "inactive",
-    "draft",
-  ];
-
-  for (const wanted of priority) {
-    if (candidates.includes(wanted)) {
-      return wanted;
-    }
-  }
-
-  return candidates[0];
+  return (
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown"
+  );
 }
-
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
 

@@ -170,17 +170,92 @@ const overviewUrl = isAdmin
   : `/api/dashboard/campaigns/${id}/overview${
       queryString ? `?${queryString}` : ""
     }`;
-      const campaignUrl = isAdmin
-        ? `/api/admin/growfund/campaigns/${id}`
-        : `/api/dashboard/campaigns/${id}`;
+
+const campaignUrl = isAdmin
+  ? `/api/admin/growfund/campaigns/${id}`
+  : `/api/dashboard/campaigns/${id}`;
+
 const donationUrl = isAdmin
-  ? `/api/admin/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(id)}&orderby=id&order=desc`
-  : `/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(id)}&orderby=id&order=desc`;      const [overviewResponse, campaignResponse, donationResponse] = await Promise.all([
-        fetch(overviewUrl, { headers, cache: "no-store" }),
-        fetch(campaignUrl, { headers, cache: "no-store" }),
-        fetch(donationUrl, { headers, cache: "no-store" }),
-      ]);
-      const [overviewJson, campaignJson, donationJson] = await Promise.all([overviewResponse.json(), campaignResponse.json(), donationResponse.json().catch(() => null)]);
+  ? `/api/admin/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(
+      id
+    )}&orderby=id&order=desc`
+  : `/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${encodeURIComponent(
+      id
+    )}&orderby=id&order=desc`;
+
+const [overviewResponse, campaignResponse, donationResponse] =
+  await Promise.all([
+    fetch(overviewUrl, {
+      headers,
+      cache: "no-store",
+    }),
+    fetch(campaignUrl, {
+      headers,
+      cache: "no-store",
+    }),
+    fetch(donationUrl, {
+      headers,
+      cache: "no-store",
+    }),
+  ]);
+
+const [overviewJson, campaignJson, firstDonationJson] =
+  await Promise.all([
+    overviewResponse.json(),
+    campaignResponse.json(),
+    donationResponse.json().catch(() => null),
+  ]);
+
+let donationJson = firstDonationJson;
+
+if (
+  isAdmin &&
+  donationResponse.ok &&
+  firstDonationJson?.data?.has_more === true
+) {
+  const totalPages = Math.ceil(
+    Number(firstDonationJson?.data?.total ?? 0) / 100
+  );
+
+  const remainingPageRequests = [];
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    remainingPageRequests.push(
+      fetch(
+        `/api/admin/growfund/donations/paginated?page=${page}&per_page=100&campaign_id=${encodeURIComponent(
+          id
+        )}&orderby=id&order=desc`,
+        {
+          headers,
+          cache: "no-store",
+        }
+      ).then((response) => response.json())
+    );
+  }
+
+  const remainingPages = await Promise.all(remainingPageRequests);
+
+  const allDonationRows = [
+    ...(Array.isArray(firstDonationJson?.data?.results)
+      ? firstDonationJson.data.results
+      : []),
+    ...remainingPages.flatMap((pageJson: any) =>
+      Array.isArray(pageJson?.data?.results)
+        ? pageJson.data.results
+        : []
+    ),
+  ];
+
+  donationJson = {
+    ...firstDonationJson,
+    data: {
+      ...firstDonationJson.data,
+      count: allDonationRows.length,
+      results: allDonationRows,
+      has_more: false,
+    },
+  };
+}
       if (!overviewResponse.ok) throw new Error(overviewJson?.message || "Unable to load campaign overview.");
       if (!campaignResponse.ok) throw new Error(campaignJson?.message || "Unable to load campaign details.");
       setData(unwrapPayload(overviewJson));
@@ -340,7 +415,52 @@ const revenueRows = useMemo(() => {
 }, [data]);
 
 const revenueBreakdown = useMemo(() => {
+  const normalizePeriod = (value: string) => {
+    const text = String(value ?? "").trim();
+
+    if (!text) {
+      return "";
+    }
+
+    // Handles GrowFund labels such as "Sep 2026"
+    const monthYearMatch = text.match(
+      /^([A-Za-z]{3,9})\s+(\d{4})$/
+    );
+
+    if (monthYearMatch) {
+      const parsed = new Date(
+        `${monthYearMatch[1]} 1, ${monthYearMatch[2]}`
+      );
+
+      if (!Number.isNaN(parsed.getTime())) {
+        return `${parsed.getUTCFullYear()}-${String(
+          parsed.getUTCMonth() + 1
+        ).padStart(2, "0")}`;
+      }
+    }
+
+    // Handles API dates such as 2026-09-28.
+    const isoMatch = text.match(/^(\d{4})-(\d{2})-\d{2}/);
+
+    if (isoMatch) {
+      return `${isoMatch[1]}-${isoMatch[2]}`;
+    }
+
+    // Handles other valid date strings returned by GrowFund.
+    const parsed = new Date(text);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return `${parsed.getUTCFullYear()}-${String(
+        parsed.getUTCMonth() + 1
+      ).padStart(2, "0")}`;
+    }
+
+    return text.toLowerCase();
+  };
+
   return revenueRows.map((revenueRow) => {
+    const revenuePeriod = normalizePeriod(revenueRow.date);
+
     const periodDonations = donationRows.filter((donation: any) => {
       const paymentStatus = String(
         donation?.payment_status ?? ""
@@ -350,11 +470,13 @@ const revenueBreakdown = useMemo(() => {
         donation?.status ?? ""
       ).toLowerCase();
 
-      const isPaid = paymentStatus
-        ? paymentStatus === "paid"
-        : ["paid", "completed", "complete", "successful", "success"].includes(
-            status
-          );
+      const isPaid =
+        paymentStatus === "paid" ||
+        status === "paid" ||
+        status === "completed" ||
+        status === "complete" ||
+        status === "successful" ||
+        status === "success";
 
       if (!isPaid || !donation?.created_at) {
         return false;
@@ -366,13 +488,11 @@ const revenueBreakdown = useMemo(() => {
         return false;
       }
 
-      const donationPeriod = donationDate.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      });
+      const donationPeriod = `${donationDate.getUTCFullYear()}-${String(
+        donationDate.getUTCMonth() + 1
+      ).padStart(2, "0")}`;
 
-      return donationPeriod === revenueRow.date;
+      return donationPeriod === revenuePeriod;
     });
 
     const totalDonation = periodDonations.reduce(
@@ -388,11 +508,21 @@ const revenueBreakdown = useMemo(() => {
       periodDonations.map((donation: any) => {
         const donorId = donation?.donor?.id;
 
-        if (donorId && String(donorId) !== "0") {
-          return `donor-${donorId}`;
+        if (
+          donorId !== undefined &&
+          donorId !== null &&
+          String(donorId) !== "" &&
+          String(donorId) !== "0"
+        ) {
+          return `donor-${String(donorId)}`;
         }
 
-        return `donation-${donation?.id ?? donation?.uid ?? donation?.transaction_id}`;
+        return `donation-${String(
+          donation?.id ??
+            donation?.uid ??
+            donation?.transaction_id ??
+            ""
+        )}`;
       })
     ).size;
 

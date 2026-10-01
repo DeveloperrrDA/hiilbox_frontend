@@ -35,20 +35,57 @@ type Campaign = {
 };
 
 const statusVariants: Record<string, any> = {
-  published: "lightSuccess", pending: "lightWarning", draft: "lightPrimary", funded: "lightSuccess",
-  declined: "lightError", trashed: "lightError", completed: "lightSuccess", cancelled: "lightError",
+  published: "lightSuccess",
+  approved: "lightSuccess",
+  active: "lightSuccess",
+  launched: "lightSuccess",
+
+  pending: "lightWarning",
+  review: "lightWarning",
+  submitted: "lightWarning",
+  awaiting_review: "lightWarning",
+  paused: "lightWarning",
+
+  draft: "lightPrimary",
+  completed: "lightSuccess",
+  funded: "lightSuccess",
+
+  declined: "lightError",
+  denied: "lightError",
+  rejected: "lightError",
+  cancelled: "lightError",
+  canceled: "lightError",
+  trash: "lightError",
+  trashed: "lightError",
 };
 function campaignStatus(row: any) {
-  return String(
-    row?.status ??
-    row?.campaign_status ??
-    row?.post_status ??
-    "unknown"
-  )
-    .trim()
-    .toLowerCase();
-}
+  const normalize = (value: any) =>
+    String(value ?? "").trim().toLowerCase();
 
+  const secondaryStatus = [
+    row?.secondary_status,
+    row?.campaign_secondary_status,
+    row?.current_status,
+    row?.state,
+    row?.campaign_state,
+  ]
+    .map(normalize)
+    .find(Boolean);
+
+  if (secondaryStatus) {
+    return secondaryStatus;
+  }
+
+  return (
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown"
+  );
+}
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
 
@@ -491,7 +528,22 @@ useEffect(
             const raised = Number(c.raised_amount ?? c.fund_raised ?? 0); const goal = Number(c.goal_amount ?? c.goal ?? 0); const busy = workingId === c.id;
             const image = campaignImage(c); return <TableRow key={c.id}><TableCell className="font-medium">#{c.id}</TableCell><TableCell><Link href={`/dashboard/campaigns/${c.id}/edit`} className="flex items-center gap-3 font-medium text-dark hover:text-primary">{image ? <img src={String(image)} alt="" className="h-11 w-11 rounded-md object-cover"/> : <span className="h-11 w-11 rounded-md bg-lightgray"/>}<span className="block">{c.title || `Campaign #${c.id}`}</span></Link></TableCell>
               <TableCell>{c?.author?.display_name ?? c?.fundraiser?.display_name ?? c?.creator?.display_name ?? c?.author?.name ?? c?.fundraiser?.name ?? c?.creator?.name ?? c?.author_name ?? c?.fundraiser_name ?? "—"}</TableCell>
-              <TableCell><Badge variant={statusVariants[c.status || ""] || "lightPrimary"}>{c.status || "unknown"}</Badge></TableCell>
+             <TableCell>
+  {(() => {
+    const status = campaignStatus(c);
+
+    return (
+      <Badge
+        variant={
+          statusVariants[status] ||
+          "lightPrimary"
+        }
+      >
+        {status}
+      </Badge>
+    );
+  })()}
+</TableCell>
               <TableCell><div className="min-w-32"><p className="font-medium">${raised.toLocaleString()} <span className="font-normal text-darklink">/ ${goal.toLocaleString()}</span></p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-lightgray"><div className="h-full rounded-full bg-primary" style={{width:`${goal > 0 ? Math.min(100, raised/goal*100) : 0}%`}}/></div></div></TableCell>
               <TableCell>{paidCounts[c.id] ?? "…"}</TableCell>
               <TableCell><div className="flex flex-wrap gap-1">{c.is_paused && <Badge variant="lightWarning">Paused</Badge>}{c.is_hidden && <Badge variant="lightError">Hidden</Badge>}{c.is_ended && <Badge variant="lightPrimary">Ended</Badge>}{!c.is_paused && !c.is_hidden && !c.is_ended && <span className="text-sm text-darklink">Normal</span>}</div></TableCell>
