@@ -516,9 +516,14 @@ const toggle=(id:number)=>{
                 </TableCell>
               )}
 
-              {visible.gateway && (
-                <TableCell>{money(gatewayFee(r), currency)}</TableCell>
-              )}
+         {visible.gateway && (
+  <TableCell>
+    {`${currency}${gatewayFee(r).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    })}`}
+  </TableCell>
+)}
 
               {visible.platform && (
                 <TableCell>{money(platformFee(r), currency)}</TableCell>

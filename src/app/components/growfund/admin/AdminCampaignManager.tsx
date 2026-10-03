@@ -282,70 +282,112 @@ function totalFromResponse(data: any, fallback: number) {
       return allRows;
     }
 
-    if (status === "all") {
-      const results = await Promise.allSettled([
-        fetchAllCampaigns("all"),
-        fetchAllCampaigns("pending"),
-        fetchAllCampaigns("rejected"),
-        fetchAllCampaigns("draft"),
-      ]);
+ if (status === "all") {
+  const results = await Promise.allSettled([
+    fetchAllCampaigns("all"),
+    fetchAllCampaigns("pending"),
+    fetchAllCampaigns("rejected"),
+    fetchAllCampaigns("draft"),
+  ]);
 
-      const merged: any[] = [];
+  const merged: any[] = [];
 
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          merged.push(...result.value);
-        }
-      }
-
-      const byId = new Map<string, any>();
-
-      merged.forEach((row, index) => {
-        const key = String(
-          row?.id ??
-            row?.ID ??
-            row?.campaign_id ??
-            `row-${index}`
-        );
-
-        if (!byId.has(key)) {
-          byId.set(key, row);
-        }
-      });
-
-      const completeRows = Array.from(byId.values());
-
-      setRows(completeRows);
-      setTotalCampaigns(completeRows.length);
-    } else {
-      /*
-       * First load the complete "all" collection and check whether
-       * it already contains campaigns with the requested status.
-       */
-      const allRows = await fetchAllCampaigns("all");
-
-      const local = allRows.filter((r: any) =>
-        statusMatches(r, status)
-      );
-
-      if (local.length) {
-        setRows(local);
-        setTotalCampaigns(local.length);
-      } else {
-        /*
-         * Some backend versions do not include every status in
-         * the "all" collection, so load that status explicitly.
-         */
-        const statusRows = await fetchAllCampaigns(status);
-
-        const filtered = statusRows.filter((r: any) =>
-          statusMatches(r, status)
-        );
-
-        setRows(filtered);
-        setTotalCampaigns(filtered.length);
-      }
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      merged.push(...result.value);
     }
+  }
+
+  const byId = new Map<string, any>();
+
+  merged.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `row-${index}`
+    );
+
+    if (!byId.has(key)) {
+      byId.set(key, row);
+    }
+  });
+
+  const completeRows = Array.from(byId.values());
+
+  setRows(completeRows);
+  setTotalCampaigns(completeRows.length);
+} else if (status === "trash") {
+  /*
+   * Trashed campaigns are not expected to appear in the normal
+   * "all" campaign collection. Load the trash collection directly.
+   *
+   * GrowFund installations may expose this status as either
+   * "trash" or "trashed", so try both and merge the results.
+   */
+  const trashResults = await Promise.allSettled([
+    fetchAllCampaigns("trash"),
+    fetchAllCampaigns("trashed"),
+  ]);
+
+  const mergedTrashRows: any[] = [];
+
+  for (const result of trashResults) {
+    if (result.status === "fulfilled") {
+      mergedTrashRows.push(...result.value);
+    }
+  }
+
+  const trashById = new Map<string, any>();
+
+  mergedTrashRows.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `trash-${index}`
+    );
+
+    if (!trashById.has(key)) {
+      trashById.set(key, row);
+    }
+  });
+
+  const trashRows = Array.from(trashById.values()).filter(
+    (row: any) => statusMatches(row, "trash")
+  );
+
+  setRows(trashRows);
+  setTotalCampaigns(trashRows.length);
+} else {
+  /*
+   * First load the complete "all" collection and check whether
+   * it already contains campaigns with the requested status.
+   */
+  const allRows = await fetchAllCampaigns("all");
+
+  const local = allRows.filter((r: any) =>
+    statusMatches(r, status)
+  );
+
+  if (local.length) {
+    setRows(local);
+    setTotalCampaigns(local.length);
+  } else {
+    /*
+     * Some backend versions do not include every status in
+     * the "all" collection, so load that status explicitly.
+     */
+    const statusRows = await fetchAllCampaigns(status);
+
+    const filtered = statusRows.filter((r: any) =>
+      statusMatches(r, status)
+    );
+
+    setRows(filtered);
+    setTotalCampaigns(filtered.length);
+  }
+}
   } catch (e) {
     setError(
       e instanceof Error

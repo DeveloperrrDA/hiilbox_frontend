@@ -275,11 +275,71 @@ export default function AdminWithdrawalManager() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+ useEffect(() => {
+  void load();
+}, [load]);
 
-  const visibleRows = useMemo(
+const withdrawalSummary = useMemo(() => {
+  let totalPending = 0;
+  let totalApproved = 0;
+
+  const pendingFundraisers = new Set<number>();
+
+  for (const row of rows) {
+    const rawAmount = deepValue(row, [
+      "amount",
+      "withdrawal_amount",
+      "requested_amount",
+    ]);
+
+    const parsedAmount = Number(rawAmount);
+    const amount = Number.isFinite(parsedAmount)
+      ? parsedAmount
+      : 0;
+
+    const rowStatus = requestStatus(row);
+
+    if (
+      [
+        "pending",
+        "processing",
+        "review",
+        "submitted",
+      ].includes(rowStatus)
+    ) {
+      totalPending += amount;
+
+      const fundraiserId =
+        fundraiserIdFromRow(row);
+
+      if (fundraiserId > 0) {
+        pendingFundraisers.add(fundraiserId);
+      }
+    }
+
+    if (
+      [
+        "approved",
+        "paid",
+        "completed",
+        "complete",
+        "success",
+        "successful",
+      ].includes(rowStatus)
+    ) {
+      totalApproved += amount;
+    }
+  }
+
+  return {
+    totalPending,
+    totalApproved,
+    totalPendingFundraisers:
+      pendingFundraisers.size,
+  };
+}, [rows]);
+
+const visibleRows = useMemo(
     () =>
       rows.filter((row) => {
         const st = requestStatus(row);
@@ -517,7 +577,82 @@ export default function AdminWithdrawalManager() {
         >
           <Icon icon="solar:refresh-line-duotone" />
           Refresh
-        </Button>
+               </Button>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-ld p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Pending
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : money(
+                      withdrawalSummary.totalPending
+                    )}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightwarning text-warning">
+              <Icon
+                icon="solar:hourglass-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-ld p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Approved
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : money(
+                      withdrawalSummary.totalApproved
+                    )}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightsuccess text-success">
+              <Icon
+                icon="solar:check-circle-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-ld p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Pending Fundraisers
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : withdrawalSummary.totalPendingFundraisers}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
+              <Icon
+                icon="solar:users-group-rounded-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_200px]">

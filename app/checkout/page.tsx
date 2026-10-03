@@ -72,12 +72,15 @@ function CheckoutContent() {
   const [isAnonymous, setIsAnonymous] =
     useState(false);
 
-  const [gateways, setGateways] =
-    useState<CheckoutGateway[]>([]);
+ const [gateways, setGateways] =
+  useState<CheckoutGateway[]>([]);
 
-  const [loadingGateways, setLoadingGateways] =
-    useState(true);
+const [platformRates, setPlatformRates] = useState<
+  Record<string, { gateway: string; platform: string }>
+>({});
 
+const [loadingGateways, setLoadingGateways] =
+  useState(true);
   const [loading, setLoading] =
     useState(false);
 
@@ -175,7 +178,42 @@ function CheckoutContent() {
       cancelled = true;
     };
   }, []);
+useEffect(() => {
+  let cancelled = false;
 
+  async function loadPlatformRates() {
+    try {
+      const response = await fetch(
+        "/api/checkout/platform-rates",
+        {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }
+      );
+
+      const payload = await response.json();
+
+      if (
+        !cancelled &&
+        response.ok &&
+        payload?.success &&
+        payload?.data
+      ) {
+        setPlatformRates(payload.data);
+      }
+    } catch {
+      if (!cancelled) {
+        setPlatformRates({});
+      }
+    }
+  }
+
+  loadPlatformRates();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   // --------------------------------------------------
   // LOAD PAYMENT GATEWAYS
   // --------------------------------------------------
@@ -325,8 +363,29 @@ function CheckoutContent() {
     );
   }, [donationAmount, tipPercent]);
 
-  const total =
-    donationAmount + tipAmount;
+ const selectedRates =
+  paymentMethod && platformRates[paymentMethod]
+    ? platformRates[paymentMethod]
+    : null;
+
+const gatewayRate = Number(selectedRates?.gateway ?? 0);
+const platformRate = Number(selectedRates?.platform ?? 0);
+
+const gatewayFee =
+  Number.isFinite(donationAmount) && donationAmount > 0
+    ? donationAmount * (gatewayRate / 100)
+    : 0;
+
+const platformFee =
+  Number.isFinite(donationAmount) && donationAmount > 0
+    ? donationAmount * (platformRate / 100)
+    : 0;
+
+const total =
+  donationAmount +
+  tipAmount +
+  gatewayFee +
+  platformFee;
 
   const selectedCurrency =
     currencies.find((item) => item.code === currency) ?? currencies.find((item) => item.code === "USD");
@@ -1206,15 +1265,47 @@ function CheckoutContent() {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">
-                          HiilBox support ({tipPercent}%)
-                        </span>
+<div className="flex items-center justify-between text-sm">
+  <span className="text-gray-500">
+    HiilBox support ({tipPercent}%)
+  </span>
 
-                        <span className="font-semibold text-gray-900">
-                          {currency} {tipAmount.toFixed(2)}
-                        </span>
-                      </div>
+  <span className="font-semibold text-gray-900">
+    {currency} {tipAmount.toFixed(2)}
+  </span>
+</div>
+
+{selectedRates && (
+  <>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">
+        Gateway fee ({gatewayRate}%)
+      </span>
+
+      <span className="font-semibold text-gray-900">
+        {currency}{" "}
+        {gatewayFee.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">
+        Platform fee ({platformRate}%)
+      </span>
+
+      <span className="font-semibold text-gray-900">
+        {currency}{" "}
+        {platformFee.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })}
+      </span>
+    </div>
+  </>
+)}
 
                     </div>
 

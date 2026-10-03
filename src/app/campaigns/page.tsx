@@ -10,6 +10,8 @@ interface CampaignsPageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
+    category?: string;
+    sort?: string;
   }>;
 }
 
@@ -18,32 +20,97 @@ function positiveInteger(value: string | undefined, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function pageHref(page: number, search: string) {
+function campaignHref({
+  page = 1,
+  search = "",
+  category = "",
+  sort = "created_desc",
+}: {
+  page?: number;
+  search?: string;
+  category?: string;
+  sort?: string;
+}) {
   const params = new URLSearchParams();
+
   if (page > 1) params.set("page", String(page));
   if (search) params.set("search", search);
-  const query = params.toString();
-  return query ? `/campaigns?${query}` : "/campaigns";
-}
+  if (category) params.set("category", category);
+  if (sort && sort !== "created_desc") params.set("sort", sort);
 
+  const query = params.toString();
+
+  return query
+    ? `/campaigns?${query}`
+    : "/campaigns";
+}
+const campaignCategories = [
+  { label: "All", slug: "" },
+  { label: "Masjid", slug: "masjid" },
+  { label: "Orphans", slug: "orphans" },
+  { label: "Community", slug: "community" },
+  { label: "Education", slug: "education" },
+  { label: "Health", slug: "health" },
+  { label: "Water", slug: "water" },
+  { label: "Shelter", slug: "shelter" },
+  { label: "Food Aid", slug: "food-aid" },
+  { label: "Environment", slug: "environment" },
+  { label: "Ramadan", slug: "ramadan" },
+];
 export default async function CampaignsPage({ searchParams }: CampaignsPageProps) {
   const params = await searchParams;
   const page = positiveInteger(params.page, 1);
-  const search = (params.search || "").trim();
-  const perPage = 12;
+ const search = (params.search || "").trim();
+const category = (params.category || "").trim();
+const sort = (params.sort || "created_desc").trim();
+const perPage = 12;
+
+const sortOptions: Record<
+  string,
+  { orderby: string; order: "asc" | "desc" }
+> = {
+  created_asc: {
+    orderby: "created_at",
+    order: "asc",
+  },
+  created_desc: {
+    orderby: "created_at",
+    order: "desc",
+  },
+  start_asc: {
+    orderby: "start_date",
+    order: "asc",
+  },
+  start_desc: {
+    orderby: "start_date",
+    order: "desc",
+  },
+  end_asc: {
+    orderby: "end_date",
+    order: "asc",
+  },
+  end_desc: {
+    orderby: "end_date",
+    order: "desc",
+  },
+};
+
+const selectedSort =
+  sortOptions[sort] ?? sortOptions.created_desc;
 
   let response: CampaignsResponse | null = null;
   let errorMessage = "";
 
   try {
-    response = await getCampaigns({
-      page,
-      per_page: perPage,
-      search: search || undefined,
-      status: "published",
-      orderby: "id",
-      order: "desc",
-    });
+   response = await getCampaigns({
+  page,
+  per_page: perPage,
+  search: search || undefined,
+  category_slug: category || undefined,
+  status: "published",
+  orderby: selectedSort.orderby,
+  order: selectedSort.order,
+});
   } catch (error) {
     errorMessage = error instanceof Error ? error.message : "Unable to load campaigns.";
   }
@@ -91,6 +158,29 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
         </section>
 
         <section className="container-1218 py-10 sm:py-14">
+          <div className="mb-8 flex flex-wrap gap-2">
+  {campaignCategories.map((item) => {
+    const active = category === item.slug;
+
+    return (
+      <Link
+        key={item.slug || "all"}
+        href={campaignHref({
+          search,
+          category: item.slug,
+          sort,
+        })}
+        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+          active
+            ? "border-[#01A14B] bg-[#01A14B] text-white"
+            : "border-[#dfe5eb] bg-white text-[#5a6a85] hover:border-[#01A14B] hover:text-[#01A14B]"
+        }`}
+      >
+        {item.label}
+      </Link>
+    );
+  })}
+</div>
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold text-[#111c2d]">
@@ -103,12 +193,81 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
               )}
             </div>
 
-            <Link
-              href="/create-campaign"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#01A14B] px-5 text-sm font-bold text-[#01A14B] transition hover:bg-[#01A14B] hover:text-white"
-            >
-              Start a fundraiser
-            </Link>
+           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+  <form
+    action="/campaigns"
+    method="get"
+    className="flex items-center gap-2"
+  >
+    {search && (
+      <input
+        type="hidden"
+        name="search"
+        value={search}
+      />
+    )}
+
+    {category && (
+      <input
+        type="hidden"
+        name="category"
+        value={category}
+      />
+    )}
+
+    <label
+      htmlFor="campaign-sort"
+      className="text-sm font-semibold text-[#5a6a85]"
+    >
+      Sort By
+    </label>
+
+    <select
+      id="campaign-sort"
+      name="sort"
+      defaultValue={sort}
+      className="min-h-11 rounded-xl border border-[#dfe5eb] bg-white px-3 text-sm font-semibold text-[#111c2d] outline-none focus:border-[#01A14B]"
+    >
+      <option value="created_desc">
+        Created At — Newest First
+      </option>
+
+      <option value="created_asc">
+        Created At — Oldest First
+      </option>
+
+      <option value="start_desc">
+        Start Date — DESC
+      </option>
+
+      <option value="start_asc">
+        Start Date — ASC
+      </option>
+
+      <option value="end_desc">
+        End Date — DESC
+      </option>
+
+      <option value="end_asc">
+        End Date — ASC
+      </option>
+    </select>
+
+    <button
+      type="submit"
+      className="min-h-11 rounded-xl bg-[#111c2d] px-4 text-sm font-bold text-white transition hover:bg-[#01A14B]"
+    >
+      Apply
+    </button>
+  </form>
+
+  <Link
+    href="/create-campaign"
+    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#01A14B] px-5 text-sm font-bold text-[#01A14B] transition hover:bg-[#01A14B] hover:text-white"
+  >
+    Start a fundraiser
+  </Link>
+</div>
           </div>
 
           {errorMessage ? (
@@ -143,7 +302,12 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
                 <nav className="mt-12 flex items-center justify-center gap-3" aria-label="Campaign pagination">
                   {safePage > 1 ? (
                     <Link
-                      href={pageHref(safePage - 1, search)}
+                    href={campaignHref({
+  page: safePage - 1,
+  search,
+  category,
+  sort,
+})}
                       className="rounded-lg border border-[#dfe5eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111c2d] transition hover:border-[#01A14B] hover:text-[#01A14B]"
                     >
                       Previous
@@ -160,7 +324,12 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
 
                   {safePage < totalPages ? (
                     <Link
-                      href={pageHref(safePage + 1, search)}
+                      href={campaignHref({
+  page: safePage + 1,
+  search,
+  category,
+  sort,
+})}
                       className="rounded-lg border border-[#dfe5eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111c2d] transition hover:border-[#01A14B] hover:text-[#01A14B]"
                     >
                       Next

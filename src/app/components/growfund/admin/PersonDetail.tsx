@@ -9,8 +9,25 @@ import {dashboardRole,savedDashboardUser} from "@/lib/dashboard/roles";
 function donorId(d:any){return Number(d?.donor?.id??d?.donor?.ID??d?.donor?.user_id??d?.user?.id??d?.user?.ID??d?.donor_id??d?.user_id??0)}
 function donorEmail(d:any){return String(d?.donor?.email??d?.donor?.user_email??d?.user?.email??d?.user?.user_email??d?.email??d?.user_email??"").trim().toLowerCase()}
 function personEmail(d:any){return String(d?.email??d?.user_email??"").trim().toLowerCase()}
-function completed(d:any){const s=String(d?.payment_status??d?.status??d?.donation_status??"").toLowerCase();return !s||["completed","complete","paid","approved","success","successful"].includes(s)}
-function donationAmount(d:any){return Number(d?.amount??d?.donation_amount??d?.total??0)}
+function completed(d: any) {
+  const s = String(
+    d?.payment_status ??
+    d?.status ??
+    d?.donation_status ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return [
+    "completed",
+    "complete",
+    "paid",
+    "approved",
+    "success",
+    "successful",
+  ].includes(s);
+}function donationAmount(d:any){return Number(d?.amount??d?.donation_amount??d?.total??0)}
 function donationDate(d:any){const raw=d?.created_at??d?.date_created??d?.date;const date=raw?new Date(raw):null;return date&&!Number.isNaN(date.getTime())?date:null}
 export default function PersonDetail({kind}:{kind:"donor"|"fundraiser"}){
 const { id } = useParams<{ id: string }>();
@@ -21,12 +38,28 @@ const [campaigns, setCampaigns] = useState<any[]>([]);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState("");
 
+const [viewerRole, setViewerRole] = useState("");
+
+useEffect(() => {
+  setViewerRole(dashboardRole(savedDashboardUser()));
+}, []);
+
+const isAdminViewer = viewerRole === "admin";
+
 const [tab, setTab] = useState<
   "overview" | "campaigns" | "donations"
 >("overview");
 
 const [page, setPage] = useState(1); 
- useEffect(()=>{(async()=>{setLoading(true);setError("");setCampaigns([]);try{const role=dashboardRole(savedDashboardUser());if(kind==="donor"&&role==="fundraiser"){const token=localStorage.getItem("access_token")||"",headers={Authorization:`Bearer ${token}`};const[dr,rr]=await Promise.all([fetch("/api/dashboard/fundraiser-donors",{headers,cache:"no-store"}),fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"})]);const dj=await dr.json(),rj=await rr.json();if(!dr.ok)throw new Error(dj?.message||"Unable to load donor.");const donors=Array.isArray(dj?.data)?dj.data:[],person=donors.find((x:any)=>Number(x?.id??x?.user_id??x?.donor_id)===Number(id));if(!person)throw new Error("This donor was not found among donors to your campaigns.");setP(person);const all=Array.isArray(rj?.data)?rj.data:[],selectedId=Number(person?.id??person?.user_id??person?.donor_id??id),selectedEmail=personEmail(person);setDon(all.filter((x:any)=>completed(x)&&((selectedId>0&&donorId(x)===selectedId)||(!donorId(x)&&selectedEmail&&donorEmail(x)===selectedEmail))));}else{const x=dataFrom(await adminApi(`${kind}/${id}/overview`));setP(x?.[kind]||x);setLoading(false);try{if(kind==="donor"){setDon(rowsFrom(await adminApi(`donor/${id}/donations?page=1&per_page=100`)))}else{
+ useEffect(()=>{(async()=>{setLoading(true);setError("");setCampaigns([]);try{const role=dashboardRole(savedDashboardUser());if(kind==="donor"&&role==="fundraiser"){const token=localStorage.getItem("access_token")||"",headers={Authorization:`Bearer ${token}`};const[dr,rr]=await Promise.all([fetch("/api/dashboard/fundraiser-donors",{headers,cache:"no-store"}),fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"})]);const dj=await dr.json(),rj=await rr.json();if(!dr.ok)throw new Error(dj?.message||"Unable to load donor.");const donors=Array.isArray(dj?.data)?dj.data:[],person=donors.find((x:any)=>Number(x?.id??x?.user_id??x?.donor_id)===Number(id));if(!person)throw new Error("This donor was not found among donors to your campaigns.");setP(person);const all=Array.isArray(rj?.data)?rj.data:[],selectedId=Number(person?.id??person?.user_id??person?.donor_id??id),selectedEmail=personEmail(person);setDon(all.filter((x:any)=>completed(x)&&((selectedId>0&&donorId(x)===selectedId)||(!donorId(x)&&selectedEmail&&donorEmail(x)===selectedEmail))));}else{const x=dataFrom(await adminApi(`${kind}/${id}/overview`));setP(x?.[kind]||x);setLoading(false);try{if (kind === "donor") {
+  const donorRows = rowsFrom(
+    await adminApi(
+      `donations/paginated?page=1&per_page=100&user_id=${Number(id)}&orderby=id&order=desc`
+    )
+  );
+
+  setDon(donorRows);
+}else{
 const campaignRows = rowsFrom(
   await adminApi(
     `campaigns?page=1&per_page=100&status=all`
@@ -60,14 +93,29 @@ const batches = await Promise.all(
       .catch(() => [])
   )
 ); const seen=new Set<number>();const onlyPaid=batches.flat().filter((d:any)=>{const donationId=Number(d?.id??d?.donation_id??0);if(donationId&&seen.has(donationId))return false;if(donationId)seen.add(donationId);return completed(d)});setDon(onlyPaid)}}catch{setDon([])}}}catch(e){setError(e instanceof Error?e.message:"Unable to load details.");}finally{setLoading(false)}})()},[id,kind]);
- const sorted=useMemo(()=>[...don].sort((a,b)=>(donationDate(b)?.getTime()||0)-(donationDate(a)?.getTime()||0)),[don]);const pages=Math.max(1,Math.ceil(sorted.length/10)),pageRows=sorted.slice((page-1)*10,page*10);
+ const completedDonations = useMemo(
+  () => don.filter(completed),
+  [don]
+);
+
+const sorted = useMemo(
+  () =>
+    [...completedDonations].sort(
+      (a, b) =>
+        (donationDate(b)?.getTime() || 0) -
+        (donationDate(a)?.getTime() || 0)
+    ),
+  [completedDonations]
+);const pages=Math.max(1,Math.ceil(sorted.length/10)),pageRows=sorted.slice((page-1)*10,page*10);
  if(loading)return <CardBox>Loading…</CardBox>;if(error)return <CardBox><div className="rounded-md bg-lighterror px-4 py-3 text-error">{error}</div></CardBox>;
  const u = p?.user ?? p?.donor ?? p?.fundraiser ?? p?.profile ?? p;
- const name=[u.first_name,u.last_name].filter(Boolean).join(" ")||u.display_name||u.name||`${kind} #${id}`,scopedTotal=don.reduce((s,d)=>s+donationAmount(d),0),total=kind==="fundraiser"?scopedTotal:(don.length?scopedTotal:Number(p.total_given??p.total_contributions??0)),count=kind==="fundraiser"?don.length:(don.length||Number(p.donations_count??p.number_of_contributions??0)),avg=count?total/count:0,camps =
+ const name=[u.first_name,u.last_name].filter(Boolean).join(" ")||u.display_name||u.name||`${kind} #${id}`,scopedTotal=completedDonations.reduce((s,d)=>s+donationAmount(d),0),total=kind==="fundraiser"?scopedTotal:(completedDonations.length
+  ? scopedTotal
+  : Number(p.total_given ?? p.total_contributions ?? 0)),count=kind==="fundraiser"?don.length:completedDonations.length,avg=count?total/count:0,camps =
   kind === "fundraiser"
     ? campaigns.length
     : new Set(
-        don
+        completedDonations
           .map(
             (d) =>
               d?.campaign?.id ??
@@ -277,15 +325,22 @@ const batches = await Promise.all(
 
     <div className="mt-5 overflow-x-auto">
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Campaign</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Goal</TableHead>
-            <TableHead>Raised</TableHead>
-            <TableHead>Created</TableHead>
-          </TableRow>
-        </TableHeader>
+       <TableHeader>
+  <TableRow>
+    {isAdminViewer && <TableHead>ID</TableHead>}
+
+    <TableHead>Campaign</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Goal</TableHead>
+    <TableHead>Raised</TableHead>
+
+    {isAdminViewer && (
+      <TableHead>Donations</TableHead>
+    )}
+
+    <TableHead>Created</TableHead>
+  </TableRow>
+</TableHeader>
 
         <TableBody>
           {campaigns.length ? (
@@ -324,8 +379,12 @@ const batches = await Promise.all(
                 : null;
 
               return (
-                <TableRow key={campaignId}>
-                  <TableCell>
+  <TableRow key={campaignId}>
+    {isAdminViewer && (
+      <TableCell>#{campaignId}</TableCell>
+    )}
+
+    <TableCell>
                     <div>
                       <p className="font-medium">
                         {title}
@@ -348,10 +407,22 @@ const batches = await Promise.all(
                   </TableCell>
 
                   <TableCell>
-                    ${raised.toFixed(2)}
-                  </TableCell>
+  ${raised.toFixed(2)}
+</TableCell>
 
-                  <TableCell>
+{isAdminViewer && (
+  <TableCell>
+    {Number(
+      campaign?.donations_count ??
+      campaign?.donation_count ??
+      campaign?.total_donations ??
+      campaign?.donations ??
+      0
+    )}
+  </TableCell>
+)}
+
+<TableCell>
                     {createdDate &&
                     !Number.isNaN(
                       createdDate.getTime()
@@ -365,9 +436,9 @@ const batches = await Promise.all(
           ) : (
             <TableRow>
               <TableCell
-                colSpan={5}
-                className="py-10 text-center text-darklink"
-              >
+  colSpan={isAdminViewer ? 7 : 5}
+  className="py-10 text-center text-darklink"
+>
                 No campaigns found for this
                 fundraiser.
               </TableCell>
@@ -378,6 +449,147 @@ const batches = await Promise.all(
     </div>
   </CardBox>
 )}
- {tab==="donations"&&<CardBox><h3 className="text-lg font-semibold">Donations</h3><div className="mt-5 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Donation</TableHead><TableHead>Campaign</TableHead><TableHead>Amount</TableHead><TableHead>Date</TableHead></TableRow></TableHeader><TableBody>{pageRows.length?pageRows.map((d,i)=><TableRow key={d.id||d.donation_id||i}><TableCell>#{d.id||d.donation_id}</TableCell><TableCell>{d.campaign?.title||d.campaign_title||`#${d.campaign?.id||d.campaign_id||"—"}`}</TableCell><TableCell>${donationAmount(d).toFixed(2)}</TableCell><TableCell>{donationDate(d)?.toLocaleDateString()||"—"}</TableCell></TableRow>):<TableRow><TableCell colSpan={4} className="py-10 text-center text-darklink">No donations found.</TableCell></TableRow>}</TableBody></Table></div><div className="mt-4 flex items-center justify-between"><p className="text-sm text-darklink">Page {page} of {pages} · 10 items per page</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1} onClick={()=>setPage(x=>x-1)}>Previous</Button><Button size="sm" variant="outline" disabled={page>=pages} onClick={()=>setPage(x=>x+1)}>Next</Button></div></div></CardBox>}
+{tab === "donations" && (
+  <CardBox>
+    <h3 className="text-lg font-semibold">Donations</h3>
+
+    <div className="mt-5 overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Donation</TableHead>
+            <TableHead>Campaign</TableHead>
+            <TableHead>Amount</TableHead>
+
+            {isAdminViewer && (
+              <>
+                <TableHead>Status</TableHead>
+                <TableHead>Gateway Fee</TableHead>
+                <TableHead>Platform Fee</TableHead>
+                <TableHead>Tip</TableHead>
+                <TableHead>Payment Method</TableHead>
+              </>
+            )}
+
+            <TableHead>Date</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {pageRows.length ? (
+            pageRows.map((d, i) => (
+              <TableRow key={d.id || d.donation_id || i}>
+                <TableCell>
+                  #{d.id || d.donation_id || "—"}
+                </TableCell>
+
+                <TableCell>
+                  {d.campaign?.title ||
+                    d.campaign_title ||
+                    `#${
+                      d.campaign?.id ||
+                      d.campaign_id ||
+                      "—"
+                    }`}
+                </TableCell>
+
+                <TableCell>
+                  ${donationAmount(d).toFixed(2)}
+                </TableCell>
+
+                {isAdminViewer && (
+                  <>
+                    <TableCell className="capitalize">
+                      {String(
+                        d.payment_status ??
+                        d.status ??
+                        d.donation_status ??
+                        "—"
+                      )}
+                    </TableCell>
+
+                    <TableCell>
+  ${(Number(d.gateway_fee ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+
+<TableCell>
+  ${(Number(d.platform_fee ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+
+<TableCell>
+  ${(Number(d.tip_amount ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+                   <TableCell>
+  {typeof d.payment_method === "object" && d.payment_method !== null
+    ? d.payment_method.label ??
+      d.payment_method.name ??
+      d.payment_method.type ??
+      "—"
+    : d.payment_method ??
+      (typeof d.gateway === "object" && d.gateway !== null
+        ? d.gateway.label ??
+          d.gateway.name ??
+          d.gateway.type ??
+          "—"
+        : d.gateway ?? d.gateway_id ?? "—")}
+</TableCell>
+                  </>
+                )}
+
+                <TableCell>
+                  {donationDate(d)?.toLocaleDateString() || "—"}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={isAdminViewer ? 9 : 4}
+                className="py-10 text-center text-darklink"
+              >
+                No donations found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+
+    <div className="mt-4 flex items-center justify-between">
+      <p className="text-sm text-darklink">
+        Page {page} of {pages} · 10 items per page
+      </p>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => setPage((x) => x - 1)}
+        >
+          Previous
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= pages}
+          onClick={() => setPage((x) => x + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </CardBox>
+)}
  </div>;
 }
