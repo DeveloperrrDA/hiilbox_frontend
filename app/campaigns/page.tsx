@@ -259,12 +259,7 @@ className={`inline-flex min-h-10 items-center justify-center rounded-full border
 </button>
   </form>
 
-  <Link
-    href="/create-campaign"
-    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#01A14B] px-5 text-sm font-bold text-[#01A14B] transition hover:bg-[#01A14B] hover:text-white"
-  >
-    Start a fundraiser
-  </Link>
+  
 </div>
           </div>
 
