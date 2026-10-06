@@ -19,7 +19,71 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 
 const blank = { first_name: "", last_name: "", email: "", username: "", password: "", phone: "", image: "" };
 
-function statusOf(r: any) { return String(r?.status ?? r?.fundraiser_status ?? r?.approval_status ?? "pending").toLowerCase(); }
+function declineReasonOf(r: any) {
+  const sources = [
+    r,
+    r?.fundraiser,
+    r?.profile,
+    r?.data,
+    r?.__overview?.fundraiser,
+    r?.__overview?.profile,
+    r?.__overview,
+  ];
+
+  for (const source of sources) {
+    if (!source || typeof source !== "object") {
+      continue;
+    }
+
+    const reason =
+      source?.decline_reason ??
+      source?.declineReason;
+
+    if (!reason) {
+      continue;
+    }
+
+    if (typeof reason === "string") {
+      return {
+        message: reason,
+        created_at: "",
+        user_id: null,
+      };
+    }
+
+    if (
+      typeof reason === "object" &&
+      String(reason?.message ?? "").trim()
+    ) {
+      return reason;
+    }
+  }
+
+  return null;
+}
+
+function statusOf(r: any) {
+  const rawStatus = String(
+    r?.status ??
+      r?.fundraiser_status ??
+      r?.approval_status ??
+      r?.fundraiser?.status ??
+      r?.profile?.status ??
+      r?.data?.status ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (
+    rawStatus === "inactive" &&
+    declineReasonOf(r)
+  ) {
+    return "declined";
+  }
+
+  return rawStatus || "pending";
+}
 function statusMatches(r: any, wanted: string) {
   const actual = statusOf(r);
 
@@ -81,9 +145,15 @@ const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(0);
+
 const [rejectFundraiser, setRejectFundraiser] = useState<any | null>(null);
 const [rejectReason, setRejectReason] = useState("");
 const [rejecting, setRejecting] = useState(false);
+
+const [declineDetailsFundraiser, setDeclineDetailsFundraiser] =
+  useState<any | null>(null);
+
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -107,10 +177,26 @@ const makeQ = (fundraiserStatus?: string) => {
 };
 
 const statusGroups: Record<string, string[]> = {
-  pending: ["pending", "review", "submitted", "inactive"],
-  approved: ["approved", "active"],
-  declined: ["declined", "rejected", "denied"],
-  trash: ["trash", "trashed"],
+  pending: [
+    "pending",
+    "review",
+    "submitted",
+    "inactive",
+  ],
+  approved: [
+    "approved",
+    "active",
+  ],
+  declined: [
+    "inactive",
+    "declined",
+    "rejected",
+    "denied",
+  ],
+  trash: [
+    "trash",
+    "trashed",
+  ],
 };
 
 let baseRows: any[] = [];
@@ -469,7 +555,19 @@ return <CardBox className="w-full !max-w-none">
       </TableRow>
     </TableHeader>
 
-    <TableBody>      {loading ? <TableRow><TableCell colSpan={6} className="py-10 text-center">Loading fundraisers…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No fundraisers found. If this account has fundraisers, verify the logged-in admin JWT is valid.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = statusOf(r); const pending = ["pending", "review", "submitted", "inactive"].includes(st); return <TableRow key={id}>
+    <TableBody>      {loading ? <TableRow><TableCell colSpan={6} className="py-10 text-center">Loading fundraisers…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No fundraisers found. If this account has fundraisers, verify the logged-in admin JWT is valid.</TableCell></TableRow> : pageRows.map((r) => {
+  const id = idOf(r);
+  const st = statusOf(r);
+
+  const pending = [
+    "pending",
+    "review",
+    "submitted",
+    "inactive",
+  ].includes(st);
+
+  const declineReason = declineReasonOf(r);
+       return <TableRow key={id}>
   <TableCell>
     <Checkbox
       checked={selected.includes(id)}
@@ -480,9 +578,90 @@ return <CardBox className="w-full !max-w-none">
 
   <TableCell><Link href={`/dashboard/fundraisers/${id}`} className="font-medium hover:text-primary">{nameOf(r) || `Fundraiser #${id}`}</Link><div className="text-xs text-darklink">{r.email || r.user_email || "—"}{r.phone ? ` · ${r.phone}` : ""}</div></TableCell>
         <TableCell>{createdCampaigns(r)}</TableCell>
-        <TableCell>{pending ? <div className="flex items-center gap-2"><Badge variant="lightWarning">{st}</Badge><Button size="sm" variant="outline" className="text-success" disabled={busy === id} onClick={() => approve(r)} title="Approve"><Icon icon="solar:check-circle-bold" /></Button><Button size="sm" variant="outline" className="text-error" disabled={busy === id} onClick={() => decline(r)} title="Decline"><Icon icon="solar:close-circle-bold" /></Button></div> : <Badge variant={st === "approved" || st === "active" ? "lightSuccess" : st === "declined" || isTrashedStatus(st) ? "lightError" : "lightPrimary"}>{st}</Badge>}</TableCell>
+        <TableCell>
+  {pending ? (
+    <div className="flex items-center gap-2">
+      <Badge variant="lightWarning">
+        {st}
+      </Badge>
+
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-success"
+        disabled={busy === id}
+        onClick={() => approve(r)}
+        title="Approve"
+      >
+        <Icon icon="solar:check-circle-bold" />
+      </Button>
+
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-error"
+        disabled={busy === id}
+        onClick={() => decline(r)}
+        title="Decline"
+      >
+        <Icon icon="solar:close-circle-bold" />
+      </Button>
+    </div>
+  ) : st === "declined" ? (
+    <div className="flex items-center gap-2">
+      <Badge variant="lightError">
+        Declined
+      </Badge>
+
+      {declineReason && (
+        <button
+          type="button"
+          onClick={() => setDeclineDetailsFundraiser(r)}
+          className="inline-flex items-center"
+          title="View decline reason"
+          aria-label="View decline reason"
+        >
+          <Icon
+            icon="solar:info-circle-line-duotone"
+            className="text-lg"
+          />
+        </button>
+      )}
+    </div>
+  ) : (
+    <Badge
+      variant={
+        st === "approved" || st === "active"
+          ? "lightSuccess"
+          : isTrashedStatus(st)
+            ? "lightError"
+            : "lightPrimary"
+      }
+    >
+      {st}
+    </Badge>
+  )}
+</TableCell>
         <TableCell>{fmtDate(joinedDate(r))}</TableCell>
-        <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuItem onClick={() => approve(r)}><Icon icon="solar:check-circle-line-duotone" /> Approve</DropdownMenuItem><DropdownMenuItem onClick={() => decline(r)}><Icon icon="solar:close-circle-line-duotone" /> Decline</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
+        <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}>
+  <Icon icon="solar:pen-2-line-duotone" /> Edit / Update
+</DropdownMenuItem>
+
+{pending && (
+  <>
+    <DropdownMenuItem onClick={() => approve(r)}>
+      <Icon icon="solar:check-circle-line-duotone" />
+      Approve
+    </DropdownMenuItem>
+
+    <DropdownMenuItem onClick={() => decline(r)}>
+      <Icon icon="solar:close-circle-line-duotone" />
+      Decline
+    </DropdownMenuItem>
+  </>
+)}
+
+<DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
       </TableRow>; })}
     </TableBody></Table></div>
     <ListPagination
@@ -499,62 +678,110 @@ return <CardBox className="w-full !max-w-none">
     if (!isOpen && !rejecting) {
       setRejectFundraiser(null);
       setRejectReason("");
+      setError("");
     }
   }}
 >
-  <DialogContent className="max-w-lg">
-    <DialogHeader>
-      <DialogTitle>Reject Fundraiser</DialogTitle>
+  <DialogContent className="max-w-[820px] gap-0 overflow-hidden p-0">
+    <DialogHeader className="border-b border-ld px-6 py-5">
+      <DialogTitle className="text-xl font-medium">
+        Decline fundraiser?
+      </DialogTitle>
     </DialogHeader>
 
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm text-darklink">
-          You are rejecting:
-        </p>
-
-        <p className="mt-1 font-medium">
-          {rejectFundraiser
-            ? nameOf(rejectFundraiser) ||
-              `Fundraiser #${idOf(rejectFundraiser)}`
-            : "—"}
-        </p>
-      </div>
-
-      <label className="block text-sm">
-        Rejection reason
+    <div className="bg-lightgray px-6 py-6 dark:bg-darkgray">
+      <label className="block">
+        <span className="text-lg font-medium">
+          Reason
+        </span>
 
         <textarea
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
-          rows={5}
-          placeholder="Enter the reason for rejecting this fundraiser..."
-          className="mt-2 w-full rounded-md border border-ld bg-transparent px-3 py-2.5"
+          rows={3}
+          placeholder="e.g., the fundraiser is not suitable for the campaign."
+          className="mt-3 w-full resize-y rounded-md border border-ld bg-white px-4 py-3 text-base outline-none placeholder:text-darklink focus:border-primary dark:bg-dark"
         />
       </label>
 
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={rejecting}
-          onClick={() => {
-            setRejectFundraiser(null);
-            setRejectReason("");
-          }}
-        >
-          Cancel
-        </Button>
+      <p className="mt-3 text-base leading-7 text-darklink">
+        When you deny the fundraiser, he will not be live and
+        will not take part in the fundraising campaign.
+      </p>
+    </div>
 
-        <Button
-          type="button"
-          disabled={rejecting || !rejectReason.trim()}
-          onClick={() => void submitReject()}
-          className="bg-error text-white hover:bg-error/90"
-        >
-          {rejecting ? "Rejecting..." : "Reject Fundraiser"}
-        </Button>
+    <div className="flex justify-end gap-3 border-t border-ld bg-white px-6 py-5 dark:bg-dark">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={rejecting}
+        onClick={() => {
+          setRejectFundraiser(null);
+          setRejectReason("");
+          setError("");
+        }}
+      >
+        Cancel
+      </Button>
+
+      <Button
+        type="button"
+        disabled={rejecting || !rejectReason.trim()}
+        onClick={() => void submitReject()}
+        className="bg-error px-6 text-white hover:bg-error/90"
+      >
+        {rejecting ? "Denying..." : "Deny Fundraiser"}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<Dialog
+  open={Boolean(declineDetailsFundraiser)}
+  onOpenChange={(isOpen) => {
+    if (!isOpen) {
+      setDeclineDetailsFundraiser(null);
+    }
+  }}
+>
+  <DialogContent className="max-w-[820px] gap-0 overflow-hidden p-0">
+    <DialogHeader className="border-b border-ld px-6 py-5">
+      <DialogTitle className="text-xl font-medium">
+        Declined fundraiser
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="bg-lightgray px-6 py-6 dark:bg-darkgray">
+      <p className="text-lg font-medium">
+        Reason
+      </p>
+
+      <div className="mt-3 min-h-[90px] rounded-md border border-ld bg-white px-4 py-3 text-base leading-7 dark:bg-dark">
+        {declineDetailsFundraiser
+          ? declineReasonOf(declineDetailsFundraiser)?.message ||
+            "No reason provided."
+          : "No reason provided."}
       </div>
+
+      {declineDetailsFundraiser &&
+        declineReasonOf(declineDetailsFundraiser)?.created_at && (
+          <p className="mt-3 text-sm text-darklink">
+            Declined on{" "}
+            {String(
+              declineReasonOf(declineDetailsFundraiser)?.created_at
+            )}
+          </p>
+        )}
+    </div>
+
+    <div className="flex justify-end border-t border-ld bg-white px-6 py-5 dark:bg-dark">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setDeclineDetailsFundraiser(null)}
+      >
+        Close
+      </Button>
     </div>
   </DialogContent>
 </Dialog>

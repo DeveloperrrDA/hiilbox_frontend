@@ -66,15 +66,17 @@ function isPending(d: any) {
 }
 
 export default function DonorDonations() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<number | null>(null);
+ const [rows, setRows] = useState<any[]>([]);
+const [stats, setStats] = useState<any>(null);
+const [loading, setLoading] = useState(true);
+const [busy, setBusy] = useState<number | null>(null);
 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const [detail, setDetail] = useState<any>(null);
-
+const [search, setSearch] = useState("");
+const [statusFilter, setStatusFilter] = useState("all");
   const [dateRange, setDateRange] =
     useState<DateRangeKey>("this_year");
 
@@ -91,11 +93,15 @@ export default function DonorDonations() {
         );
       }
 
-      const data = await dashboardApi(
-        `donor/${id}/donations?page=1&per_page=100&orderby=id&order=desc`
-      );
+     const [donationsData, statsData] = await Promise.all([
+  dashboardApi(
+    `donor/${id}/donations?page=1&per_page=100&orderby=id&order=desc`
+  ),
+  dashboardApi(`donor/${id}/stats`),
+]);
 
-      setRows(dashboardRows(data));
+setRows(dashboardRows(donationsData));
+setStats(statsData?.data ?? statsData ?? null);
     } catch (e) {
       setError(
         e instanceof Error
@@ -113,16 +119,45 @@ export default function DonorDonations() {
     void load();
   }, [load]);
 
-  const visibleRows = useMemo(
-    () =>
-      rows.filter((d) =>
-        isDateInRange(
-          rawDate(d),
-          dateRange
-        )
-      ),
-    [rows, dateRange]
-  );
+ const visibleRows = useMemo(() => {
+  const term = search.trim().toLowerCase();
+
+  return rows.filter((d) => {
+    if (!isDateInRange(rawDate(d), dateRange)) {
+      return false;
+    }
+
+    const status = donationStatus(d);
+
+    if (
+      statusFilter !== "all" &&
+      status !== statusFilter
+    ) {
+      return false;
+    }
+
+    if (term) {
+      const searchable = [
+        donationId(d),
+        d?.campaign?.title,
+        val(d, "campaign_title", "title"),
+        val(d, "campaign_id"),
+        val(d, "uid", "donation_uid"),
+        val(d, "amount", "donation_amount", "total"),
+        status,
+      ]
+        .filter((value) => value != null)
+        .join(" ")
+        .toLowerCase();
+
+      if (!searchable.includes(term)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}, [rows, dateRange, search, statusFilter]);
 
   async function cancelDonation(
     donation: any
@@ -185,22 +220,95 @@ export default function DonorDonations() {
 
   return (
     <CardBox>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h5 className="card-title">
-            My Donations
-          </h5>
+      <div>
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h5 className="card-title">
+        My Donations
+      </h5>
 
-          <p className="mt-1 text-sm text-darklink">
-            Your donation history.
-          </p>
-        </div>
+      <p className="mt-1 text-sm text-darklink">
+        Your donation history.
+      </p>
+    </div>
+  </div>
 
-        <DatePresetSelect
-          value={dateRange}
-          onChange={setDateRange}
-        />
-      </div>
+  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="rounded-md border p-4">
+      <p className="text-sm text-darklink">
+        Total Donations
+      </p>
+      <p className="mt-1 text-xl font-semibold">
+        {Number(
+          stats?.total_number_of_donations ?? 0
+        ).toLocaleString()}
+      </p>
+    </div>
+
+    <div className="rounded-md border p-4">
+      <p className="text-sm text-darklink">
+        Supported Campaigns
+      </p>
+      <p className="mt-1 text-xl font-semibold">
+        {Number(
+          stats?.total_supported_campaigns ?? 0
+        ).toLocaleString()}
+      </p>
+    </div>
+
+    <div className="rounded-md border p-4">
+      <p className="text-sm text-darklink">
+        Total Contributions
+      </p>
+      <p className="mt-1 text-xl font-semibold">
+        ${Number(
+          stats?.total_contributions ?? 0
+        ).toFixed(2)}
+      </p>
+    </div>
+
+    <div className="rounded-md border p-4">
+      <p className="text-sm text-darklink">
+        Average Contribution
+      </p>
+      <p className="mt-1 text-xl font-semibold">
+        ${Number(
+          stats?.average_contributions ?? 0
+        ).toFixed(2)}
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+    <input
+      type="search"
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Search donations..."
+      className="h-10 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none lg:max-w-xs"
+    />
+
+    <select
+      value={statusFilter}
+      onChange={(e) =>
+        setStatusFilter(e.target.value)
+      }
+      className="h-10 rounded-md border border-border bg-transparent px-3 text-sm outline-none"
+    >
+      <option value="all">All Statuses</option>
+      <option value="paid">Paid</option>
+      <option value="completed">Completed</option>
+      <option value="pending">Pending</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="failed">Failed</option>
+    </select>
+
+    <DatePresetSelect
+      value={dateRange}
+      onChange={setDateRange}
+    />
+  </div>
+</div>
 
       {notice && (
         <div className="mt-5 rounded-md border border-success/30 bg-lightsuccess px-4 py-3 text-sm text-success">

@@ -107,6 +107,128 @@ function formatMoney(value: number, currency = "USD") {
     return `$${value.toLocaleString()}`;
   }
 }
+function donationAmount(row: any) {
+  const value =
+    row?.amount ??
+    row?.donation_amount ??
+    row?.total ??
+    row?.gross_amount ??
+    row?.order_total ??
+    0;
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : 0;
+}
+
+function donationNet(row: any) {
+  const direct =
+    row?.net_amount ??
+    row?.amount_after_fees ??
+    row?.net ??
+    row?.net_donation;
+
+  if (
+    direct !== undefined &&
+    direct !== null &&
+    direct !== ""
+  ) {
+    const number = Number(direct);
+
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  const gross = donationAmount(row);
+
+  const gatewayFee =
+    Number(
+      row?.gateway_fee ??
+      row?.payment_gateway_fee ??
+      0
+    ) / 100;
+
+  const platformFee =
+    Number(row?.platform_fee ?? 0) / 100;
+
+  return Math.max(
+    0,
+    gross -
+      (Number.isFinite(gatewayFee) ? gatewayFee : 0) -
+      (Number.isFinite(platformFee) ? platformFee : 0)
+  );
+}
+
+function donationDate(row: any) {
+  const raw =
+    row?.created_at ??
+    row?.date_created ??
+    row?.date ??
+    row?.created ??
+    row?.paid_at ??
+    row?.completed_at;
+
+  if (!raw) {
+    return null;
+  }
+
+  const date = new Date(raw);
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date;
+}
+
+function donationIsPaid(row: any) {
+  const paymentStatus = String(
+    row?.payment_status ?? ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const status = String(
+    row?.status ?? ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return paymentStatus
+    ? paymentStatus === "paid"
+    : [
+        "paid",
+        "completed",
+        "complete",
+        "successful",
+        "success",
+      ].includes(status);
+}
+
+function monthKey(value: any) {
+  if (!value) {
+    return "";
+  }
+
+  // Already YYYY-MM or YYYY-MM-DD.
+  const text = String(value).trim();
+
+  const isoMatch = text.match(
+    /^(\d{4})-(\d{2})/
+  );
+
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}`;
+  }
+
+  // Handles labels such as "Oct 2026".
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return `${date.getUTCFullYear()}-${String(
+    date.getUTCMonth() + 1
+  ).padStart(2, "0")}`;
+}
 
 
 
@@ -372,15 +494,79 @@ const totalDonation =
     "amount_raised",
   ]);
 
+const paidDonationsForRange =
+  donationRows.filter((donation: any) => {
+    if (!donationIsPaid(donation)) {
+      return false;
+    }
+
+    const date = donationDate(donation);
+
+    if (!date) {
+      return false;
+    }
+
+    if (
+      dateRange === "custom"
+    ) {
+      if (
+        startDate &&
+        date <
+          new Date(
+            `${startDate}T00:00:00`
+          )
+      ) {
+        return false;
+      }
+
+      if (
+        endDate &&
+        date >
+          new Date(
+            `${endDate}T23:59:59.999`
+          )
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    const range =
+      dateRangeParams(dateRange);
+
+    if (
+      range.start_date &&
+      date <
+        new Date(
+          `${range.start_date}T00:00:00`
+        )
+    ) {
+      return false;
+    }
+
+    if (
+      range.end_date &&
+      date >
+        new Date(
+          `${range.end_date}T23:59:59.999`
+        )
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+const calculatedNetDonation =
+  paidDonationsForRange.reduce(
+    (sum: number, donation: any) =>
+      sum + donationNet(donation),
+    0
+  );
+
 const netDonation =
-  metricNumber(metrics.net_donation) ||
-  numberFrom(data, [
-    "net_donation",
-    "net_donations",
-    "net_amount",
-    "total_net_donation",
-    "total_net_amount",
-  ]);
+  calculatedNetDonation;
 
 const totalDonors =
   metricNumber(metrics.total_donors) ||
@@ -415,125 +601,93 @@ const revenueRows = useMemo(() => {
 }, [data]);
 
 const revenueBreakdown = useMemo(() => {
-  const normalizePeriod = (value: string) => {
-    const text = String(value ?? "").trim();
+  const grouped = new Map<
+    string,
+    {
+      date: string;
+      donors: Set<string>;
+      totalDonation: number;
+      netDonation: number;
+    }
+  >();
 
-    if (!text) {
-      return "";
+  for (const donation of paidDonationsForRange) {
+    const date = donationDate(donation);
+
+    if (!date) {
+      continue;
     }
 
-    // Handles GrowFund labels such as "Sep 2026"
-    const monthYearMatch = text.match(
-      /^([A-Za-z]{3,9})\s+(\d{4})$/
-    );
-
-    if (monthYearMatch) {
-      const parsed = new Date(
-        `${monthYearMatch[1]} 1, ${monthYearMatch[2]}`
-      );
-
-      if (!Number.isNaN(parsed.getTime())) {
-        return `${parsed.getUTCFullYear()}-${String(
-          parsed.getUTCMonth() + 1
-        ).padStart(2, "0")}`;
-      }
-    }
-
-    // Handles API dates such as 2026-09-28.
-    const isoMatch = text.match(/^(\d{4})-(\d{2})-\d{2}/);
-
-    if (isoMatch) {
-      return `${isoMatch[1]}-${isoMatch[2]}`;
-    }
-
-    // Handles other valid date strings returned by GrowFund.
-    const parsed = new Date(text);
-
-    if (!Number.isNaN(parsed.getTime())) {
-      return `${parsed.getUTCFullYear()}-${String(
-        parsed.getUTCMonth() + 1
-      ).padStart(2, "0")}`;
-    }
-
-    return text.toLowerCase();
-  };
-
-  return revenueRows.map((revenueRow) => {
-    const revenuePeriod = normalizePeriod(revenueRow.date);
-
-    const periodDonations = donationRows.filter((donation: any) => {
-      const paymentStatus = String(
-        donation?.payment_status ?? ""
-      ).toLowerCase();
-
-      const status = String(
-        donation?.status ?? ""
-      ).toLowerCase();
-
-      const isPaid =
-        paymentStatus === "paid" ||
-        status === "paid" ||
-        status === "completed" ||
-        status === "complete" ||
-        status === "successful" ||
-        status === "success";
-
-      if (!isPaid || !donation?.created_at) {
-        return false;
-      }
-
-      const donationDate = new Date(donation.created_at);
-
-      if (Number.isNaN(donationDate.getTime())) {
-        return false;
-      }
-
-      const donationPeriod = `${donationDate.getUTCFullYear()}-${String(
-        donationDate.getUTCMonth() + 1
+    const key =
+      `${date.getUTCFullYear()}-${String(
+        date.getUTCMonth() + 1
       ).padStart(2, "0")}`;
 
-      return donationPeriod === revenuePeriod;
-    });
-
-    const totalDonation = periodDonations.reduce(
-      (sum: number, donation: any) => {
-        const amount = Number(donation?.amount ?? 0);
-
-        return sum + (Number.isFinite(amount) ? amount : 0);
-      },
-      0
+    const label = date.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }
     );
 
-    const uniqueDonors = new Set(
-      periodDonations.map((donation: any) => {
-        const donorId = donation?.donor?.id;
+    const current =
+      grouped.get(key) ?? {
+        date: label,
+        donors: new Set<string>(),
+        totalDonation: 0,
+        netDonation: 0,
+      };
 
-        if (
-          donorId !== undefined &&
-          donorId !== null &&
-          String(donorId) !== "" &&
-          String(donorId) !== "0"
-        ) {
-          return `donor-${String(donorId)}`;
-        }
+    const donorId =
+      donation?.donor?.id ??
+      donation?.user?.id ??
+      donation?.donor_id ??
+      donation?.user_id;
 
-        return `donation-${String(
-          donation?.id ??
-            donation?.uid ??
-            donation?.transaction_id ??
-            ""
-        )}`;
-      })
-    ).size;
+    const email =
+      donation?.donor?.email ??
+      donation?.user?.email ??
+      donation?.email;
 
-    return {
-      date: revenueRow.date,
-      donors: uniqueDonors,
-      totalDonation,
-      netDonation: revenueRow.revenue,
-    };
-  });
-}, [revenueRows, donationRows]);
+    const donorKey =
+      donorId && String(donorId) !== "0"
+        ? `donor-${donorId}`
+        : email
+          ? `email-${String(email)
+              .trim()
+              .toLowerCase()}`
+          : `donation-${
+              donation?.id ??
+              donation?.uid ??
+              donation?.transaction_id
+            }`;
+
+    current.donors.add(donorKey);
+
+    current.totalDonation +=
+      donationAmount(donation);
+
+    current.netDonation +=
+      donationNet(donation);
+
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) =>
+      b.localeCompare(a)
+    )
+    .map(([, row]) => ({
+      date: row.date,
+      donors: row.donors.size,
+      totalDonation: row.totalDonation,
+      netDonation: row.netDonation,
+    }));
+}, [paidDonationsForRange]);
+
+
 const revenueChartOptions = useMemo(
   () => ({
     chart: {

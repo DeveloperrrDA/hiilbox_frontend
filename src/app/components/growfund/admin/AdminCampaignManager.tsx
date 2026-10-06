@@ -24,48 +24,100 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
- paused: "lightWarning",
+  draft: "lightGray",
+  pending: "lightWarning",
+  review: "lightWarning",
+  submitted: "lightWarning",
+
   published: "lightPrimary",
   approved: "lightSuccess",
-  pending: "lightWarning",
-  draft: "lightGray",
+  active: "lightSuccess",
+
+  paused: "lightWarning",
+  pause: "lightWarning",
+
+  ended: "lightPrimary",
+  completed: "lightPrimary",
+  funded: "lightSuccess",
+
+  visible: "lightSuccess",
+  hidden: "lightWarning",
+
   declined: "lightError",
   denied: "lightError",
   rejected: "lightError",
-  trashed: "lightError",
-  trash: "lightError",
-  funded: "lightSuccess",
-  completed: "lightPrimary",
+
   cancelled: "lightError",
+  canceled: "lightError",
+
+  trash: "lightError",
+  trashed: "lightError",
 };
 
 function campaignStatus(row: any) {
   const normalize = (value: any) =>
-    String(value ?? "").trim().toLowerCase();
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
 
-  const secondaryStatus = [
-    row?.secondary_status,
-    row?.campaign_secondary_status,
-    row?.current_status,
-    row?.state,
-    row?.campaign_state,
-  ]
-    .map(normalize)
-    .find(Boolean);
+  /*
+   * Status priority:
+   *
+   * 1. Secondary/action status
+   *    paused, ended, hidden, visible, etc.
+   *
+   * 2. Event-driven status
+   *    e.g. campaign goal has been reached.
+   *
+   * 3. Primary status
+   *    draft, pending, published, declined, etc.
+   */
 
-  if (secondaryStatus) {
-    return secondaryStatus;
-  }
-
-  return (
+  const primaryStatus =
     [
       row?.status,
       row?.campaign_status,
       row?.post_status,
     ]
       .map(normalize)
-      .find(Boolean) || "unknown"
-  );
+      .find(Boolean) || "unknown";
+
+  const secondaryStatus =
+    [
+      row?.secondary_status,
+      row?.campaign_secondary_status,
+    ]
+      .map(normalize)
+      .find(Boolean);
+
+  if (
+    secondaryStatus &&
+    ![
+      "",
+      "none",
+      "null",
+      "default",
+    ].includes(secondaryStatus)
+  ) {
+    return secondaryStatus;
+  }
+
+  /*
+   * If no explicit secondary action exists, check
+   * campaign events. A campaign that has reached its
+   * goal should display Funded instead of Published.
+   */
+  const raisedAmount = raised(row);
+  const goalAmount = goal(row);
+
+  if (
+    goalAmount > 0 &&
+    raisedAmount >= goalAmount
+  ) {
+    return "funded";
+  }
+
+  return primaryStatus;
 }
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
@@ -181,8 +233,19 @@ function donationCount(row: any) {
   }
   return 0;
 }
-function createdDate(row: any) { return deepValue(row, ["date_created", "created_at", "created_date", "post_date", "date", "created"]); }
-
+function createdDate(row: any) {
+  return (
+    row?.date_created ??
+    row?.created_at ??
+    row?.created_date ??
+    row?.post_date ??
+    row?.campaign?.date_created ??
+    row?.campaign?.created_at ??
+    row?.campaign?.created_date ??
+    row?.campaign?.post_date ??
+    ""
+  );
+}
 export default function AdminCampaignManager() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -690,40 +753,63 @@ setNotice(data?.message || msg);
       setError(e instanceof Error ? e.message : "Bulk action failed.");
     }
   }
-
 const visibleRows = useMemo(() => {
   return rows.filter((r) => {
-    // Status
     if (!statusMatches(r, status)) {
       return false;
     }
 
-    // Date
     const raw = createdDate(r);
-    const d = raw ? new Date(raw) : null;
 
+    // No date filter selected.
     if (
-      startDate &&
-      (!d || d < new Date(`${startDate}T00:00:00`))
+      dateRange === "all" &&
+      !startDate &&
+      !endDate
     ) {
+      return true;
+    }
+
+    // A campaign without a valid creation date cannot match
+    // an active date filter.
+    if (!raw) {
       return false;
     }
 
-    if (
-      endDate &&
-      (!d || d > new Date(`${endDate}T23:59:59`))
-    ) {
+    const d = new Date(raw);
+
+    if (Number.isNaN(d.getTime())) {
       return false;
     }
 
-    if (!isDateInRange(raw, dateRange)) {
-      return false;
+    // Custom/manual date range.
+    // Do NOT also apply the preset filter.
+    if (startDate || endDate) {
+      if (
+        startDate &&
+        d < new Date(`${startDate}T00:00:00`)
+      ) {
+        return false;
+      }
+
+      if (
+        endDate &&
+        d > new Date(`${endDate}T23:59:59.999`)
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // Preset date filter.
+    if (dateRange !== "all") {
+      return isDateInRange(raw, dateRange);
     }
 
     return true;
   });
 }, [rows, status, dateRange, startDate, endDate]);
-
 const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {
