@@ -14,7 +14,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
 
-function idOf(r:any){return Number(r?.id??r?.user_id??r?.donor_id??0);}
+function idOf(r: any) {
+  return Number(
+    r?.donor?.id ??
+    r?.donor?.ID ??
+    r?.donor?.user_id ??
+    r?.user?.id ??
+    r?.user?.ID ??
+    r?.user?.user_id ??
+    r?.donor_id ??
+    r?.user_id ??
+    r?.id ??
+    0
+  );
+}
 function nameOf(r:any){return [r?.first_name,r?.last_name].filter(Boolean).join(" ")||r?.display_name||r?.name||r?.username||r?.user_login||"";}
 function count(r:any){return Number(r?.donations_count??r?.donation_count??r?.total_donations??r?.donations?.length??0);}
 function total(r:any){return Number(r?.total_given??r?.total_donated??r?.donation_total??r?.total_amount??0);}

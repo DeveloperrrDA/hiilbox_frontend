@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authFetch } from "@/lib/client-auth-fetch";
 import CardBox from "@/app/components/shared/CardBox";
 import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
 import { Badge } from "@/components/ui/badge";
@@ -35,18 +37,103 @@ type Campaign = {
 };
 
 const statusVariants: Record<string, any> = {
-  published: "lightSuccess", pending: "lightWarning", draft: "lightPrimary", funded: "lightSuccess",
-  declined: "lightError", trashed: "lightError", completed: "lightSuccess", cancelled: "lightError",
+  published: "lightSuccess",
+  approved: "lightSuccess",
+  active: "lightSuccess",
+  launched: "lightSuccess",
+
+  pending: "lightWarning",
+  review: "lightWarning",
+  submitted: "lightWarning",
+  awaiting_review: "lightWarning",
+  paused: "lightWarning",
+
+  draft: "lightPrimary",
+  completed: "lightSuccess",
+  funded: "lightSuccess",
+
+  declined: "lightError",
+  denied: "lightError",
+  rejected: "lightError",
+  cancelled: "lightError",
+  canceled: "lightError",
+  trash: "lightError",
+  trashed: "lightError",
 };
 function campaignStatus(row: any) {
-  return String(
-    row?.status ??
-    row?.campaign_status ??
-    row?.post_status ??
-    "unknown"
-  )
-    .trim()
-    .toLowerCase();
+  const normalize = (value: any) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+
+  const primaryStatus =
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown";
+
+  const secondaryStatus =
+    [
+      row?.secondary_status,
+      row?.campaign_secondary_status,
+    ]
+      .map(normalize)
+      .find(Boolean);
+
+  if (
+    secondaryStatus &&
+    ![
+      "",
+      "none",
+      "null",
+      "default",
+    ].includes(secondaryStatus)
+  ) {
+    return secondaryStatus;
+  }
+
+  return primaryStatus;
+}
+function deepValue(input: any, keys: string[]): any {
+  if (!input || typeof input !== "object") {
+    return undefined;
+  }
+
+  for (const key of keys) {
+    if (
+      input[key] !== undefined &&
+      input[key] !== null &&
+      input[key] !== ""
+    ) {
+      return input[key];
+    }
+  }
+
+  for (const value of Object.values(input)) {
+    if (value && typeof value === "object") {
+      const found = deepValue(value, keys);
+
+      if (found !== undefined) {
+        return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function createdDate(row: any) {
+  return deepValue(row, [
+    "date_created",
+    "created_at",
+    "created_date",
+    "post_date",
+    "date",
+    "created",
+  ]);
 }
 
 function statusMatches(row: any, wanted: string) {
@@ -69,8 +156,11 @@ function statusMatches(row: any, wanted: string) {
   return (groups[wanted] ?? [wanted]).includes(actual);
 }
 export default function CampaignManager() {
+  const router = useRouter();
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [workingId, setWorkingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -87,12 +177,65 @@ export default function CampaignManager() {
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
+const [campaignDetails, setCampaignDetails] = useState<Record<number, any>>({});
   const [updatesCampaign, setUpdatesCampaign] = useState<Campaign | null>(null);
   const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
 
   const token = () => typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
 
+  async function createCampaignDraft() {
+  if (creatingCampaign) {
+    return;
+  }
+
+  setCreatingCampaign(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const response = await authFetch(
+      "/api/campaigns/create-draft",
+      {
+        method: "POST",
+      }
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(
+        data?.message ||
+          "Unable to create campaign draft."
+      );
+    }
+
+    const campaignId = Number(
+      data?.data?.id ?? data?.id
+    );
+
+    if (
+      !Number.isFinite(campaignId) ||
+      campaignId <= 0
+    ) {
+      throw new Error(
+        "Campaign creation did not return a valid campaign ID."
+      );
+    }
+
+    router.push(
+      `/dashboard/campaigns/${campaignId}/edit`
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to create campaign draft."
+    );
+
+    setCreatingCampaign(false);
+  }
+}
   const load = useCallback(async () => {
   const accessToken = token();
 
@@ -286,27 +429,55 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     const raw =
       c?.created_at ??
       c?.date_created ??
-      c?.start_date ??
-      c?.created;
+      c?.created_date ??
+      c?.post_date ??
+      c?.campaign?.created_at ??
+      c?.campaign?.date_created ??
+      "";
 
-    const d = raw ? new Date(raw) : null;
-
+    // No date filter selected.
     if (
-      startDate &&
-      (!d || d < new Date(`${startDate}T00:00:00`))
+      dateRange === "all" &&
+      !startDate &&
+      !endDate
     ) {
+      return true;
+    }
+
+    // An active date filter requires a valid campaign creation date.
+    if (!raw) {
       return false;
     }
 
-    if (
-      endDate &&
-      (!d || d > new Date(`${endDate}T23:59:59`))
-    ) {
+    const d = new Date(raw);
+
+    if (Number.isNaN(d.getTime())) {
       return false;
     }
 
-    if (!isDateInRange(raw, dateRange)) {
-      return false;
+    // Custom/manual date range.
+    // When custom dates are selected, do not also apply a preset.
+    if (startDate || endDate) {
+      if (
+        startDate &&
+        d < new Date(`${startDate}T00:00:00`)
+      ) {
+        return false;
+      }
+
+      if (
+        endDate &&
+        d > new Date(`${endDate}T23:59:59.999`)
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // Preset date range.
+    if (dateRange !== "all") {
+      return isDateInRange(raw, dateRange);
     }
 
     return true;
@@ -315,20 +486,143 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / 10));
   const visibleCampaigns = filteredCampaigns.slice((page - 1) * 10, page * 10);
   useEffect(() => {
-    const accessToken = token();
-    if (!accessToken || !visibleCampaigns.length) return;
-    let cancelled = false;
-    void Promise.all(visibleCampaigns.map(async (c) => {
+  const accessToken = token();
+
+  if (!accessToken || !visibleCampaigns.length) {
+    return;
+  }
+
+  let cancelled = false;
+
+  void Promise.all(
+    visibleCampaigns.map(async (c) => {
       try {
-        const response = await fetch(`/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${c.id}&orderby=id&order=desc`, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+        const response = await fetch(
+          `/api/dashboard/growfund/donations/paginated?page=1&per_page=100&campaign_id=${c.id}&orderby=id&order=desc`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            cache: "no-store",
+          }
+        );
+
         const json = await response.json().catch(() => null);
-        const donationRows = Array.isArray(json?.data) ? json.data : Array.isArray(json?.data?.data) ? json.data.data : [];
-        const count = donationRows.filter((d:any) => { const payment=String(d?.payment_status??"").toLowerCase(); const status=String(d?.status??"").toLowerCase(); return payment ? payment==="paid" : ["paid","completed","complete","successful","success"].includes(status); }).length;
+
+        if (!response.ok) {
+          return [c.id, 0] as const;
+        }
+
+        const donationRows =
+          Array.isArray(json?.data?.results)
+            ? json.data.results
+            : Array.isArray(json?.results)
+              ? json.results
+              : Array.isArray(json?.data)
+                ? json.data
+                : [];
+
+        const count = donationRows.filter((d: any) => {
+          const paymentStatus = String(
+            d?.payment_status ?? ""
+          ).toLowerCase();
+
+          const status = String(
+            d?.status ?? ""
+          ).toLowerCase();
+
+          return paymentStatus
+            ? paymentStatus === "paid"
+            : [
+                "paid",
+                "completed",
+                "complete",
+                "successful",
+                "success",
+              ].includes(status);
+        }).length;
+
         return [c.id, count] as const;
-      } catch { return [c.id, 0] as const; }
-    })).then(entries => { if (!cancelled) setPaidCounts(current => ({...current, ...Object.fromEntries(entries)})); });
-    return () => { cancelled = true; };
-  }, [page, campaigns]);
+      } catch {
+        return [c.id, 0] as const;
+      }
+    })
+  ).then((entries) => {
+    if (!cancelled) {
+      setPaidCounts((current) => ({
+        ...current,
+        ...Object.fromEntries(entries),
+      }));
+    }
+  });
+
+  return () => {
+    cancelled = true;
+  };
+}, [page, campaigns]);
+
+useEffect(() => {
+  const accessToken = token();
+
+  if (!accessToken || !visibleCampaigns.length) {
+    return;
+  }
+
+  let cancelled = false;
+
+  void Promise.all(
+    visibleCampaigns.map(async (c) => {
+      try {
+        const response = await fetch(
+          `/api/dashboard/campaigns/${c.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            cache: "no-store",
+          }
+        );
+
+        const json = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          return [c.id, null] as const;
+        }
+
+        const detail =
+          json?.data?.campaign ??
+          json?.data ??
+          json?.campaign ??
+          json;
+
+        return [c.id, detail] as const;
+      } catch {
+        return [c.id, null] as const;
+      }
+    })
+  ).then((entries) => {
+    if (cancelled) {
+      return;
+    }
+
+    const details: Record<number, any> = {};
+
+    for (const [id, detail] of entries) {
+      if (detail) {
+        details[id] = detail;
+      }
+    }
+
+    setCampaignDetails((current) => ({
+      ...current,
+      ...details,
+    }));
+  });
+
+  return () => {
+    cancelled = true;
+  };
+}, [page, campaigns]);
 
 useEffect(
   () => setPage(1),
@@ -356,8 +650,36 @@ useEffect(
     <CardBox className="w-full !max-w-none">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div><h5 className="card-title">Campaigns</h5><p className="mt-1 text-sm text-darklink">Manage campaigns raised from your fundraiser account.</p></div>
-        <div className="flex flex-wrap gap-2">{filter==="trash"&&<Button variant="outline" onClick={()=>void emptyTrash()}><Icon icon="solar:trash-bin-trash-line-duotone"/> Empty trash</Button>}<Button asChild><Link href="/create-campaign"><Icon icon="solar:add-circle-line-duotone" height={20}/> Create campaign</Link></Button></div>
-      </div>
+<div className="flex flex-wrap gap-2">
+  {filter === "trash" && (
+    <Button
+      variant="outline"
+      onClick={() => void emptyTrash()}
+    >
+      <Icon icon="solar:trash-bin-trash-line-duotone" />
+      Empty trash
+    </Button>
+  )}
+
+  <Button
+    type="button"
+    disabled={creatingCampaign}
+    onClick={() => void createCampaignDraft()}
+  >
+    <Icon
+      icon={
+        creatingCampaign
+          ? "solar:refresh-circle-line-duotone"
+          : "solar:add-circle-line-duotone"
+      }
+      height={20}
+    />
+
+    {creatingCampaign
+      ? "Creating..."
+      : "Create campaign"}
+  </Button>
+</div>      </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="relative flex-1"><Icon icon="solar:magnifer-linear" className="absolute left-3 top-5 -translate-y-1/2 text-darklink" height={20}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search your campaigns" className="w-full rounded-md border border-ld bg-transparent py-2.5 pl-10 pr-3 outline-none focus:border-primary"/>{search.trim()&&campaigns.length>0&&<div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border border-ld bg-white p-1 shadow-lg dark:bg-darkgray">{campaigns.slice(0,8).map(c=>{const image=campaignImage(c);return <Link key={c.id} href={`/dashboard/campaigns/${c.id}/edit`} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-lightgray">{image?<img src={String(image)} alt="" className="h-9 w-9 rounded-md object-cover"/>:<span className="h-9 w-9 rounded-md bg-lightgray"/>}<span className="min-w-0"><span className="block truncate font-medium">{c.title||`Campaign #${c.id}`}</span><span className="text-xs text-darklink">Campaign #{c.id}</span></span></Link>})}</div>}</div>
        <select
@@ -464,49 +786,315 @@ useEffect(
   columns={[
     "Campaign ID",
     "Campaign",
-    "Status",
+    "Creator",
     "Raised / Goal",
-    "State",
-    "Ends",
+    "Donations",
+    "Date Created",
+    "Status",
     "Actions",
   ]}
 />
         </div><div className="mt-4 overflow-x-auto">
-        <Table className="campaign-list-table">
-          <TableHeader>
-  <TableRow>
-    <TableHead>ID</TableHead>
-    <TableHead>Campaign</TableHead>
-    <TableHead>Creator</TableHead>
-    <TableHead>Status</TableHead>
-    <TableHead>Raised / Goal</TableHead>
-    <TableHead>Donations</TableHead>
-    <TableHead>State</TableHead>
-    <TableHead>Ends</TableHead>
-    <TableHead className="text-right">Actions</TableHead>
-  </TableRow>
-</TableHeader>
-        <TableBody>
-          {loading ? <TableRow><TableCell colSpan={9} className="py-10 text-center text-darklink">Loading campaigns…</TableCell></TableRow> : visibleCampaigns.length === 0 ? <TableRow><TableCell colSpan={9} className="py-10 text-center text-darklink">No campaigns found for this account.</TableCell></TableRow> : visibleCampaigns.map(c => {
-            const raised = Number(c.raised_amount ?? c.fund_raised ?? 0); const goal = Number(c.goal_amount ?? c.goal ?? 0); const busy = workingId === c.id;
-            const image = campaignImage(c); return <TableRow key={c.id}><TableCell className="font-medium">#{c.id}</TableCell><TableCell><Link href={`/dashboard/campaigns/${c.id}/edit`} className="flex items-center gap-3 font-medium text-dark hover:text-primary">{image ? <img src={String(image)} alt="" className="h-11 w-11 rounded-md object-cover"/> : <span className="h-11 w-11 rounded-md bg-lightgray"/>}<span className="block">{c.title || `Campaign #${c.id}`}</span></Link></TableCell>
-              <TableCell>{c?.author?.display_name ?? c?.fundraiser?.display_name ?? c?.creator?.display_name ?? c?.author?.name ?? c?.fundraiser?.name ?? c?.creator?.name ?? c?.author_name ?? c?.fundraiser_name ?? "—"}</TableCell>
-              <TableCell><Badge variant={statusVariants[c.status || ""] || "lightPrimary"}>{c.status || "unknown"}</Badge></TableCell>
-              <TableCell><div className="min-w-32"><p className="font-medium">${raised.toLocaleString()} <span className="font-normal text-darklink">/ ${goal.toLocaleString()}</span></p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-lightgray"><div className="h-full rounded-full bg-primary" style={{width:`${goal > 0 ? Math.min(100, raised/goal*100) : 0}%`}}/></div></div></TableCell>
-              <TableCell>{paidCounts[c.id] ?? "…"}</TableCell>
-              <TableCell><div className="flex flex-wrap gap-1">{c.is_paused && <Badge variant="lightWarning">Paused</Badge>}{c.is_hidden && <Badge variant="lightError">Hidden</Badge>}{c.is_ended && <Badge variant="lightPrimary">Ended</Badge>}{!c.is_paused && !c.is_hidden && !c.is_ended && <span className="text-sm text-darklink">Normal</span>}</div></TableCell>
-              <TableCell className="text-darklink">{c.end_date ? new Date(c.end_date).toLocaleDateString() : "—"}</TableCell>
-              <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy}><Icon icon={busy ? "solar:refresh-circle-linear" : "solar:menu-dots-bold"} height={20}/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={()=>void openUpdates(c)}><Icon icon="solar:document-text-line-duotone"/> Campaign updates</DropdownMenuItem>
-                <DropdownMenuItem onClick={()=>openPostUpdate(c)}><Icon icon="solar:document-add-line-duotone"/> Post an update</DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href={`/dashboard/campaigns/${c.id}/overview`}><Icon icon="solar:chart-2-line-duotone"/> Overview</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href={`/campaign/${c.id}`}><Icon icon="solar:eye-line-duotone"/> Preview</Link></DropdownMenuItem>
-                <DropdownMenuItem onClick={()=>void duplicateCampaign(c)}><Icon icon="solar:copy-line-duotone"/> Make a copy</DropdownMenuItem>
-                <DropdownMenuSeparator/>
-                {["trash","trashed"].includes(String(c.status).toLowerCase()) ? <><DropdownMenuItem onClick={()=>void bulkCampaign([c.id],"restore")}><Icon icon="solar:restart-line-duotone"/> Restore</DropdownMenuItem><DropdownMenuItem className="text-error focus:text-error" onClick={()=>void bulkCampaign([c.id],"delete","Permanently delete this campaign? This cannot be undone.")}><Icon icon="solar:trash-bin-trash-line-duotone"/> Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error focus:text-error" onClick={()=>action(c.id,"delete",{},"Move this campaign to trash?")}><Icon icon="solar:trash-bin-trash-line-duotone"/> Move to trash</DropdownMenuItem>}
-              </DropdownMenuContent></DropdownMenu></TableCell></TableRow>
-          })}
-        </TableBody></Table>
+       <Table className="campaign-list-table">
+  <TableHeader>
+    <TableRow>
+      <TableHead>Campaign ID</TableHead>
+      <TableHead>Campaign</TableHead>
+      <TableHead>Creator</TableHead>
+      <TableHead>Raised / Goal</TableHead>
+      <TableHead>Donations</TableHead>
+      <TableHead>Date Created</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead className="text-right">
+        Actions
+      </TableHead>
+    </TableRow>
+  </TableHeader>
+
+  <TableBody>
+    {loading ? (
+      <TableRow>
+        <TableCell
+          colSpan={8}
+          className="py-10 text-center text-darklink"
+        >
+          Loading campaigns…
+        </TableCell>
+      </TableRow>
+    ) : visibleCampaigns.length === 0 ? (
+      <TableRow>
+        <TableCell
+          colSpan={8}
+          className="py-10 text-center text-darklink"
+        >
+          No campaigns found for this account.
+        </TableCell>
+      </TableRow>
+    ) : (
+      visibleCampaigns.map((c) => {
+        const raised = Number(
+          c.raised_amount ??
+            c.fund_raised ??
+            0
+        );
+
+        const goal = Number(
+          c.goal_amount ??
+            c.goal ??
+            0
+        );
+
+        const busy =
+          workingId === c.id;
+
+        const image =
+          campaignImage(c);
+
+        const status =
+          campaignStatus(c);
+
+        const creator =
+          c?.author?.display_name ??
+          c?.fundraiser?.display_name ??
+          c?.creator?.display_name ??
+          c?.author?.name ??
+          c?.fundraiser?.name ??
+          c?.creator?.name ??
+          c?.author_name ??
+          c?.fundraiser_name ??
+          "—";
+
+    const detail = campaignDetails[c.id];
+
+const createdAt =
+  createdDate(detail) ??
+  createdDate(c) ??
+  "";
+        return (
+          <TableRow key={c.id}>
+            <TableCell className="font-medium">
+              #{c.id}
+            </TableCell>
+
+            <TableCell>
+              <Link
+                href={`/dashboard/campaigns/${c.id}/edit`}
+                className="flex items-center gap-3 font-medium text-dark hover:text-primary"
+              >
+                {image ? (
+                  <img
+                    src={String(image)}
+                    alt=""
+                    className="h-11 w-11 rounded-md object-cover"
+                  />
+                ) : (
+                  <span className="h-11 w-11 rounded-md bg-lightgray" />
+                )}
+
+                <span className="block">
+                  {c.title ||
+                    `Campaign #${c.id}`}
+                </span>
+              </Link>
+            </TableCell>
+
+            <TableCell>
+              {creator}
+            </TableCell>
+
+            <TableCell>
+              <div className="min-w-32">
+                <p className="font-medium">
+                  ${raised.toLocaleString()}
+                  <span className="font-normal text-darklink">
+                    {" "}
+                    / ${goal.toLocaleString()}
+                  </span>
+                </p>
+
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-lightgray">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${
+                        goal > 0
+                          ? Math.min(
+                              100,
+                              (raised /
+                                goal) *
+                                100
+                            )
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </TableCell>
+
+            <TableCell>
+              {paidCounts[c.id] ?? "…"}
+            </TableCell>
+
+            <TableCell className="text-darklink">
+              {createdAt
+                ? new Date(
+                    createdAt
+                  ).toLocaleDateString()
+                : "—"}
+            </TableCell>
+
+            <TableCell>
+              <Badge
+                variant={
+                  statusVariants[
+                    status
+                  ] ||
+                  "lightPrimary"
+                }
+              >
+                {status}
+              </Badge>
+            </TableCell>
+
+            <TableCell className="text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  asChild
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                  >
+                    <Icon
+                      icon={
+                        busy
+                          ? "solar:refresh-circle-linear"
+                          : "solar:menu-dots-bold"
+                      }
+                      height={20}
+                    />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52"
+                >
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void openUpdates(c)
+                    }
+                  >
+                    <Icon icon="solar:document-text-line-duotone" />
+                    Campaign updates
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() =>
+                      openPostUpdate(c)
+                    }
+                  >
+                    <Icon icon="solar:document-add-line-duotone" />
+                    Post an update
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    asChild
+                  >
+                    <Link
+                      href={`/dashboard/campaigns/${c.id}/overview`}
+                    >
+                      <Icon icon="solar:chart-2-line-duotone" />
+                      Overview
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    asChild
+                  >
+                    <Link
+                      href={`/campaign/${c.id}`}
+                    >
+                      <Icon icon="solar:eye-line-duotone" />
+                      Preview
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void duplicateCampaign(
+                        c
+                      )
+                    }
+                  >
+                    <Icon icon="solar:copy-line-duotone" />
+                    Make a copy
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  {[
+                    "trash",
+                    "trashed",
+                  ].includes(
+                    String(
+                      c.status
+                    ).toLowerCase()
+                  ) ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void bulkCampaign(
+                            [c.id],
+                            "restore"
+                          )
+                        }
+                      >
+                        <Icon icon="solar:restart-line-duotone" />
+                        Restore
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        className="text-error focus:text-error"
+                        onClick={() =>
+                          void bulkCampaign(
+                            [c.id],
+                            "delete",
+                            "Permanently delete this campaign? This cannot be undone."
+                          )
+                        }
+                      >
+                        <Icon icon="solar:trash-bin-trash-line-duotone" />
+                        Delete permanently
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <DropdownMenuItem
+                      className="text-error focus:text-error"
+                      onClick={() =>
+                        action(
+                          c.id,
+                          "delete",
+                          {},
+                          "Move this campaign to trash?"
+                        )
+                      }
+                    >
+                      <Icon icon="solar:trash-bin-trash-line-duotone" />
+                      Move to trash
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        );
+      })
+    )}
+  </TableBody>
+</Table>
       </div>
 
 </CardBox>

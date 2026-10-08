@@ -3,21 +3,16 @@ import Link from "next/link";
 import {
   getCampaign,
   getCampaignRecentDonations,
-  getCampaignUpdates,
+  getCampaignUpdates
 } from "@/lib/campaigns";
 import { type CampaignUpdate } from "@/lib/campaigns";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
-
-
+import CampaignComments from "@/components/CampaignComments";
 interface CampaignPageProps {
-  params: Promise<{
-    id: string;
-  }>;
-  searchParams: Promise<{ 
-    tab?: string 
-  }>;
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 const CampaignTabs = ({ 
@@ -192,13 +187,11 @@ const CampaignTabs = ({
           </div>
         )}
 
-        {activeTab === "comments" && (
-          <div className="col-span-12">
-            <p className="py-4 whitespace-pre-line text-base leading-8 border-t border-[#e0e6eb] pt-4 text-[#5a6a85]">
-              Comments Section
-            </p>
-          </div>
-        )}
+       {activeTab === "comments" && (
+  <div className="col-span-12">
+    <CampaignComments campaignId={Number(campaign.id)} />
+  </div>
+)}
       </div>
     </>
   );
@@ -246,6 +239,7 @@ try {
   );
 }
 
+
   if (!response.success || !response.data) {
     return (
       <ThemeShell>
@@ -273,8 +267,8 @@ try {
     );
   }
 
-  const campaign = response.data;
-  const extractedUpdates = campaignUpdatesResponse.data;
+ const campaign = response.data;
+const extractedUpdates = campaignUpdatesResponse.data;
 
   const progress =
     campaign.goal > 0

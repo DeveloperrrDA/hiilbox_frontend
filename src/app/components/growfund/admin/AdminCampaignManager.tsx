@@ -24,82 +24,101 @@ import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
 import { campaignImage } from "@/lib/dashboard/campaignMedia";
 
 const variants: Record<string, any> = {
- paused: "lightWarning",
+  draft: "lightGray",
+  pending: "lightWarning",
+  review: "lightWarning",
+  submitted: "lightWarning",
+
   published: "lightPrimary",
   approved: "lightSuccess",
-  pending: "lightWarning",
-  draft: "lightGray",
+  active: "lightSuccess",
+
+  paused: "lightWarning",
+  pause: "lightWarning",
+
+  ended: "lightPrimary",
+  completed: "lightPrimary",
+  funded: "lightSuccess",
+
+  visible: "lightSuccess",
+  hidden: "lightWarning",
+
   declined: "lightError",
   denied: "lightError",
   rejected: "lightError",
-  trashed: "lightError",
-  trash: "lightError",
-  funded: "lightSuccess",
-  completed: "lightPrimary",
+
   cancelled: "lightError",
+  canceled: "lightError",
+
+  trash: "lightError",
+  trashed: "lightError",
 };
 
 function campaignStatus(row: any) {
   const normalize = (value: any) =>
-    String(value ?? "").trim().toLowerCase();
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
 
   /*
-   * Campaigns can contain both a primary lifecycle status
-   * (for example "published") and a more specific/current status
-   * (for example "paused" or "funded").
+   * Status priority:
    *
-   * Prefer the more specific status when one exists.
+   * 1. Secondary/action status
+   *    paused, ended, hidden, visible, etc.
+   *
+   * 2. Event-driven status
+   *    e.g. campaign goal has been reached.
+   *
+   * 3. Primary status
+   *    draft, pending, published, declined, etc.
    */
-  const candidates = [
-    row?.secondary_status,
-    row?.campaign_secondary_status,
-    row?.current_status,
-    row?.state,
-    row?.campaign_state,
-    row?.status,
-    row?.campaign_status,
-    row?.post_status,
-  ]
-    .map(normalize)
-    .filter(Boolean);
 
-  if (!candidates.length) {
-    return "unknown";
+  const primaryStatus =
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown";
+
+  const secondaryStatus =
+    [
+      row?.secondary_status,
+      row?.campaign_secondary_status,
+    ]
+      .map(normalize)
+      .find(Boolean);
+
+  if (
+    secondaryStatus &&
+    ![
+      "",
+      "none",
+      "null",
+      "default",
+    ].includes(secondaryStatus)
+  ) {
+    return secondaryStatus;
   }
 
-  const priority = [
-    "cancelled",
-    "canceled",
-    "funded",
-    "completed",
-    "complete",
-    "paused",
-    "declined",
-    "denied",
-    "rejected",
-    "trash",
-    "trashed",
-    "active",
-    "launched",
-    "published",
-    "approved",
-    "pending",
-    "review",
-    "submitted",
-    "awaiting_review",
-    "inactive",
-    "draft",
-  ];
+  /*
+   * If no explicit secondary action exists, check
+   * campaign events. A campaign that has reached its
+   * goal should display Funded instead of Published.
+   */
+  const raisedAmount = raised(row);
+  const goalAmount = goal(row);
 
-  for (const wanted of priority) {
-    if (candidates.includes(wanted)) {
-      return wanted;
-    }
+  if (
+    goalAmount > 0 &&
+    raisedAmount >= goalAmount
+  ) {
+    return "funded";
   }
 
-  return candidates[0];
+  return primaryStatus;
 }
-
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
 
@@ -214,8 +233,19 @@ function donationCount(row: any) {
   }
   return 0;
 }
-function createdDate(row: any) { return deepValue(row, ["date_created", "created_at", "created_date", "post_date", "date", "created"]); }
-
+function createdDate(row: any) {
+  return (
+    row?.date_created ??
+    row?.created_at ??
+    row?.created_date ??
+    row?.post_date ??
+    row?.campaign?.date_created ??
+    row?.campaign?.created_at ??
+    row?.campaign?.created_date ??
+    row?.campaign?.post_date ??
+    ""
+  );
+}
 export default function AdminCampaignManager() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -315,70 +345,112 @@ function totalFromResponse(data: any, fallback: number) {
       return allRows;
     }
 
-    if (status === "all") {
-      const results = await Promise.allSettled([
-        fetchAllCampaigns("all"),
-        fetchAllCampaigns("pending"),
-        fetchAllCampaigns("rejected"),
-        fetchAllCampaigns("draft"),
-      ]);
+ if (status === "all") {
+  const results = await Promise.allSettled([
+    fetchAllCampaigns("all"),
+    fetchAllCampaigns("pending"),
+    fetchAllCampaigns("rejected"),
+    fetchAllCampaigns("draft"),
+  ]);
 
-      const merged: any[] = [];
+  const merged: any[] = [];
 
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          merged.push(...result.value);
-        }
-      }
-
-      const byId = new Map<string, any>();
-
-      merged.forEach((row, index) => {
-        const key = String(
-          row?.id ??
-            row?.ID ??
-            row?.campaign_id ??
-            `row-${index}`
-        );
-
-        if (!byId.has(key)) {
-          byId.set(key, row);
-        }
-      });
-
-      const completeRows = Array.from(byId.values());
-
-      setRows(completeRows);
-      setTotalCampaigns(completeRows.length);
-    } else {
-      /*
-       * First load the complete "all" collection and check whether
-       * it already contains campaigns with the requested status.
-       */
-      const allRows = await fetchAllCampaigns("all");
-
-      const local = allRows.filter((r: any) =>
-        statusMatches(r, status)
-      );
-
-      if (local.length) {
-        setRows(local);
-        setTotalCampaigns(local.length);
-      } else {
-        /*
-         * Some backend versions do not include every status in
-         * the "all" collection, so load that status explicitly.
-         */
-        const statusRows = await fetchAllCampaigns(status);
-
-        const filtered = statusRows.filter((r: any) =>
-          statusMatches(r, status)
-        );
-
-        setRows(filtered);
-        setTotalCampaigns(filtered.length);
-      }
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      merged.push(...result.value);
     }
+  }
+
+  const byId = new Map<string, any>();
+
+  merged.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `row-${index}`
+    );
+
+    if (!byId.has(key)) {
+      byId.set(key, row);
+    }
+  });
+
+  const completeRows = Array.from(byId.values());
+
+  setRows(completeRows);
+  setTotalCampaigns(completeRows.length);
+} else if (status === "trash") {
+  /*
+   * Trashed campaigns are not expected to appear in the normal
+   * "all" campaign collection. Load the trash collection directly.
+   *
+   * GrowFund installations may expose this status as either
+   * "trash" or "trashed", so try both and merge the results.
+   */
+  const trashResults = await Promise.allSettled([
+    fetchAllCampaigns("trash"),
+    fetchAllCampaigns("trashed"),
+  ]);
+
+  const mergedTrashRows: any[] = [];
+
+  for (const result of trashResults) {
+    if (result.status === "fulfilled") {
+      mergedTrashRows.push(...result.value);
+    }
+  }
+
+  const trashById = new Map<string, any>();
+
+  mergedTrashRows.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `trash-${index}`
+    );
+
+    if (!trashById.has(key)) {
+      trashById.set(key, row);
+    }
+  });
+
+  const trashRows = Array.from(trashById.values()).filter(
+    (row: any) => statusMatches(row, "trash")
+  );
+
+  setRows(trashRows);
+  setTotalCampaigns(trashRows.length);
+} else {
+  /*
+   * First load the complete "all" collection and check whether
+   * it already contains campaigns with the requested status.
+   */
+  const allRows = await fetchAllCampaigns("all");
+
+  const local = allRows.filter((r: any) =>
+    statusMatches(r, status)
+  );
+
+  if (local.length) {
+    setRows(local);
+    setTotalCampaigns(local.length);
+  } else {
+    /*
+     * Some backend versions do not include every status in
+     * the "all" collection, so load that status explicitly.
+     */
+    const statusRows = await fetchAllCampaigns(status);
+
+    const filtered = statusRows.filter((r: any) =>
+      statusMatches(r, status)
+    );
+
+    setRows(filtered);
+    setTotalCampaigns(filtered.length);
+  }
+}
   } catch (e) {
     setError(
       e instanceof Error
@@ -681,40 +753,63 @@ setNotice(data?.message || msg);
       setError(e instanceof Error ? e.message : "Bulk action failed.");
     }
   }
-
 const visibleRows = useMemo(() => {
   return rows.filter((r) => {
-    // Status
     if (!statusMatches(r, status)) {
       return false;
     }
 
-    // Date
     const raw = createdDate(r);
-    const d = raw ? new Date(raw) : null;
 
+    // No date filter selected.
     if (
-      startDate &&
-      (!d || d < new Date(`${startDate}T00:00:00`))
+      dateRange === "all" &&
+      !startDate &&
+      !endDate
     ) {
+      return true;
+    }
+
+    // A campaign without a valid creation date cannot match
+    // an active date filter.
+    if (!raw) {
       return false;
     }
 
-    if (
-      endDate &&
-      (!d || d > new Date(`${endDate}T23:59:59`))
-    ) {
+    const d = new Date(raw);
+
+    if (Number.isNaN(d.getTime())) {
       return false;
     }
 
-    if (!isDateInRange(raw, dateRange)) {
-      return false;
+    // Custom/manual date range.
+    // Do NOT also apply the preset filter.
+    if (startDate || endDate) {
+      if (
+        startDate &&
+        d < new Date(`${startDate}T00:00:00`)
+      ) {
+        return false;
+      }
+
+      if (
+        endDate &&
+        d > new Date(`${endDate}T23:59:59.999`)
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // Preset date filter.
+    if (dateRange !== "all") {
+      return isDateInRange(raw, dateRange);
     }
 
     return true;
   });
 }, [rows, status, dateRange, startDate, endDate]);
-
 const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {

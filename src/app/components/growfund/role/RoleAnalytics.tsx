@@ -34,16 +34,27 @@ function dayKey(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padS
 function bucketData(
   donations: any[],
   range: DateRangeKey,
-  mode: "revenue" | "donors"
+  mode: "revenue" | "donors",
+  customStartDate = "",
+  customEndDate = ""
 ) {
-  const { start, end } = getDateRange(range);
+  let { start, end } = getDateRange(range);
+
+  if (range === "custom") {
+    if (customStartDate) {
+      start = new Date(`${customStartDate}T00:00:00`);
+    }
+
+    if (customEndDate) {
+      end = new Date(`${customEndDate}T23:59:59.999`);
+    }
+  }
 
   const startDay = new Date(start);
   startDay.setHours(0, 0, 0, 0);
 
   const endDay = new Date(end);
   endDay.setHours(23, 59, 59, 999);
-
   const days = Math.max(
     1,
     Math.round(
@@ -114,14 +125,18 @@ function bucketData(
 
     if (donationDateValue === null) continue;
 
-    if (
-      !isDateInRange(
-        donationDateValue.toISOString(),
-        range
-      )
-    ) {
-      continue;
-    }
+   if (range === "custom") {
+  if (donationDateValue < startDay || donationDateValue > endDay) {
+    continue;
+  }
+} else if (
+  !isDateInRange(
+    donationDateValue.toISOString(),
+    range
+  )
+) {
+  continue;
+}
 
     const bucket = result.find(
       (item) =>
@@ -161,30 +176,187 @@ export default function RoleAnalytics(){
     }else{
       // GrowFund campaign data confirms this admin account is author/fundraiser ID 1.
       // Only those campaigns are included in Admin Analytics.
-      const ADMIN_GROWFUND_ID=1;
+   // GrowFund campaign data confirms this admin account is
+// author/fundraiser ID 1.
+const ADMIN_GROWFUND_ID = 1;
+const debugResponse = await fetch(
+  "/api/admin/growfund/donations/paginated?page=1&per_page=100&orderby=id&order=desc",
+  {
+    headers,
+    cache: "no-store",
+  }
+);
 
-      const cr=await fetch("/api/admin/growfund/campaigns?page=1&per_page=100&status=all",{headers,cache:"no-store"});
-      const cj=await cr.json().catch(()=>null);
-      if(!cr.ok)throw new Error(cj?.message||"Unable to load admin campaigns.");
+const debugData = await debugResponse.json().catch(() => null);
 
-      const owned=rows(cj).filter((c:any)=>{
-        const authorId=Number(c?.author?.id??0);
-        const fundraiserId=Number(c?.fundraiser?.id??0);
-        return authorId===ADMIN_GROWFUND_ID||fundraiserId===ADMIN_GROWFUND_ID;
+console.log("ADMIN ALL DONATIONS DEBUG:", debugData);
+async function fetchAdminCampaignsByStatus(campaignStatus: string) {
+  const allCampaigns: any[] = [];
+  let currentPage = 1;
+
+  while (true) {
+    const q = new URLSearchParams({
+      page: String(currentPage),
+      per_page: "100",
+      status: campaignStatus,
+    });
+
+    const response = await fetch(
+      `/api/admin/growfund/campaigns?${q.toString()}`,
+      {
+        headers,
+        cache: "no-store",
+      }
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message || "Unable to load admin campaigns."
+      );
+    }
+
+    const pageRows = rows(data);
+
+    allCampaigns.push(...pageRows);
+
+    const hasMore =
+      data?.data?.has_more === true ||
+      data?.has_more === true;
+
+    if (pageRows.length === 0) {
+      break;
+    }
+
+    if (!hasMore && pageRows.length < 100) {
+      break;
+    }
+
+    currentPage += 1;
+
+    // Safety guard.
+    if (currentPage > 1000) {
+      break;
+    }
+  }
+
+  return allCampaigns;
+}
+
+// GrowFund's "all" collection does not necessarily include
+// campaigns from every status, so load the known collections
+// separately and merge them.
+const campaignResults = await Promise.allSettled([
+  fetchAdminCampaignsByStatus("all"),
+  fetchAdminCampaignsByStatus("pending"),
+  fetchAdminCampaignsByStatus("rejected"),
+  fetchAdminCampaignsByStatus("draft"),
+]);
+
+const mergedCampaigns: any[] = [];
+
+for (const result of campaignResults) {
+  if (result.status === "fulfilled") {
+    mergedCampaigns.push(...result.value);
+  }
+}
+
+// Deduplicate campaigns because the same campaign can appear
+// in more than one collection.
+const campaignsById = new Map<string, any>();
+
+mergedCampaigns.forEach((campaign, index) => {
+  const key = String(
+    campaign?.id ??
+      campaign?.ID ??
+      campaign?.campaign_id ??
+      `campaign-${index}`
+  );
+
+  if (!campaignsById.has(key)) {
+    campaignsById.set(key, campaign);
+  }
+});
+
+const completeCampaigns = Array.from(
+  campaignsById.values()
+);
+
+// Keep only campaigns belonging to this GrowFund admin.
+const owned = completeCampaigns.filter((c: any) => {
+  const authorId = Number(c?.author?.id ?? 0);
+  const fundraiserId = Number(c?.fundraiser?.id ?? 0);
+
+  return (
+    authorId === ADMIN_GROWFUND_ID ||
+    fundraiserId === ADMIN_GROWFUND_ID
+  );
+});
+
+setCampaigns(owned);
+setDonors([]);
+setBackendStats(null);
+
+     // Fetch ALL donation pages for each owned campaign.
+const batches = await Promise.all(
+  owned.map(async (c: any) => {
+    const cid = Number(c?.id ?? 0);
+
+    if (!cid) {
+      return [];
+    }
+
+    const campaignDonations: any[] = [];
+    let currentPage = 1;
+
+    while (true) {
+      const q = new URLSearchParams({
+        page: String(currentPage),
+        per_page: "100",
+        campaign_id: String(cid),
+        orderby: "id",
+        order: "desc",
       });
 
-      setCampaigns(owned);setDonors([]);setBackendStats(null);
+      const r = await fetch(
+        `/api/admin/growfund/donations/paginated?${q.toString()}`,
+        {
+          headers,
+          cache: "no-store",
+        }
+      );
 
-      // Fetch each owned campaign's donations. rows() handles GrowFund data.results.
-      const batches=await Promise.all(owned.map(async(c:any)=>{
-        const cid=Number(c?.id??0);
-        if(!cid)return[];
-        const q=new URLSearchParams({page:"1",per_page:"100",campaign_id:String(cid),orderby:"id",order:"desc"});
-        const r=await fetch(`/api/admin/growfund/donations/paginated?${q.toString()}`,{headers,cache:"no-store"});
-        const j=await r.json().catch(()=>null);
-        if(!r.ok)throw new Error(j?.message||`Unable to load donations for campaign #${cid}.`);
-        return rows(j);
-      }));
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok) {
+        throw new Error(
+          j?.message ||
+            `Unable to load donations for campaign #${cid}.`
+        );
+      }
+
+      const pageRows = rows(j);
+
+      campaignDonations.push(...pageRows);
+
+      const hasMore = j?.data?.has_more === true;
+
+      if (!hasMore || pageRows.length === 0) {
+        break;
+      }
+
+      currentPage += 1;
+
+      // Safety guard in case the API incorrectly keeps returning has_more=true.
+      if (currentPage > 1000) {
+        break;
+      }
+    }
+
+    return campaignDonations;
+  })
+);
 
       // Deduplicate by donation ID and keep only paid donations.
       const seen=new Set<string>();
@@ -267,8 +439,29 @@ return isDateInRange(d.toISOString(), range);    }),
       netDonation: row.netDonation,
     }));
 }, [successful]);
-  const revenue=useMemo(()=>bucketData(donations,range,"revenue"),[donations,range]);
-  const donorTrend=useMemo(()=>bucketData(donations,range,"donors"),[donations,range]);
+ const revenue = useMemo(
+  () =>
+    bucketData(
+      filtered,
+      range,
+      "revenue",
+      startDate,
+      endDate
+    ),
+  [filtered, range, startDate, endDate]
+);
+
+const donorTrend = useMemo(
+  () =>
+    bucketData(
+      filtered,
+      range,
+      "donors",
+      startDate,
+      endDate
+    ),
+  [filtered, range, startDate, endDate]
+);
   const topCampaigns=useMemo(()=>{const map=new Map<number,{id:number,title:string,total:number,count:number,donors:Set<string>,goal:number}>();for(const c of campaigns){const id=Number(c?.id||0);if(id)map.set(id,{id,title:campaignName(c),total:0,count:0,donors:new Set(),goal:campaignGoal(c)});}for(const r of successful){const id=campaignId(r);if(!id)continue;const x=map.get(id)||{id,title:campaignTitle(r)||`Campaign #${id}`,total:0,count:0,donors:new Set<string>(),goal:0};x.total+=donationAmount(r);x.count++;x.donors.add(donorKey(r));map.set(id,x);}return [...map.values()].sort((a,b)=>b.total-a.total).slice(0,5);},[campaigns,successful]);
   const topDonors=useMemo(()=>{const map=new Map<string,{key:string,name:string,email:string,total:number,count:number}>();for(const r of successful){const key=donorKey(r);const x=map.get(key)||{key,name:donorName(r),email:donorEmail(r),total:0,count:0};x.total+=donationAmount(r);x.count++;map.set(key,x);}return[...map.values()].sort((a,b)=>b.total-a.total).slice(0,5);},[successful]);
   const recent=useMemo(()=>[...filtered].sort((a,b)=>(donationDate(b)?.getTime()||0)-(donationDate(a)?.getTime()||0)).slice(0,6),[filtered]);

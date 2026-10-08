@@ -83,43 +83,154 @@ type Props = { donationId: number };
 export default function AdminDonationDetail({ donationId }: Props) {
   const router = useRouter();
   const [donation, setDonation] = useState<any>({});
-  const [activities, setActivities] = useState<any[]>([]);
+const [campaign, setCampaign] = useState<any>({});
+const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    if (!donationId) return;
-    setLoading(true);
-    setError("");
-    try {
-      const [detailResponse, activityResponse] = await Promise.all([
+ const load = useCallback(async () => {
+  if (!donationId) return;
+
+  setLoading(true);
+  setError("");
+
+  try {
+    const [detailResponse, activityResponse] =
+      await Promise.all([
         adminApi(`donations/${donationId}`),
-        adminApi(`donation/activities?page=1&per_page=100&donation_id=${donationId}`).catch(() => null),
+
+        adminApi(
+          `donation/activities?page=1&per_page=100&donation_id=${donationId}`
+        ).catch(() => null),
       ]);
-      const detail = dataFrom(detailResponse);
-      setDonation(detail?.donation ?? detail);
-      setActivities(activityResponse ? rowsFrom(activityResponse) : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to load donation details.");
-      setDonation({});
-      setActivities([]);
-    } finally {
-      setLoading(false);
+
+    const detail = dataFrom(detailResponse);
+    const donationDetail = detail?.donation ?? detail;
+
+    setDonation(donationDetail);
+
+    setActivities(
+      activityResponse
+        ? rowsFrom(activityResponse)
+        : []
+    );
+
+    const campaignId = Number(
+      donationDetail?.campaign?.id ??
+      donationDetail?.campaign_id ??
+      deepValue(donationDetail, ["campaign_id"]) ??
+      0
+    );
+
+    if (campaignId > 0) {
+      try {
+        const campaignResponse = await adminApi(
+          `campaigns/${campaignId}`
+        );
+
+        const campaignData = dataFrom(campaignResponse);
+
+        setCampaign(
+          campaignData?.campaign ??
+          campaignData ??
+          {}
+        );
+      } catch {
+        setCampaign({});
+      }
+    } else {
+      setCampaign({});
     }
-  }, [donationId]);
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to load donation details."
+    );
+
+    setDonation({});
+    setCampaign({});
+    setActivities([]);
+  } finally {
+    setLoading(false);
+  }
+}, [donationId]);
 
   useEffect(() => void load(), [load]);
 
   const status = statusOf(donation);
   const amount = deepValue(donation, ["amount", "donation_amount", "total"]);
   const currency = String(deepValue(donation, ["currency_symbol", "currency", "currency_code"]) ?? "$");
-  const campaignTitle = String(deepValue(donation, ["campaign_title", "campaign_name", "title"]) ?? (deepValue(donation, ["campaign_id"]) ? `Campaign #${deepValue(donation, ["campaign_id"])}` : "Campaign"));
-  const campaignImage = campaignImageUrl(donation);
-  const fundraiserName = String(deepValue(donation, ["fundraiser_name", "creator_name", "author_name", "fundraiser"]) ?? "—");
-  const campaignStartDate = deepValue(donation, ["campaign_start_date", "start_date"]);
-  const campaignGoal = Number(deepValue(donation, ["goal_amount", "campaign_goal", "goal"]) ?? 0);
-  const campaignRaised = Number(deepValue(donation, ["raised_amount", "campaign_raised", "raised"]) ?? amount ?? 0);
+  const campaignTitle = String(
+  campaign?.title ??
+  donation?.campaign?.title ??
+  deepValue(donation, [
+    "campaign_title",
+    "campaign_name",
+  ]) ??
+  (
+    deepValue(donation, ["campaign_id"])
+      ? `Campaign #${deepValue(donation, ["campaign_id"])}`
+      : "Campaign"
+  )
+);
+
+const campaignImage = campaignImageUrl(
+  Object.keys(campaign).length
+    ? campaign
+    : donation
+);
+
+const fundraiserName = String(
+  campaign?.fundraiser?.display_name ??
+  campaign?.fundraiser?.name ??
+  campaign?.author?.display_name ??
+  campaign?.author?.name ??
+  campaign?.fundraiser_name ??
+  campaign?.author_name ??
+  donation?.campaign?.fundraiser?.display_name ??
+  donation?.campaign?.fundraiser?.name ??
+  donation?.campaign?.author?.display_name ??
+  donation?.campaign?.author?.name ??
+  deepValue(donation, [
+    "fundraiser_name",
+    "creator_name",
+    "author_name",
+  ]) ??
+  "—"
+);
+
+const campaignStartDate =
+  campaign?.start_date ??
+  campaign?.created_at ??
+  campaign?.date_created ??
+  deepValue(donation, [
+    "campaign_start_date",
+    "start_date",
+  ]);
+
+const campaignGoal = Number(
+  campaign?.goal_amount ??
+  campaign?.goal ??
+  campaign?.target_amount ??
+  donation?.campaign?.goal_amount ??
+  deepValue(donation, [
+    "campaign_goal",
+    "goal_amount",
+  ]) ??
+  0
+);
+
+const campaignRaised = Number(
+  campaign?.fund_raised ??
+  campaign?.raised_amount ??
+  campaign?.amount_raised ??
+  campaign?.total_raised ??
+  donation?.campaign?.fund_raised ??
+  donation?.campaign?.raised_amount ??
+  0
+);
   const donorName = String(deepValue(donation, ["donor_name", "display_name", "full_name", "name"]) ?? "Anonymous");
   const donorEmail = String(deepValue(donation, ["email", "donor_email", "user_email"]) ?? "—");
   const emailVerifiedRaw = deepValue(donation, ["email_verified", "is_email_verified", "email_verified_at", "verified_email"]);
@@ -204,7 +315,19 @@ return [
               <div className="mb-5 flex items-center justify-between"><h3 className="text-lg font-semibold">Payment</h3><Badge variant={badgeVariant(status)}>{status}</Badge></div>
               <div className="rounded-md border border-ld">
                 <div className="flex items-center justify-between border-b border-ld px-4 py-3"><span>Donation</span><strong>{money(amount ?? 0, currency)}</strong></div>
-                {gatewayFee > 0 && <div className="flex items-center justify-between border-b border-ld px-4 py-3"><span>Gateway Fee</span><span>{money(gatewayFee, currency)}</span></div>}
+                {gatewayFee > 0 && (
+  <div className="flex items-center justify-between border-b border-ld px-4 py-3">
+    <span>Gateway Fee</span>
+    <span>
+      {new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4,
+      }).format(gatewayFee)}
+    </span>
+  </div>
+)}
                 <div className="flex items-center justify-between px-4 py-3"><strong>Total</strong><strong>{money(netAmount, currency)}</strong></div>
               </div>
               <div className="mt-4 grid gap-2 text-sm text-darklink sm:grid-cols-2"><p>Payment method <span className="font-medium text-dark dark:text-white">{paymentMethod}</span></p><p>Original payment currency <span className="font-medium text-dark dark:text-white">{originalCurrency}</span></p></div>

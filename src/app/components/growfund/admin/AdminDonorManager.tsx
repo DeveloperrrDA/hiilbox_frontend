@@ -25,8 +25,11 @@ function isTrashedStatus(status: string) { return status === "trash" || status =
 
 export default function AdminDonorManager() {
   const router=useRouter();
-  const [rows, setRows] = useState<any[]>([]), [loading, setLoading] = useState(true), [busy, setBusy] = useState<number | null>(null);
-  const [error, setError] = useState(""), [notice, setNotice] = useState(""), [search, setSearch] = useState(""), [status, setStatus] = useState("all");
+const [rows, setRows] = useState<any[]>([]),
+  [loading, setLoading] = useState(true),
+  [busy, setBusy] = useState<number | null>(null),
+  [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [error, setError] = useState(""), [notice, setNotice] = useState(""), [search, setSearch] = useState(""), [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState<DateRangeKey>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -163,8 +166,53 @@ onEndDateChange={(value) => {
   </div>
 )}
     {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}{error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
-    <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-donors-table" columns={["Donor Details", "Donations", "Total Given", "Latest Donation", "Date Created", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-donors-table"><TableHeader><TableRow><TableHead>Donor Details</TableHead><TableHead>Donations</TableHead><TableHead>Total Given</TableHead><TableHead>Latest Donation</TableHead><TableHead>Date Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
-      {loading ? <TableRow><TableCell colSpan={6} className="py-10 text-center">Loading donors…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No donors found.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = String(r.status || r.user_status || "active").toLowerCase(); const latest = latestDonation(r); return <TableRow key={id}>
+    <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-donors-table" columns={["Donor Details", "Donations", "Total Given", "Latest Donation", "Date Created", "Actions"]}/></div><div className="mt-4 overflow-x-auto"><Table className="admin-donors-table"><TableHeader>
+  <TableRow>
+    <TableHead className="w-[60px]">
+      <input
+        type="checkbox"
+        aria-label="Select all donors"
+        checked={
+          pageRows.length > 0 &&
+          pageRows.every((r) => selectedIds.includes(idOf(r)))
+        }
+        onChange={(e) => {
+          const pageIds = pageRows
+            .map((r) => idOf(r))
+            .filter(Boolean);
+
+          setSelectedIds((current) =>
+            e.target.checked
+              ? Array.from(new Set([...current, ...pageIds]))
+              : current.filter((id) => !pageIds.includes(id))
+          );
+        }}
+      />
+    </TableHead>
+
+    <TableHead>Donor Details</TableHead>
+    <TableHead>Donations</TableHead>
+    <TableHead>Total Given</TableHead>
+    <TableHead>Latest Donation</TableHead>
+    <TableHead>Date Created</TableHead>
+    <TableHead className="text-right">Actions</TableHead>
+  </TableRow>
+</TableHeader><TableBody>
+      {loading ? <TableRow><TableCell colSpan={7} className="py-10 text-center">Loading donors…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={6} className="py-10 text-center text-darklink">No donors found.</TableCell></TableRow> : pageRows.map((r) => { const id = idOf(r), st = String(r.status || r.user_status || "active").toLowerCase(); const latest = latestDonation(r); return <TableRow key={id}>
+  <TableCell>
+    <input
+      type="checkbox"
+      aria-label={`Select donor ${id}`}
+      checked={selectedIds.includes(id)}
+      onChange={(e) =>
+        setSelectedIds((current) =>
+          e.target.checked
+            ? Array.from(new Set([...current, id]))
+            : current.filter((selectedId) => selectedId !== id)
+        )
+      }
+    />
+  </TableCell>
         <TableCell><div className="flex items-start gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lightprimary text-primary"><Icon icon="solar:user-rounded-line-duotone" height={18}/></span><div><Link href={`/dashboard/donors/${id}`} className="font-medium hover:text-primary">{String(r?.first_name || nameOf(r) || `Donor #${id}`).trim().split(/\s+/)[0]}</Link><div className="text-xs text-darklink">{r.email || r.user_email || "—"}{r.phone ? ` · ${r.phone}` : ""}</div></div></div></TableCell><TableCell>{donationCount(r)}</TableCell><TableCell>{money(totalGiven(r), r.currency || "$ ")}</TableCell><TableCell>{latest && typeof latest === "object" ? `${latest.amount != null ? `${money(latest.amount, latest.currency || r.currency || "$ ")} · ` : ""}${fmtDate(latest.date || latest.created_at)}` : latest != null ? money(latest, r.currency || "$ ") : "—"}</TableCell><TableCell>{fmtDate(createdDate(r))}</TableCell>
         <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={busy === id}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => beginEdit(r)}><Icon icon="solar:pen-2-line-duotone" /> Edit / Update</DropdownMenuItem><DropdownMenuItem onClick={()=>router.push(`/dashboard/donors/${id}`)}><Icon icon="solar:eye-line-duotone"/> View donor</DropdownMenuItem><DropdownMenuSeparator />{isTrashedStatus(st) ? <><DropdownMenuItem onClick={() => restore(r)}><Icon icon="solar:restart-line-duotone" /> Restore</DropdownMenuItem><DropdownMenuItem className="text-error" onClick={() => remove(r, true)}>Delete permanently</DropdownMenuItem></> : <DropdownMenuItem className="text-error" onClick={() => remove(r, false)}>Move to trash</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell>
       </TableRow>; })}

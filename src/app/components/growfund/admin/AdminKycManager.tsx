@@ -102,10 +102,71 @@ export default function AdminKycManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [summary, setSummary] = useState({
+  submitted: 0,
+  pending: 0,
+  rejected: 0,
+});
+
   const [growfundStatus, setGrowfundStatus] = useState("all");
   const [kycStatus, setKycStatus] = useState("all");
   const [dateRange, setDateRange] = useState<DateRangeKey>("all");
    const [selectedKyc, setSelectedKyc] = useState<KycRow | null>(null);
+
+   const loadSummary = useCallback(async () => {
+  try {
+    const response = await adminApi(
+      "fundraiser/kyc/paginated?page=1&per_page=100&orderby=user_registered&order=DESC"
+    );
+
+    const allRows: KycRow[] = Array.isArray(response?.data)
+      ? response.data
+      : [];
+
+    const submitted = allRows.filter(
+      (row) =>
+        String(row.kyc_status ?? "")
+          .trim()
+          .toLowerCase() === "submitted"
+    ).length;
+
+    const pending = allRows.filter(
+      (row) =>
+        String(row.kyc_status ?? "")
+          .trim()
+          .toLowerCase() === "pending"
+    ).length;
+
+    const rejected = allRows.filter((row) => {
+      const kyc = String(row.kyc_status ?? "")
+        .trim()
+        .toLowerCase();
+
+      const growfund = String(row.growfund_status ?? "")
+        .trim()
+        .toLowerCase();
+
+      return (
+        kyc === "rejected" ||
+        kyc === "declined" ||
+        growfund === "rejected" ||
+        growfund === "declined"
+      );
+    }).length;
+
+    setSummary({
+      submitted,
+      pending,
+      rejected,
+    });
+  } catch {
+    setSummary({
+      submitted: 0,
+      pending: 0,
+      rejected: 0,
+    });
+  }
+}, []);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -165,13 +226,34 @@ if (rangeParams.end_date) {
     }
 }, [page, growfundStatus, kycStatus, dateRange]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+ useEffect(() => {
+  void load();
+}, [load]);
+
+useEffect(() => {
+  void loadSummary();
+}, [loadSummary]);
 useEffect(() => {
   setPage(1);
 }, [growfundStatus, kycStatus, dateRange]);
-  return (
+
+const selectedFundraiserType = String(
+  selectedKyc?.gfcm_kyc_type ?? ""
+)
+  .trim()
+  .toLowerCase();
+
+const isMyself = selectedFundraiserType === "myself";
+
+const isSomeoneElse =
+  selectedFundraiserType === "someone_else" ||
+  selectedFundraiserType === "someone else";
+
+const isOrganization =
+  selectedFundraiserType === "organization" ||
+  selectedFundraiserType === "organisation";
+
+return (
     <CardBox>
       <div className="mb-4">
         <h2 className="text-lg font-semibold">Fundraiser KYC</h2>
@@ -179,6 +261,29 @@ useEffect(() => {
           Review KYC submissions from GrowFund fundraisers.
         </p>
       </div>
+<div className="mb-5 grid gap-4 md:grid-cols-3">
+  <CardBox>
+    <p className="text-sm text-darklink">Total Submitted</p>
+    <h3 className="mt-2 text-2xl font-semibold">
+      {summary.submitted}
+    </h3>
+  </CardBox>
+
+  <CardBox>
+    <p className="text-sm text-darklink">Total Pending</p>
+    <h3 className="mt-2 text-2xl font-semibold">
+      {summary.pending}
+    </h3>
+  </CardBox>
+
+  <CardBox>
+    <p className="text-sm text-darklink">Total Rejected</p>
+    <h3 className="mt-2 text-2xl font-semibold">
+      {summary.rejected}
+    </h3>
+  </CardBox>
+</div>
+
 <div className="mb-5 grid gap-3 md:grid-cols-3">
   <select
     value={growfundStatus}
@@ -334,7 +439,7 @@ useEffect(() => {
       </div>
 
      <div className="max-h-[70vh] overflow-y-auto pr-2">
-  <div className="grid gap-6 sm:grid-cols-2">
+  <div className="grid grid-cols-1 gap-6">
 
     {/* Basic Information */}
     <div className="rounded-lg border border-ld p-4">
@@ -410,8 +515,12 @@ useEffect(() => {
     </div>
 
     {/* Identification */}
-    <div className="rounded-lg border border-ld p-4">
-      <h4 className="mb-3 font-semibold">Identification</h4>
+    <div
+  className={`rounded-lg border border-ld p-4 ${
+    isMyself ? "" : "hidden"
+  }`}
+>
+  <h4 className="mb-3 font-semibold">Identification</h4>
 
       <div className="space-y-3 text-sm">
         <div>
@@ -508,8 +617,12 @@ useEffect(() => {
     </div>
 
     {/* Beneficiary */}
-    <div className="rounded-lg border border-ld p-4">
-      <h4 className="mb-3 font-semibold">Beneficiary</h4>
+   <div
+  className={`rounded-lg border border-ld p-4 ${
+    isSomeoneElse ? "" : "hidden"
+  }`}
+>
+  <h4 className="mb-3 font-semibold">Beneficiary</h4>
 
       <div className="space-y-3 text-sm">
         <div>
@@ -536,8 +649,12 @@ useEffect(() => {
     </div>
 
     {/* Organization */}
-    <div className="rounded-lg border border-ld p-4">
-      <h4 className="mb-3 font-semibold">Organization</h4>
+    <div
+  className={`rounded-lg border border-ld p-4 ${
+    isOrganization ? "" : "hidden"
+  }`}
+>
+  <h4 className="mb-3 font-semibold">Organization</h4>
 
       <div className="space-y-3 text-sm">
         <div>
@@ -590,10 +707,14 @@ useEffect(() => {
     </div>
 
     {/* Organization Representative */}
-    <div className="rounded-lg border border-ld p-4">
-      <h4 className="mb-3 font-semibold">
-        Organization Representative
-      </h4>
+   <div
+  className={`rounded-lg border border-ld p-4 ${
+    isOrganization ? "" : "hidden"
+  }`}
+>
+  <h4 className="mb-3 font-semibold">
+    Organization Representative
+  </h4>
 
       <div className="space-y-3 text-sm">
         <div>

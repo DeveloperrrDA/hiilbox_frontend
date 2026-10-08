@@ -19,7 +19,7 @@ import {
 import ThemeShell from "@/components/theme/ThemeShell";
 import DonationReceiptDialog, { type DonationReceipt } from "@/components/DonationReceiptDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { Icon } from "@iconify/react";
 import {
   Select,
@@ -30,11 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Description, Field, Input, Label } from '@headlessui/react'
 
 interface CampaignData {
   id: number;
   title: string;
   imageUrl: string;
+  goal: number;
+  raised_amount: number;
 }
 
 function CheckoutContent() {
@@ -69,12 +72,15 @@ function CheckoutContent() {
   const [isAnonymous, setIsAnonymous] =
     useState(false);
 
-  const [gateways, setGateways] =
-    useState<CheckoutGateway[]>([]);
+ const [gateways, setGateways] =
+  useState<CheckoutGateway[]>([]);
 
-  const [loadingGateways, setLoadingGateways] =
-    useState(true);
+const [platformRates, setPlatformRates] = useState<
+  Record<string, { gateway: string; platform: string }>
+>({});
 
+const [loadingGateways, setLoadingGateways] =
+  useState(true);
   const [loading, setLoading] =
     useState(false);
 
@@ -92,6 +98,8 @@ function CheckoutContent() {
     let cancelled = false;
     const campaignId = Number(searchParams.get("campaign"));
     const campaignTitle = searchParams.get("title") || "Campaign";
+    const campaignGoal = Number(searchParams.get("goal") || 10);
+    const campaignRaisedAmount = Number(searchParams.get("raised_amount") || 5);
 
     if (!campaignId) {
       router.replace("/donate");
@@ -130,12 +138,14 @@ function CheckoutContent() {
           setCampaign({
             id: campaignId,
             title: String(raw?.title || campaignTitle),
+            goal: Number(raw?.goal_amount || campaignGoal),
+            raised_amount: Number(raw?.fund_raised || campaignRaisedAmount),
             imageUrl,
           });
         }
       } catch {
         if (!cancelled) {
-          setCampaign({ id: campaignId, title: campaignTitle, imageUrl: "" });
+          setCampaign({ id: campaignId, title: campaignTitle, goal: campaignGoal, raised_amount: campaignRaisedAmount, imageUrl: "" });
         }
       }
     }
@@ -168,7 +178,42 @@ function CheckoutContent() {
       cancelled = true;
     };
   }, []);
+useEffect(() => {
+  let cancelled = false;
 
+  async function loadPlatformRates() {
+    try {
+      const response = await fetch(
+        "/api/checkout/platform-rates",
+        {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }
+      );
+
+      const payload = await response.json();
+
+      if (
+        !cancelled &&
+        response.ok &&
+        payload?.success &&
+        payload?.data
+      ) {
+        setPlatformRates(payload.data);
+      }
+    } catch {
+      if (!cancelled) {
+        setPlatformRates({});
+      }
+    }
+  }
+
+  loadPlatformRates();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   // --------------------------------------------------
   // LOAD PAYMENT GATEWAYS
   // --------------------------------------------------
@@ -318,8 +363,29 @@ function CheckoutContent() {
     );
   }, [donationAmount, tipPercent]);
 
-  const total =
-    donationAmount + tipAmount;
+ const selectedRates =
+  paymentMethod && platformRates[paymentMethod]
+    ? platformRates[paymentMethod]
+    : null;
+
+const gatewayRate = Number(selectedRates?.gateway ?? 0);
+const platformRate = Number(selectedRates?.platform ?? 0);
+
+const gatewayFee =
+  Number.isFinite(donationAmount) && donationAmount > 0
+    ? donationAmount * (gatewayRate / 100)
+    : 0;
+
+const platformFee =
+  Number.isFinite(donationAmount) && donationAmount > 0
+    ? donationAmount * (platformRate / 100)
+    : 0;
+
+const total =
+  donationAmount +
+  tipAmount +
+  gatewayFee +
+  platformFee;
 
   const selectedCurrency =
     currencies.find((item) => item.code === currency) ?? currencies.find((item) => item.code === "USD");
@@ -533,11 +599,26 @@ function CheckoutContent() {
     );
   }
 
+  const progress =
+    campaign.goal > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (campaign.raised_amount / campaign.goal) * 100
+          )
+        )
+      : 0;
+
+    // --- ADD THIS SVG MATH HERE ---
+    const size = 100; // Adjust size of the circle here
+    const strokeWidth = 8;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
   // --------------------------------------------------
   // PAGE
   // --------------------------------------------------
-
-  
 
   return (
     <ThemeShell>
@@ -556,31 +637,74 @@ function CheckoutContent() {
             Back
           </Button>
 
-          <div className="relative mb-8 overflow-hidden rounded-2xl border border-ld bg-white dark:bg-darkgray p-6 shadow-md before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary">
-                <span className="text-sm font-bold text-white">
-                  H
+          <div className="flex flex-row md:flex-nowrap flex-wrap gap-10 items-center justify-center relative mb-8 overflow-hidden rounded-2xl border border-ld bg-white dark:bg-darkgray p-6 shadow-md before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary">
+            <div className="md:basis-1/4 basis-full">
+              {campaign.imageUrl ? (
+                    <div className="relative min-h-50 w-auto overflow-hidden bg-[#f2f4f2]">
+                      <img
+                        src={campaign.imageUrl}
+                        alt={campaign.title}
+                        className="absolute rounded-md inset-0 h-full w-full object-cover"
+                        loading="eager"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ) : null}
+            </div>
+            <div className="md:basis-2/4 basis-full">
+              <div className=" flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-lightprimary text-primary">
+                  <Icon icon="solar:hand-money-bold-duotone" height={24} />
                 </span>
+                <h1 className="text-3xl font-bold tracking-tight text-dark dark:text-white sm:text-4xl">
+                  Make a donation
+                </h1>
               </div>
 
-              <span className="text-lg font-bold text-dark dark:text-white">
-                HiilBox
+              <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500">
+                Support this campaign with a secure donation.
+              </p>
+              <h2 className="mt-2 text-xl font-bold leading-7 text-dark dark:text-white">
+                      {campaign.title}
+              </h2>
+            </div>
+            <div className="relative md:basis-1/4 basis-full flex items-center justify-center content-ccenter w-auto h-50">
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox={`0 0 ${size} ${size}`}
+              >
+                {/* Background Track Circle */}
+                <circle
+                  className="text-gray-100 dark:text-gray-800"
+                  stroke="currentColor"
+                  fill="transparent"
+                  strokeWidth={strokeWidth}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                />
+
+                {/* Progress Circle */}
+                <circle
+                  className="text-[#01A14B]"
+                  stroke="currentColor"
+                  fill="transparent"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                />
+              </svg>
+
+              {/* Center Text */}
+              <span className="absolute text-base font-semibold text-gray-700 dark:text-gray-300">
+                {progress}%
               </span>
             </div>
-
-            <div className="mt-8 flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-lightprimary text-primary">
-                <Icon icon="solar:hand-money-bold-duotone" height={24} />
-              </span>
-              <h1 className="text-3xl font-bold tracking-tight text-dark dark:text-white sm:text-4xl">
-                Make a donation
-              </h1>
-            </div>
-
-            <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500">
-              Support this campaign with a secure donation.
-            </p>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -590,29 +714,7 @@ function CheckoutContent() {
               <div className="space-y-6">
 
                 {/* CAMPAIGN */}
-                <section className="overflow-hidden rounded-[16px] border border-ld bg-white shadow-[0_10px_28px_rgba(17,28,45,0.06)]">
-                  {campaign.imageUrl ? (
-                    <div className="relative aspect-[16/7] w-full overflow-hidden bg-[#f2f4f2]">
-                      <img
-                        src={campaign.imageUrl}
-                        alt={campaign.title}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        loading="eager"
-                        decoding="async"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  ) : null}
-                  <div className="p-6">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                      You are supporting
-                    </p>
-
-                    <h2 className="mt-2 text-xl font-bold leading-7 text-dark dark:text-white">
-                      {campaign.title}
-                    </h2>
-                  </div>
-                </section>
+                
 
                 {/* AMOUNT */}
                 <section className="rounded-[16px] border border-ld bg-white p-6 shadow-[0_10px_28px_rgba(17,28,45,0.06)]">
@@ -629,7 +731,7 @@ function CheckoutContent() {
                       htmlFor="amount"
                       className="block text-sm font-semibold text-gray-700"
                     >
-                      Donation amount debug
+                      Donation amount
                     </label>
 
                     <div className="mt-2 grid gap-2 sm:grid-cols-[150px_1fr]">
@@ -639,7 +741,7 @@ function CheckoutContent() {
                         disabled={loading}
                       >
                         <SelectTrigger 
-                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-4 font-semibold text-dark dark:text-white outline-none focus:border-primary focus:ring-4 focus:ring-lightprimary disabled:bg-gray-100"
+                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-4 font-semibold text-dark dark:text-white outline-none focus:border-primary focus:ring-4 focus:ring-lightprimary disabled:bg-gray-100"
                           aria-label="Donation currency"
                         >
                           {/* This displays the currently selected value, or the placeholder if nothing is selected */}
@@ -660,22 +762,23 @@ function CheckoutContent() {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-
-                      <Input
-                        id="amount"
-                        name="amount"
-                        type="number"
-                        min={minimumDonationInSelectedCurrency}
-                        step="0.01"
-                        value={amount}
-                        onChange={(e) =>
-                          setAmount(e.target.value)
-                        }
-                        disabled={loading}
-                        required
-                        placeholder="0.00"
-                        className="h-14 rounded-xl px-4 text-xl font-bold"
-                      />
+                      <Field className='w-full'>
+                        <Input
+                          id="amount"
+                          name="amount"
+                          type="number"
+                          min={minimumDonationInSelectedCurrency}
+                          step="0.01"
+                          value={amount}
+                          onChange={(e) =>
+                            setAmount(e.target.value)
+                          }
+                          disabled={loading}
+                          required
+                          placeholder="0.00"
+                          className="ui-form-control h-14 rounded-md py-4 px-3 w-full "
+                        />
+                      </Field>
                     </div>
                   </div>
 
@@ -695,7 +798,7 @@ function CheckoutContent() {
                                 String(value)
                               )
                             }
-                            className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                            className={`rounded-md border px-3 py-3 text-sm font-semibold transition ${
                               selected
                                 ? "border-primary bg-lightprimary text-primary"
                                 : "border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:bg-lightprimary/50"
@@ -776,74 +879,72 @@ function CheckoutContent() {
 
                     {/* FIRST NAME */}
                     <div>
-                      <label
-                        htmlFor="first_name"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        First name
-                      </label>
-
-                      <Input
-                        id="first_name"
-                        name="first_name"
-                        type="text"
-                        value={firstName}
-                        onChange={(e) =>
-                          setFirstName(e.target.value)
-                        }
-                        disabled={loading}
-                        required
-                        autoComplete="given-name"
-                        className="mt-2 h-12 rounded-xl px-4"
-                      />
+                      <Field className='w-full'>
+                        <Label htmlFor="first_name" className='mb-1 block text-ld'>First & Middle Name</Label>
+                        <Description className='text-darklink dark:text-gray-500 text-xs'>
+                          E.g. Hebel Hebel
+                        </Description>
+                        <Input
+                          id="first_name"
+                          name="first_name"
+                          type="text"
+                          value={firstName}
+                          onChange={(e) =>
+                            setFirstName(e.target.value)
+                          }
+                          disabled={loading}
+                          required
+                          autoComplete="given-name"
+                          className="ui-form-control rounded-md py-2.5 px-3 w-full mt-2"
+                        />
+                      </Field>
                     </div>
 
                     {/* LAST NAME */}
                     <div>
-                      <label
-                        htmlFor="last_name"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Last name
-                      </label>
 
-                      <Input
-                        id="last_name"
-                        name="last_name"
-                        type="text"
-                        value={lastName}
-                        onChange={(e) =>
-                          setLastName(e.target.value)
-                        }
-                        disabled={loading}
-                        required
-                        autoComplete="family-name"
-                        className="mt-2 h-12 rounded-xl px-4"
-                      />
+                      <Field className='w-full'>
+                        <Label htmlFor="last_name" className='mb-1 block text-ld'>Last name</Label>
+                        <Description className='text-darklink dark:text-gray-500 text-xs'>
+                          E.g. Hebel
+                        </Description>
+                        <Input
+                          id="last_name"
+                          name="last_name"
+                          type="text"
+                          value={lastName}
+                          onChange={(e) =>
+                            setLastName(e.target.value)
+                          }
+                          disabled={loading}
+                          required
+                          autoComplete="family-name"
+                          className="ui-form-control rounded-md py-2.5 px-3 w-full mt-2"
+                        />
+                      </Field>
                     </div>
 
                     {/* EMAIL */}
                     <div className="sm:col-span-2">
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Email address
-                      </label>
-
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) =>
-                          setEmail(e.target.value)
-                        }
-                        disabled={loading}
-                        required
-                        autoComplete="email"
-                        className="mt-2 h-12 rounded-xl px-4"
-                      />
+                      <Field className='w-full'>
+                         <Label htmlFor="email" className='mb-1 block text-ld'>Email address</Label>
+                        <Description className='text-darklink dark:text-gray-500 text-xs'>
+                          E.g. hebel@mail.com
+                        </Description>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) =>
+                            setEmail(e.target.value)
+                          }
+                          disabled={loading}
+                          required
+                          autoComplete="email"
+                          className="ui-form-control rounded-md py-2.5 px-3 w-full mt-2"
+                        />
+                      </Field>
                     </div>
 
                   </div>
@@ -893,19 +994,19 @@ function CheckoutContent() {
                         {[
                           {
                             id: "somali-wallets" as const,
-                            title: "Pay with Waafi, eDahab, Premier Wallet",
+                            title: "Waafi, eDahab, Premier Wallet",
                             subtitle: "ZAAD, EVC, SAHAL and supported Somali wallets",
                             available: walletGatewayOptions.some((item) => Boolean(item.gateway)),
                           },
                           {
                             id: "ethiopia-wallets" as const,
-                            title: "Pay with eBirr, COOPay, CBE Birr",
+                            title: "eBirr, COOPay, CBE Birr",
                             subtitle: "Ethiopian mobile money options",
                             available: ethiopiaGatewayOptions.some((item) => Boolean(item.gateway)),
                           },
                           {
                             id: "east-africa-wallets" as const,
-                            title: "Pay with M-Pesa, MTN",
+                            title: "M-Pesa, MTN",
                             subtitle: "East African mobile money options",
                             available: eastAfricaGatewayOptions.some((item) => Boolean(item.gateway)),
                           },
@@ -1038,7 +1139,7 @@ function CheckoutContent() {
                               </label>
 
                               <div className="relative mt-2">
-                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[#8a98a8]">
+                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[#8a98a8] mt-2">
                                   ☎
                                 </span>
                                 <Input
@@ -1055,7 +1156,7 @@ function CheckoutContent() {
                                   placeholder="0900 123 4567"
                                   autoComplete="tel"
                                   inputMode="tel"
-                                  className="h-12 rounded-xl pl-11 pr-4"
+                                  className="ui-form-control rounded-md py-4 pl-11 pr-3 w-full mt-2"
                                 />
                               </div>
                             </div>
@@ -1151,30 +1252,6 @@ function CheckoutContent() {
 
                   <div className="p-6">
 
-                    {campaign.imageUrl && (
-                      <div className="mb-5 overflow-hidden rounded-xl border border-ld bg-lightgray">
-                        <div className="relative aspect-[16/8]">
-                          <img
-                            src={campaign.imageUrl}
-                            alt={campaign.title}
-                            className="absolute inset-0 h-full w-full object-cover"
-                            loading="eager"
-                            decoding="async"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="rounded-xl bg-lightprimary p-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                        Donation to
-                      </p>
-
-                      <p className="mt-2 text-sm font-bold leading-5 text-dark dark:text-white">
-                        {campaign.title}
-                      </p>
-                    </div>
 
                     <div className="mt-6 space-y-4">
 
@@ -1188,15 +1265,47 @@ function CheckoutContent() {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">
-                          HiilBox support ({tipPercent}%)
-                        </span>
+<div className="flex items-center justify-between text-sm">
+  <span className="text-gray-500">
+    HiilBox support ({tipPercent}%)
+  </span>
 
-                        <span className="font-semibold text-gray-900">
-                          {currency} {tipAmount.toFixed(2)}
-                        </span>
-                      </div>
+  <span className="font-semibold text-gray-900">
+    {currency} {tipAmount.toFixed(2)}
+  </span>
+</div>
+
+{selectedRates && (
+  <>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">
+        Gateway fee ({gatewayRate}%)
+      </span>
+
+      <span className="font-semibold text-gray-900">
+        {currency}{" "}
+        {gatewayFee.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">
+        Platform fee ({platformRate}%)
+      </span>
+
+      <span className="font-semibold text-gray-900">
+        {currency}{" "}
+        {platformFee.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })}
+      </span>
+    </div>
+  </>
+)}
 
                     </div>
 

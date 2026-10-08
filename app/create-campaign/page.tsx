@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import ThemeShell from "@/components/theme/ThemeShell";
@@ -75,6 +76,7 @@ function getYouTubeThumbnail(value: string) {
     : null;
 }
 export default function CreateCampaignPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -387,17 +389,26 @@ const [youtubeUrl, setYoutubeUrl] = useState("");
             "Campaign creation failed."
         );
       }
+const campaignId = Number(
+  data?.id ??
+  data?.data?.id ??
+  data?.campaign_id ??
+  data?.data?.campaign_id
+);
 
-      const campaignId = Number(data?.data?.id);
+if (!Number.isFinite(campaignId) || campaignId <= 0) {
+  console.error(
+    "[create-campaign] Invalid campaign ID response:",
+    data
+  );
 
-      if (!Number.isFinite(campaignId) || campaignId <= 0) {
-        throw new Error("Campaign creation did not return a valid campaign ID.");
-      }
+  throw new Error(
+    "Campaign creation did not return a valid campaign ID."
+  );
+}
 
-      setCreated({
-        id: campaignId,
-        status: String(data?.data?.status || "pending"),
-      });
+router.push(`/dashboard/campaigns/${campaignId}/edit`);
+return;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error

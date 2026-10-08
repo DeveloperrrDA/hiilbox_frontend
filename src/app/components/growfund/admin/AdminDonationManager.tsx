@@ -242,7 +242,48 @@ const load = useCallback(async () => {
  async function createDonation(e:FormEvent){e.preventDefault();setError("");try{const payload={...createForm,campaign_id:Number(createForm.campaign_id),amount:Number(createForm.amount)};const d=await adminApi("donations/create",{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||"Donation created successfully.");setCreateOpen(false);setCreateForm({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});setPage(1);await load();}catch(e){setError(e instanceof Error?e.message:"Unable to create donation.");}}
  async function emptyTrash(){if(!confirm("Permanently delete all trashed donations?"))return;try{const d=await adminApi("donations/empty-trash",{method:"POST",body:"{}"});setNotice(d?.message||"Donation trash emptied.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to empty trash.");}}
  async function bulk(action:string){if(!selected.length)return;try{const d=await adminApi("donations/bulk-action",{method:"POST",body:JSON.stringify({ids:selected,action})});setNotice(d?.message||"Donations updated.");setSelected([]);await load();}catch(e){setError(e instanceof Error?e.message:"Bulk action failed.");}}
-const pageIds=rows
+
+ const filteredRows = useMemo(() => {
+  return rows.filter((r) => {
+    if (
+      dateRange === "all" &&
+      !startDate &&
+      !endDate
+    ) {
+      return true;
+    }
+
+    const raw = dateOf(r);
+
+    if (!raw) {
+      return false;
+    }
+
+    const donationDate = new Date(raw);
+
+    if (Number.isNaN(donationDate.getTime())) {
+      return false;
+    }
+
+    if (
+      startDate &&
+      donationDate < new Date(`${startDate}T00:00:00`)
+    ) {
+      return false;
+    }
+
+    if (
+      endDate &&
+      donationDate > new Date(`${endDate}T23:59:59.999`)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}, [rows, dateRange, startDate, endDate]);
+
+ const pageIds=filteredRows
   .map(r=>idOf(r))
   .filter((id):id is number=>Boolean(id));
 
@@ -402,7 +443,7 @@ const toggle=(id:number)=>{
             Loading donations…
           </TableCell>
         </TableRow>
-      ) : rows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <TableRow>
           <TableCell
             colSpan={visibleCount}
@@ -412,7 +453,7 @@ const toggle=(id:number)=>{
           </TableCell>
         </TableRow>
       ) : (
-        rows.map((r) => {
+       filteredRows.map((r) => {
           const id = idOf(r);
           const st = statusOf(r);
           const currency = r?.currency_symbol || r?.currency || "$";
@@ -516,9 +557,14 @@ const toggle=(id:number)=>{
                 </TableCell>
               )}
 
-              {visible.gateway && (
-                <TableCell>{money(gatewayFee(r), currency)}</TableCell>
-              )}
+         {visible.gateway && (
+  <TableCell>
+    {`${currency}${gatewayFee(r).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    })}`}
+  </TableCell>
+)}
 
               {visible.platform && (
                 <TableCell>{money(platformFee(r), currency)}</TableCell>
