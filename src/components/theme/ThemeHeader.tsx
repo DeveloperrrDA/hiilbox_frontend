@@ -28,7 +28,15 @@ export default function ThemeHeader() {
         <div className="container-1218 flex min-h-[84px] items-center justify-between gap-6">
           <nav className="hidden items-center gap-8 xl:flex">
             <Link href="/campaigns" className={navClass}>Search</Link>
-            <Link href="/campaigns" className={navClass}>Donate</Link>
+            
+            {/* Left Side Mega Menu Example (Optional, similar to GoFundMe Donate/Fundraise dropdowns) */}
+            <div className="group relative py-6">
+              <button className={`${navClass} flex items-center gap-1`}>
+                Donate
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+            </div>
+            
             <Link href="/create-campaign" className={navClass}>Fundraise</Link>
           </nav>
 
@@ -38,9 +46,49 @@ export default function ThemeHeader() {
 
           <div className="hidden items-center gap-8 xl:flex">
             <nav className="flex items-center gap-8">
-              <Link href="/" className={navClass}>About</Link>
+              
+              {/* =========================================
+                  ABOUT MEGA MENU (Hover Trigger)
+              ========================================= */}
+              <div className="group relative py-6">
+                <button className={`${navClass} flex items-center gap-1`}>
+                  About
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Card */}
+                <div className="absolute right-0 top-[70px] invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-hover:translate-y-1 z-50">
+                  <div className="w-[520px] rounded-2xl bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100">
+                    
+                    {/* Card Header */}
+                    <div className="flex items-center gap-3 text-[#111c2d] mb-6">
+                      <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-lg font-medium text-gray-700">How it works, pricing, and more</span>
+                    </div>
+
+                    {/* Two-Column Links Grid */}
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                      <Link href="/how-it-works" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">How Hiilbox works</Link>
+                      <Link href="/about" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">About Hiilbox</Link>
+                      <Link href="/guarantee" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Hiilbox Giving Guarantee</Link>
+                      <Link href="/newsroom" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Newsroom</Link>
+                      <Link href="/countries" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Supported countries</Link>
+                      <Link href="/careers" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Careers</Link>
+                      <Link href="/pricing" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Pricing</Link>
+                      <Link href="/foundation" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Hiilbox.org</Link>
+                      <Link href="/help" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Help Center</Link>
+                      <Link href="/partnerships" className="text-[15px] text-gray-600 hover:text-[#01A14B] font-medium transition-colors">Hiilbox Partnerships</Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <Link href="/campaigns" className={navClass}>Campaigns</Link>
-              <Link href="/" className={navClass}>Contact</Link>
+              <Link href="/contact" className={navClass}>Contact</Link>
             </nav>
             {loggedIn ? (
               <div className="flex items-center gap-2">

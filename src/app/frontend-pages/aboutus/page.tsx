@@ -9,28 +9,31 @@ import OurTeam from "@/app/components/front-pages/homepage/OurTeam";
 import { Packages } from "@/app/components/front-pages/homepage/Packages";
 import { PaymentOptions } from "@/app/components/front-pages/homepage/Payments";
 import PurchaseTemp from "@/app/components/front-pages/homepage/PurchaseTemp";
+import ThemeShell from "@/components/theme/ThemeShell";
 import React from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Front-About Us",
 };
-const page = () => {
+export default function AboutPage() {
   return (
-    <>
-      <HeroText />
-      <SetupProcess />
-      <Archivement />
-      <OurTeam />
-      <ClientReviews />
-      <Companies />
-      <Highlights />
-      <Packages />
-      <PaymentOptions />
-      <FAQ />
-      <PurchaseTemp />
-    </>
+    <ThemeShell>
+      
+        <HeroText />
+        <SetupProcess />
+        <Archivement />
+        <OurTeam />
+        <ClientReviews />
+        <Companies />
+        <Highlights />
+        <Packages />
+        <PaymentOptions />
+        <FAQ />
+        <PurchaseTemp />
+      
+    </ThemeShell>
   );
-};
+}
 
-export default page;
+

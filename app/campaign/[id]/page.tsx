@@ -10,6 +10,8 @@ import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
 import CampaignComments from "@/components/CampaignComments";
+import CampaignMediaSlider from "@/components/CampaignMediaSlider";
+import CampaignRecentDonations from "@/components/CampaignRecentDonations";
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
@@ -348,27 +350,12 @@ const extractedUpdates = campaignUpdatesResponse.data;
             <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] sm:text-2xl">
               {campaign.title}
             </h1>
-            <div className="relative aspect-[16/7] overflow-hidden rounded-[16px] bg-gray-100 mb-10">
-            
-          {imageUrl ? (
-            // Use the already-normalized campaign URL directly here. The
-            // campaign cards use the same URL successfully; avoiding the
-            // Next image pipeline on this server-rendered detail page also
-            // avoids remote-image/proxy differences between the two views.
-            <img
-              src={imageUrl}
-              alt={campaign.title}
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="eager"
-              decoding="async"
-              referrerPolicy="no-referrer"
+            <CampaignMediaSlider 
+              video={campaign.video} 
+              images={campaign.images} 
+              title={campaign.title} 
+              fallbackImage={imageUrl} 
             />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">
-              No image available
-            </div>
-          )}
-        </div>
             {/* Fundraiser */}
 
             <div className="flex items-center gap-3">
@@ -479,46 +466,10 @@ const extractedUpdates = campaignUpdatesResponse.data;
                 </Link>
 
                 {/* Recent Donations */}
-                <div className="mt-6 flex flex-row items-center content-center gap-2">
-                  <Icon
-                    icon="tabler:trending-up"
-                    className="text-4xl font-bold shrink-0 text-purple-500 bg-purple-500/10 rounded-full p-2"
-                  />
-                  <p className="mt-1 text-base text-purple-500">
-                    Recent Donations
-                  </p>
-                </div>
-
-                <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-                  {recentDonations.length ? (
-                    <div className="divide-y divide-gray-100">
-                      {recentDonations.map((donation, index) => (
-                        <div key={`${donation.id ?? "donation"}-${index}`} className="py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/10 text-[#01A14B]">
-                                <Icon icon="solar:user-rounded-line-duotone" height={18} />
-                              </span>
-                              <p className="truncate text-sm font-semibold text-[#111c2d]">
-                                {donation.is_anonymous ? "Anonymous" : String(donation.donor_name || "Anonymous").trim().split(/\s+/)[0]}
-                              </p>
-                            </div>
-                            <p className="text-sm font-semibold text-[#01A14B]">
-                              {donation.currency ? `${donation.currency} ` : "$"}{Number(donation.amount || 0).toLocaleString()}
-                            </p>
-                          </div>
-                          {donation.created_at && (
-                            <p className="mt-1 text-xs text-gray-400">
-                              {new Date(donation.created_at).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="py-4 text-sm text-gray-400">No donations yet.</p>
-                  )}
-                </div>
+                <CampaignRecentDonations 
+                  initialDonations={recentDonations} 
+                  totalCount={recentDonations.length} 
+                />
                 
 
                 {deadline && (
