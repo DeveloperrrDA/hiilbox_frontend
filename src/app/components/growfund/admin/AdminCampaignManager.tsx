@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import CardBox from "@/app/components/shared/CardBox";
 import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,24 @@ function campaignStatus(row: any) {
     String(value ?? "")
       .trim()
       .toLowerCase();
+
+  const isTrue = (value: any) =>
+    value === true ||
+    value === 1 ||
+    String(value ?? "").trim().toLowerCase() === "true" ||
+    String(value ?? "").trim() === "1";
+
+  if (isTrue(row?.is_ended)) {
+    return "ended";
+  }
+
+  if (isTrue(row?.is_paused)) {
+    return "paused";
+  }
+
+  if (isTrue(row?.is_hidden)) {
+    return "hidden";
+  }
 
   /*
    * Status priority:
@@ -247,6 +266,7 @@ function createdDate(row: any) {
   );
 }
 export default function AdminCampaignManager() {
+  const router = useRouter();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
@@ -480,7 +500,69 @@ setNotice(data?.message || msg);
       setBusy(null);
     }
   }
+async function createDraft() {
+  setBusy(-1);
+  setError("");
+  setNotice("");
 
+  try {
+    const token = adminToken();
+
+    if (!token) {
+      throw new Error("Please sign in to create a campaign.");
+    }
+
+    const response = await fetch(
+      "/api/campaigns/create-draft",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          "Unable to create campaign draft."
+      );
+    }
+
+    const campaignId = Number(
+      data?.data?.id ??
+        data?.data?.campaign_id ??
+        data?.campaign?.id ??
+        data?.campaign_id ??
+        data?.id ??
+        0
+    );
+
+    if (!campaignId) {
+      throw new Error(
+        "Campaign draft was created but no campaign ID was returned."
+      );
+    }
+
+    router.push(
+      `/dashboard/campaigns/${campaignId}/edit`
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to create campaign draft."
+    );
+  } finally {
+    setBusy(null);
+  }
+}
   async function duplicate(r: any) {
   const id = idOf(r);
 
@@ -835,8 +917,14 @@ const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
         <div className="flex flex-wrap gap-2">
           {selected.length > 0 && <><Button variant="outline" onClick={() => bulk("publish")}>Approve selected</Button><Button variant="outline" onClick={() => bulk("restore")}><Icon icon="solar:restart-line-duotone" /> Restore selected</Button><Button variant="outline" onClick={() => bulk("trash")}>Trash selected</Button></>}
           <Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone" /> Empty trash</Button>
-          <Button asChild><Link href="/create-campaign"><Icon icon="solar:add-circle-line-duotone" /> New Campaign</Link></Button>
-        </div>
+<Button
+  type="button"
+  disabled={busy === -1}
+  onClick={() => void createDraft()}
+>
+  <Icon icon="solar:add-circle-line-duotone" />
+  {busy === -1 ? "Creating…" : "New Campaign"}
+</Button>        </div>
       </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">

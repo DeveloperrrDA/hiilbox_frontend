@@ -38,18 +38,28 @@ function bucketData(
   customStartDate = "",
   customEndDate = ""
 ) {
-  let { start, end } = getDateRange(range);
+let { start, end } = getDateRange(range);
 
-  if (range === "custom") {
-    if (customStartDate) {
-      start = new Date(`${customStartDate}T00:00:00`);
-    }
+if (range === "all") {
+  const donationDates = donations
+    .filter(isSuccessful)
+    .map(donationDate)
+    .filter((date): date is Date => date !== null)
+    .sort((a, b) => a.getTime() - b.getTime());
 
-    if (customEndDate) {
-      end = new Date(`${customEndDate}T23:59:59.999`);
-    }
+  if (donationDates.length > 0) {
+    start = new Date(donationDates[0]);
+    end = new Date(donationDates[donationDates.length - 1]);
+  }
+} else if (range === "custom") {
+  if (customStartDate) {
+    start = new Date(`${customStartDate}T00:00:00`);
   }
 
+  if (customEndDate) {
+    end = new Date(`${customEndDate}T23:59:59.999`);
+  }
+}
   const startDay = new Date(start);
   startDay.setHours(0, 0, 0, 0);
 
@@ -125,11 +135,12 @@ function bucketData(
 
     if (donationDateValue === null) continue;
 
-   if (range === "custom") {
+  if (range === "custom") {
   if (donationDateValue < startDay || donationDateValue > endDay) {
     continue;
   }
 } else if (
+  range !== "all" &&
   !isDateInRange(
     donationDateValue.toISOString(),
     range
@@ -174,22 +185,7 @@ export default function RoleAnalytics(){
       const [dr,cr]=await Promise.all([fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"}),fetch("/api/dashboard/campaigns",{headers,cache:"no-store"})]);
       const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");setDonations(rows(dj));setDonors([]);setCampaigns(rows(cj));setBackendStats(null);
     }else{
-      // GrowFund campaign data confirms this admin account is author/fundraiser ID 1.
-      // Only those campaigns are included in Admin Analytics.
-   // GrowFund campaign data confirms this admin account is
-// author/fundraiser ID 1.
-const ADMIN_GROWFUND_ID = 1;
-const debugResponse = await fetch(
-  "/api/admin/growfund/donations/paginated?page=1&per_page=100&orderby=id&order=desc",
-  {
-    headers,
-    cache: "no-store",
-  }
-);
-
-const debugData = await debugResponse.json().catch(() => null);
-
-console.log("ADMIN ALL DONATIONS DEBUG:", debugData);
+     
 async function fetchAdminCampaignsByStatus(campaignStatus: string) {
   const allCampaigns: any[] = [];
   let currentPage = 1;
@@ -284,23 +280,15 @@ const completeCampaigns = Array.from(
 );
 
 // Keep only campaigns belonging to this GrowFund admin.
-const owned = completeCampaigns.filter((c: any) => {
-  const authorId = Number(c?.author?.id ?? 0);
-  const fundraiserId = Number(c?.fundraiser?.id ?? 0);
-
-  return (
-    authorId === ADMIN_GROWFUND_ID ||
-    fundraiserId === ADMIN_GROWFUND_ID
-  );
-});
-
-setCampaigns(owned);
+// Admin Analytics is system-wide.
+// Include every GrowFund campaign regardless of owner/fundraiser.
+setCampaigns(completeCampaigns);
 setDonors([]);
 setBackendStats(null);
 
-     // Fetch ALL donation pages for each owned campaign.
+// Fetch ALL donation pages for every campaign.
 const batches = await Promise.all(
-  owned.map(async (c: any) => {
+  completeCampaigns.map(async (c: any) => {
     const cid = Number(c?.id ?? 0);
 
     if (!cid) {
@@ -394,7 +382,11 @@ const filtered = useMemo(
         return true;
       }
 
-return isDateInRange(d.toISOString(), range);    }),
+if (range === "all") {
+  return true;
+}
+
+return isDateInRange(d.toISOString(), range);   }),
   [donations, range, startDate, endDate]
 );  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
@@ -471,7 +463,11 @@ const donorTrend = useMemo(
   const donorOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:2},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.16)"},xaxis:{categories:donorTrend.map(x=>x.label),tickAmount:4,labels:{hideOverlappingLabels:true,style:{colors:"#7c8798"}}},yaxis:{min:0,forceNiceScale:true,labels:{formatter:(v:number)=>String(Math.round(v)),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>`${Math.round(v)} donor${Math.round(v)===1?"":"s"}`}},colors:["#9b63ff"],fill:{type:"gradient",gradient:{opacityFrom:.2,opacityTo:.02}}};
   const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{label:"Net Donation",value:money(stats.net),bg:"bg-[#e7f7ef]",icon:"solar:wallet-money-line-duotone"},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
   return <div className="space-y-7">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">{role==="fundraiser"?"Real performance data from donations to your campaigns only.":"Performance from campaigns created by this admin account only."}</p></div><div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">
+  {role === "fundraiser"
+    ? "Real performance data from donations to your campaigns only."
+    : "System-wide performance across all campaigns and fundraisers."}
+</p></div><div className="flex flex-wrap gap-2">
   <DatePresetSelect
     value={range}
     onChange={setRange}

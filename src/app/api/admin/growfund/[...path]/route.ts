@@ -41,8 +41,16 @@ async function proxy(
   // expects the GrowFund *system* bearer token + X-API-Key, not the user's JWT.
   // We still call requireUser() above so this proxy remains admin/authenticated-only.
 const needsSystemToken =
-  method === "GET" &&
-  /^(campaigns|users)(?:\/|$)/.test(backendPath);  if (needsSystemToken) {
+  (
+    method === "GET" &&
+    /^(campaigns|users)(?:\/|$)/.test(backendPath)
+  ) ||
+  (
+    method === "POST" &&
+    /^campaign\/\d+\/(?:update-status|update-secondary-status|delete|restore)$/.test(
+      backendPath
+    )
+  ); if (needsSystemToken) {
     if (!apiKey) {
       return NextResponse.json(
         { success: false, message: "GrowFund API key is not configured on the frontend server. Set GROWFUND_CLIENT_API_KEY in the deployment environment." },

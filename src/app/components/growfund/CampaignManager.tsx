@@ -47,7 +47,8 @@ const statusVariants: Record<string, any> = {
   submitted: "lightWarning",
   awaiting_review: "lightWarning",
   paused: "lightWarning",
-
+  ended: "lightPrimary",
+hidden: "lightWarning",
   draft: "lightPrimary",
   completed: "lightSuccess",
   funded: "lightSuccess",
@@ -66,15 +67,32 @@ function campaignStatus(row: any) {
       .trim()
       .toLowerCase();
 
-  const primaryStatus =
-    [
-      row?.status,
-      row?.campaign_status,
-      row?.post_status,
-    ]
-      .map(normalize)
-      .find(Boolean) || "unknown";
+  const isTrue = (value: any) =>
+    value === true ||
+    value === 1 ||
+    String(value ?? "").trim().toLowerCase() === "true" ||
+    String(value ?? "").trim() === "1";
 
+  /*
+   * GrowFund secondary states are stored
+   * as boolean campaign flags.
+   */
+  if (isTrue(row?.is_ended)) {
+    return "ended";
+  }
+
+  if (isTrue(row?.is_paused)) {
+    return "paused";
+  }
+
+  if (isTrue(row?.is_hidden)) {
+    return "hidden";
+  }
+
+  /*
+   * Keep compatibility if the API supplies
+   * an explicit secondary status.
+   */
   const secondaryStatus =
     [
       row?.secondary_status,
@@ -95,7 +113,41 @@ function campaignStatus(row: any) {
     return secondaryStatus;
   }
 
-  return primaryStatus;
+  /*
+   * Event-driven funded status.
+   */
+  const raisedAmount = Number(
+    row?.raised_amount ??
+      row?.fund_raised ??
+      row?.raised ??
+      0
+  );
+
+  const goalAmount = Number(
+    row?.goal_amount ??
+      row?.goal ??
+      0
+  );
+
+  if (
+    goalAmount > 0 &&
+    raisedAmount >= goalAmount
+  ) {
+    return "funded";
+  }
+
+  /*
+   * Otherwise use the primary campaign status.
+   */
+  return (
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown"
+  );
 }
 function deepValue(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CardBox from "@/app/components/shared/CardBox";
 import { Button } from "@/components/ui/button";
+
 import { Icon } from "@iconify/react";
 import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
 
@@ -44,7 +45,7 @@ type FormState = {
   end_date: string;
 
   location: string;
-  tags: string;
+  
 
   goal_amount: string;
 
@@ -83,6 +84,11 @@ export default function CampaignEditor({ id }: { id: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [campaignStatus, setCampaignStatus] = useState("");
+const [isPaused, setIsPaused] = useState(false);
+const [isHidden, setIsHidden] = useState(false);
+const [isEnded, setIsEnded] = useState(false);
+const [actionBusy, setActionBusy] = useState(false);
+const [selectedAction, setSelectedAction] = useState("");
   const [section, setSection] = useState<"basics" | "goal" | "options">("basics");
   const [faqs, setFaqs] = useState<Array<{ question: string; answer: string }>>([]);
   const [images, setImages] = useState<any[]>([]);
@@ -113,11 +119,11 @@ const [collaboratorSearch, setCollaboratorSearch] = useState("");
   end_date: "",
 
   location: "",
-  tags: "",
+  
 
   goal_amount: "",
 
-  min_donation_amount: "0.1",
+  min_donation_amount: "1",
   max_donation_amount: "10000",
 
   suggested: "10,25,50,100",
@@ -199,7 +205,20 @@ Promise.all([
     collaboratorResponse,
   ]) => {
         const campaign = campaignResponse?.data || {};
-        setCampaignStatus(String(campaign.status ?? ""));
+
+setCampaignStatus(
+  String(campaign.status ?? "")
+);
+
+const flagIsTrue = (value: any) =>
+  value === true ||
+  value === 1 ||
+  String(value ?? "").trim().toLowerCase() === "true" ||
+  String(value ?? "").trim() === "1";
+
+setIsPaused(flagIsTrue(campaign.is_paused));
+setIsHidden(flagIsTrue(campaign.is_hidden));
+setIsEnded(flagIsTrue(campaign.is_ended));
 
 /*
  * ----------------------------------------
@@ -575,16 +594,7 @@ setVideoUrl(
     campaign.location ?? ""
   ),
 
-  tags: Array.isArray(campaign.tags)
-    ? campaign.tags
-        .map(
-          (tag: any) =>
-            tag?.name ??
-            tag?.label ??
-            tag
-        )
-        .join(", ")
-    : String(campaign.tags ?? ""),
+ 
 
   goal_amount: String(
     campaign.goal_amount ??
@@ -593,9 +603,9 @@ setVideoUrl(
   ),
 
   min_donation_amount: String(
-    campaign.min_donation_amount ??
-      "0.1"
-  ),
+  campaign.min_donation_amount ??
+    "1"
+),
 
   max_donation_amount: String(
     campaign.max_donation_amount ??
@@ -819,13 +829,13 @@ async function uploadMedia(
     form.max_donation_amount
   );
 
-  if (
-    form.min_donation_amount &&
-    (!Number.isFinite(min) || min < 0.1)
-  ) {
-    errors.min_donation_amount =
-      "Minimum donation must be at least $0.10.";
-  }
+ if (
+  form.min_donation_amount &&
+  (!Number.isFinite(min) || min < 1)
+) {
+  errors.min_donation_amount =
+    "Minimum donation must be at least $1.";
+}
 
   if (
     form.max_donation_amount &&
@@ -891,10 +901,7 @@ async function uploadMedia(
         })
       );
 
-    const tags = form.tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
+  
 
     const payload: Record<string, any> = {
       title:
@@ -920,7 +927,7 @@ async function uploadMedia(
         ? `${form.end_date} 23:59:59`
         : "",
 
-      tags,
+      
 
       has_goal: true,
 
@@ -1085,6 +1092,147 @@ async function uploadMedia(
     setSaving(false);
   }
 }
+async function campaignAction(
+  action: "pause" | "resume" | "ended" | "hidden" | "visible"
+) {
+  const accessToken =
+    localStorage.getItem("access_token") || "";
+
+  if (!accessToken || actionBusy) return;
+
+  setActionBusy(true);
+  setError("");
+
+  try {
+    const response = await fetch(
+      `/api/admin/growfund/campaign/${id}/update-secondary-status`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: action,
+        }),
+      }
+    );
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(
+        data?.message ||
+          "Unable to update campaign status."
+      );
+    }
+
+    if (action === "pause") {
+  setIsPaused(true);
+}
+
+if (action === "resume") {
+  setIsPaused(false);
+}
+
+if (action === "hidden") {
+  setIsHidden(true);
+}
+
+if (action === "visible") {
+  setIsHidden(false);
+}
+
+if (action === "ended") {
+  setIsEnded(true);
+}
+
+router.refresh();
+  } catch (reason) {
+    setError(
+      reason instanceof Error
+        ? reason.message
+        : "Unable to update campaign status."
+    );
+  } finally {
+    setActionBusy(false);
+  }
+}
+
+async function deleteCampaign() {
+  const accessToken =
+    localStorage.getItem("access_token") || "";
+
+  if (!accessToken || actionBusy) return;
+
+  if (
+    !window.confirm(
+      "Move this campaign to trash?"
+    )
+  ) {
+    return;
+  }
+
+  setActionBusy(true);
+  setError("");
+
+  try {
+    const response = await fetch(
+      `/api/admin/growfund/campaign/${id}/delete`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(
+        data?.message ||
+          "Unable to delete campaign."
+      );
+    }
+
+    router.push("/dashboard/campaigns");
+    router.refresh();
+  } catch (reason) {
+    setError(
+      reason instanceof Error
+        ? reason.message
+        : "Unable to delete campaign."
+    );
+
+    setActionBusy(false);
+  }
+}
+async function applyCampaignAction() {
+  if (!selectedAction || actionBusy) return;
+
+  if (selectedAction === "delete") {
+    await deleteCampaign();
+    return;
+  }
+
+  await campaignAction(
+    selectedAction as
+      | "pause"
+      | "resume"
+      | "ended"
+      | "hidden"
+      | "visible"
+  );
+
+  setSelectedAction("");
+}
 
 async function submit(
   event: FormEvent
@@ -1116,38 +1264,46 @@ async function submit(
     </Link>
   </Button>
 
-  <Button
-    type="button"
-    variant="outline"
-    disabled={
-      saving ||
-      uploadingImages ||
-      uploadingVideo
-    }
-    onClick={() =>
-      void saveCampaign("draft")
-    }
-  >
-    {saving
-      ? "Saving…"
-      : "Save as Draft"}
-  </Button>
+  {campaignStatus.toLowerCase() === "draft" ? (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={
+          saving ||
+          uploadingImages ||
+          uploadingVideo
+        }
+        onClick={() => void saveCampaign("draft")}
+      >
+        {saving ? "Saving…" : "Save as Draft"}
+      </Button>
 
-  <Button
-    type="button"
-    disabled={
-      saving ||
-      uploadingImages ||
-      uploadingVideo
-    }
-    onClick={() =>
-      void saveCampaign("publish")
-    }
-  >
-    {saving
-      ? "Saving…"
-      : "Publish"}
-  </Button>
+      <Button
+        type="button"
+        disabled={
+          saving ||
+          uploadingImages ||
+          uploadingVideo
+        }
+        onClick={() => void saveCampaign("publish")}
+      >
+        {saving ? "Saving…" : "Publish"}
+      </Button>
+    </>
+  ) : (
+    <Button
+      type="button"
+      disabled={
+        saving ||
+        uploadingImages ||
+        uploadingVideo
+      }
+      onClick={() => void saveCampaign("publish")}
+    >
+      {saving ? "Saving…" : "Save Changes"}
+    </Button>
+  )}
 </div>    </div>
     <div className="mx-auto max-w-6xl p-5 lg:p-8">
       {error&&<div className="mb-5 rounded-md border border-error/30 bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
@@ -1316,20 +1472,84 @@ async function submit(
     </CardBox>
 
     <div className="space-y-5">
-      <CardBox>
-        <div className="flex items-center gap-2 text-sm text-success">
-          <Icon icon="solar:verified-check-bold" />
+  <CardBox>
+    <div className="mb-5 flex items-center gap-2 text-sm text-darklink">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lightsuccess">
+        <span className="h-2 w-2 rounded-full bg-success" />
+      </span>
 
-          Campaign is{" "}
-          {campaignStatus || "available"}
-        </div>
-      </CardBox>
+      <span>
+  {isEnded
+    ? "Campaign has ended"
+    : isPaused
+      ? "Campaign is paused"
+      : isHidden
+        ? "Campaign is hidden"
+        : "Actively receiving donations"}
+</span>
+    </div>
 
-      <CardBox>
-        <div>
-          <div className="mb-2 font-medium">
-            Video
-          </div>
+    <div className="mb-2 font-medium">
+      Take an Action
+    </div>
+
+    <select
+      value={selectedAction}
+      onChange={(event) =>
+        setSelectedAction(event.target.value)
+      }
+      disabled={actionBusy}
+      className="w-full rounded-md border border-ld bg-transparent px-3 py-3 outline-none focus:border-primary disabled:opacity-60"
+    >
+      <option value="">
+        Select an Action
+      </option>
+
+      {isPaused ? (
+  <option value="resume">
+    Resume Campaign
+  </option>
+) : (
+  <option value="pause">
+    Pause Campaign
+  </option>
+)}
+     {!isEnded && (
+  <option value="ended">
+    End Campaign
+  </option>
+)}
+
+{isHidden ? (
+  <option value="visible">
+    Show Campaign
+  </option>
+) : (
+  <option value="hidden">
+    Hide Campaign
+  </option>
+)}
+
+      <option value="delete">
+        Delete Campaign
+      </option>
+    </select>
+
+    <Button
+      type="button"
+      className="mt-4 w-full"
+      disabled={!selectedAction || actionBusy}
+      onClick={() => void applyCampaignAction()}
+    >
+      {actionBusy ? "Updating…" : "Update"}
+    </Button>
+  </CardBox>
+
+  <CardBox>
+    <div>
+      <div className="mb-2 font-medium">
+        Video
+      </div>
 
           <div className="text-xs text-darklink">
             Upload a campaign video or add
@@ -1537,17 +1757,7 @@ async function submit(
           </SelectField>
         </div>
 
-        <div className="mt-4">
-          <Field
-            label="Tags"
-            value={form.tags}
-            onChange={(value: string) =>
-              set("tags", value)
-            }
-            placeholder="health, education, community"
-            hint="Separate tags with commas."
-          />
-        </div>
+        
 
         <div className="mt-5 border-t border-ld pt-5">
           <div className="mb-2 text-sm font-medium">
@@ -1746,7 +1956,7 @@ async function submit(
 )}
 
       {section==="goal"&&<CardBox className="mx-auto max-w-3xl"><h3 className="mb-5 text-xl font-semibold">Goal</h3><div className="rounded-xl border border-ld p-5"><div className="mb-5 flex items-center justify-between"><span className="font-medium">Campaign Goal</span><span className="h-6 w-11 rounded-full bg-success p-1"><span className="ml-auto block h-4 w-4 rounded-full bg-white"/></span></div><div className="grid gap-4 sm:grid-cols-2"><SelectField label="Goal Type" value="raised-amount" onChange={()=>{}}><option value="raised-amount">Raised Amount</option></SelectField><Field label="Target Goal" type="number" min="1" step="0.01" value={form.goal_amount} onChange={(v:string)=>set("goal_amount",v)} error={fieldErrors.goal_amount}/></div><div className="mt-5"><div className="mb-2 font-medium">When donation is reached the goal</div><div className="flex flex-wrap gap-6"><label><input type="radio" checked={form.reaching_action==="close"} onChange={()=>set("reaching_action","close")}/> Auto close campaign</label><label><input type="radio" checked={form.reaching_action==="continue"} onChange={()=>set("reaching_action","continue")}/> Keep receiving donations</label></div></div></div>
-      <div className="mt-5 rounded-xl border border-ld p-5"><h4 className="mb-4 font-medium">Suggested Options</h4><div className="mb-4 flex gap-6"><label><input type="radio" checked={form.suggested_option_type==="amount-only"} onChange={()=>set("suggested_option_type","amount-only")}/> Amount Only</label><label><input type="radio" checked={form.suggested_option_type==="amount-description"} onChange={()=>set("suggested_option_type","amount-description")}/> Amount & Description</label></div><div className="space-y-3">{suggestedValues.map((value,index)=><div key={index} className="flex items-center gap-3 rounded-xl border border-ld px-5 py-4"><Icon icon="solar:hamburger-menu-linear"/><span className="font-semibold">${Number(value||0).toFixed(2)}</span><button type="button" className="ml-auto text-xs text-error" onClick={()=>set("suggested",suggestedValues.filter((_,i)=>i!==index).join(","))}>Remove</button></div>)}</div><Button type="button" variant="outline" className="mt-3 w-full" onClick={()=>set("suggested",[...suggestedValues,"10"].join(","))}><Icon icon="solar:add-circle-linear"/> Add Amount</Button>{fieldErrors.suggested&&<div className="mt-1 text-xs text-error">{fieldErrors.suggested}</div>}<label className="mt-5 flex items-center gap-2"><input type="checkbox" checked={form.allow_custom_donation==="true"} onChange={e=>set("allow_custom_donation",String(e.target.checked))}/> Allow custom donation amount</label><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Min Amount" type="number" min="0.1" step="0.01" value={form.min_donation_amount} onChange={(v:string)=>set("min_donation_amount",v)} error={fieldErrors.min_donation_amount}/><Field label="Max Amount" type="number" min="0.1" step="0.01" value={form.max_donation_amount} onChange={(v:string)=>set("max_donation_amount",v)} error={fieldErrors.max_donation_amount}/></div></div></CardBox>}
+      <div className="mt-5 rounded-xl border border-ld p-5"><h4 className="mb-4 font-medium">Suggested Options</h4><div className="mb-4 flex gap-6"><label><input type="radio" checked={form.suggested_option_type==="amount-only"} onChange={()=>set("suggested_option_type","amount-only")}/> Amount Only</label><label><input type="radio" checked={form.suggested_option_type==="amount-description"} onChange={()=>set("suggested_option_type","amount-description")}/> Amount & Description</label></div><div className="space-y-3">{suggestedValues.map((value,index)=><div key={index} className="flex items-center gap-3 rounded-xl border border-ld px-5 py-4"><Icon icon="solar:hamburger-menu-linear"/><span className="font-semibold">${Number(value||0).toFixed(2)}</span><button type="button" className="ml-auto text-xs text-error" onClick={()=>set("suggested",suggestedValues.filter((_,i)=>i!==index).join(","))}>Remove</button></div>)}</div><Button type="button" variant="outline" className="mt-3 w-full" onClick={()=>set("suggested",[...suggestedValues,"10"].join(","))}><Icon icon="solar:add-circle-linear"/> Add Amount</Button>{fieldErrors.suggested&&<div className="mt-1 text-xs text-error">{fieldErrors.suggested}</div>}<label className="mt-5 flex items-center gap-2"><input type="checkbox" checked={form.allow_custom_donation==="true"} onChange={e=>set("allow_custom_donation",String(e.target.checked))}/> Allow custom donation amount</label><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Min Amount" type="number" min="1" step="0.01" value={form.min_donation_amount} onChange={(v:string)=>set("min_donation_amount",v)} error={fieldErrors.min_donation_amount}/><Field label="Max Amount" type="number" min="0.1" step="0.01" value={form.max_donation_amount} onChange={(v:string)=>set("max_donation_amount",v)} error={fieldErrors.max_donation_amount}/></div></div></CardBox>}
 
       {section==="options"&&<div className="mx-auto max-w-3xl space-y-5"><CardBox><h3 className="mb-5 text-lg font-semibold">Donation Confirmation Message</h3><Field label="Title" value={form.confirmation_title} onChange={(v:string)=>set("confirmation_title",v)}/><div className="mt-4"><TextArea label="Description" value={form.confirmation_description} onChange={(v:string)=>set("confirmation_description",v)} rows={5}/></div></CardBox><CardBox><h3 className="mb-5 text-lg font-semibold">Frequently Asked Questions</h3><div className="space-y-3">{faqs.map((faq,index)=><div key={index} className="rounded-xl border border-ld p-4"><Field label="Question" value={faq.question} onChange={(v:string)=>setFaqs(x=>x.map((f,i)=>i===index?{...f,question:v}:f))}/><div className="mt-3"><TextArea label="Answer" value={faq.answer} onChange={(v:string)=>setFaqs(x=>x.map((f,i)=>i===index?{...f,answer:v}:f))} rows={3}/></div><button type="button" className="mt-2 text-sm text-error" onClick={()=>setFaqs(x=>x.filter((_,i)=>i!==index))}>Remove FAQ</button></div>)}</div><Button type="button" variant="outline" className="mt-4 w-full" onClick={()=>setFaqs(x=>[...x,{question:"",answer:""}])}><Icon icon="solar:add-circle-linear"/> Add FAQ</Button></CardBox></div>}
     </div>
