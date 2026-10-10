@@ -61,6 +61,26 @@ function campaignStatus(row: any) {
       .trim()
       .toLowerCase();
 
+  const primaryStatus =
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown";
+
+  /*
+   * Trash must take priority over secondary campaign state.
+   *
+   * A campaign can still have is_paused/is_hidden/is_ended metadata
+   * after WordPress moves the post to trash. If those flags are checked
+   * first, the Trash filter incorrectly removes the campaign.
+   */
+  if (["trash", "trashed"].includes(primaryStatus)) {
+    return "trashed";
+  }
+
   const isTrue = (value: any) =>
     value === true ||
     value === 1 ||
@@ -78,7 +98,6 @@ function campaignStatus(row: any) {
   if (isTrue(row?.is_hidden)) {
     return "hidden";
   }
-
   /*
    * Status priority:
    *
@@ -92,15 +111,7 @@ function campaignStatus(row: any) {
    *    draft, pending, published, declined, etc.
    */
 
-  const primaryStatus =
-    [
-      row?.status,
-      row?.campaign_status,
-      row?.post_status,
-    ]
-      .map(normalize)
-      .find(Boolean) || "unknown";
-
+ 
   const secondaryStatus =
     [
       row?.secondary_status,
@@ -294,6 +305,8 @@ const [totalCampaigns, setTotalCampaigns] = useState(0);
   const [commentText, setCommentText] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
   const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
+  const [trashCampaign, setTrashCampaign] = useState<any | null>(null);
+const [trashingCampaign, setTrashingCampaign] = useState(false);
 function totalFromResponse(data: any, fallback: number) {
   const candidates = [
     data?.data?.total,
@@ -674,9 +687,44 @@ async function createDraft() {
     await post(id, `campaign/${id}/update-status`, { status: "declined", decline_reason: reason }, "Campaign declined.");
   }
 
-  async function trash(r: any) {
-    const id = idOf(r);
-    if (confirm("Move this campaign to trash?")) await post(id, `campaign/${id}/delete`, {}, "Campaign moved to trash.");
+    function trash(r: any) {
+    setTrashCampaign(r);
+  }
+
+  async function confirmTrashCampaign() {
+    if (!trashCampaign) return;
+
+    const id = idOf(trashCampaign);
+
+    setTrashingCampaign(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const data = await adminApi(
+        `campaign/${id}/delete`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        }
+      );
+
+      setNotice(
+        data?.message ||
+          "Campaign moved to trash."
+      );
+
+      setTrashCampaign(null);
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to move campaign to trash."
+      );
+    } finally {
+      setTrashingCampaign(false);
+    }
   }
 
   async function restore(r: any) {
@@ -1073,6 +1121,57 @@ const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   recordLabel="campaigns"
   onPageChange={setPage}
 />
+<Dialog
+  open={Boolean(trashCampaign)}
+  onOpenChange={(open) => {
+    if (!open && !trashingCampaign) {
+      setTrashCampaign(null);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Move campaign to trash?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Are you sure you want to move{" "}
+        <span className="font-medium text-dark">
+          {trashCampaign?.title ||
+            trashCampaign?.campaign_name ||
+            `Campaign #${trashCampaign ? idOf(trashCampaign) : ""}`}
+        </span>{" "}
+        to trash?
+      </p>
+
+      <p className="text-sm text-darklink">
+        You can restore this campaign later from the Trash filter.
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={trashingCampaign}
+          onClick={() => setTrashCampaign(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={trashingCampaign}
+          onClick={() => void confirmTrashCampaign()}
+        >
+          <Icon icon="solar:trash-bin-trash-line-duotone" />
+          {trashingCampaign ? "Moving…" : "Move to trash"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
       <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader>

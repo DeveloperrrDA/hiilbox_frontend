@@ -67,6 +67,26 @@ function campaignStatus(row: any) {
       .trim()
       .toLowerCase();
 
+  const primaryStatus =
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown";
+
+  /*
+   * Trash must take priority over secondary campaign state.
+   *
+   * WordPress can leave the campaign's secondary flags in place
+   * after moving the post to trash. Without this check a trashed
+   * campaign can incorrectly appear as paused/hidden/ended.
+   */
+  if (["trash", "trashed"].includes(primaryStatus)) {
+    return "trashed";
+  }
+
   const isTrue = (value: any) =>
     value === true ||
     value === 1 ||
@@ -136,18 +156,7 @@ function campaignStatus(row: any) {
     return "funded";
   }
 
-  /*
-   * Otherwise use the primary campaign status.
-   */
-  return (
-    [
-      row?.status,
-      row?.campaign_status,
-      row?.post_status,
-    ]
-      .map(normalize)
-      .find(Boolean) || "unknown"
-  );
+  return primaryStatus;
 }
 function deepValue(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") {
@@ -230,6 +239,8 @@ export default function CampaignManager() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
 const [campaignDetails, setCampaignDetails] = useState<Record<number, any>>({});
+const [trashCampaign, setTrashCampaign] = useState<Campaign | null>(null);
+const [trashingCampaign, setTrashingCampaign] = useState(false);
   const [updatesCampaign, setUpdatesCampaign] = useState<Campaign | null>(null);
   const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
@@ -329,11 +340,45 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
       return Array.isArray(data?.data) ? data.data : [];
     }
 
-    if (filter === "all") {
+       if (filter === "all") {
       const rows = await fetchCampaigns("all");
       setCampaigns(rows);
       return;
     }
+
+    if (filter === "trash") {
+      const results = await Promise.allSettled([
+        fetchCampaigns("trash"),
+        fetchCampaigns("trashed"),
+      ]);
+
+      const merged: Campaign[] = [];
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          merged.push(...result.value);
+        }
+      }
+
+      const byId = new Map<number, Campaign>();
+
+      for (const campaign of merged) {
+        if (campaign?.id && !byId.has(campaign.id)) {
+          byId.set(campaign.id, campaign);
+        }
+      }
+
+      const trashRows = Array.from(
+        byId.values()
+      ).filter((campaign) =>
+        statusMatches(campaign, "trash")
+      );
+
+      setCampaigns(trashRows);
+      return;
+    }
+
+    
 
     // First check the normal "all" collection.
     const allRows = await fetchCampaigns("all");
@@ -386,6 +431,62 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     } catch (e) { setError(e instanceof Error ? e.message : "Campaign action failed."); }
     finally { setWorkingId(null); }
   }
+  async function confirmTrashCampaign() {
+  if (!trashCampaign) return;
+
+  const accessToken = token();
+
+  if (!accessToken) return;
+
+  const id = trashCampaign.id;
+
+  setTrashingCampaign(true);
+  setWorkingId(id);
+  setError("");
+  setNotice("");
+
+  try {
+    const response = await fetch(
+      `/api/dashboard/campaigns/${id}/delete`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          "Unable to move campaign to trash."
+      );
+    }
+
+    setNotice(
+      data?.message ||
+        "Campaign moved to trash."
+    );
+
+    setTrashCampaign(null);
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to move campaign to trash."
+    );
+  } finally {
+    setTrashingCampaign(false);
+    setWorkingId(null);
+  }
+}
 
   function openPostUpdate(c: Campaign) { setUpdateCampaign(c); setUpdateTitle(""); setUpdateDescription(""); setUpdateImages([]); setError(""); }
   async function uploadUpdateImage(files: FileList | null) {
@@ -1123,20 +1224,13 @@ const createdAt =
                       </DropdownMenuItem>
                     </>
                   ) : (
-                    <DropdownMenuItem
-                      className="text-error focus:text-error"
-                      onClick={() =>
-                        action(
-                          c.id,
-                          "delete",
-                          {},
-                          "Move this campaign to trash?"
-                        )
-                      }
-                    >
-                      <Icon icon="solar:trash-bin-trash-line-duotone" />
-                      Move to trash
-                    </DropdownMenuItem>
+                   <DropdownMenuItem
+  className="text-error focus:text-error"
+  onClick={() => setTrashCampaign(c)}
+>
+  <Icon icon="solar:trash-bin-trash-line-duotone" />
+  Move to trash
+</DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1150,6 +1244,64 @@ const createdAt =
       </div>
 
 </CardBox>
+<Dialog
+  open={Boolean(trashCampaign)}
+  onOpenChange={(open) => {
+    if (!open && !trashingCampaign) {
+      setTrashCampaign(null);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>
+        Move campaign to trash?
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Are you sure you want to move{" "}
+        <span className="font-medium text-dark">
+          {trashCampaign?.title ||
+            `Campaign #${trashCampaign?.id ?? ""}`}
+        </span>{" "}
+        to trash?
+      </p>
+
+      <p className="text-sm text-darklink">
+        You can restore this campaign later from the
+        Trash filter.
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={trashingCampaign}
+          onClick={() => setTrashCampaign(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={trashingCampaign}
+          onClick={() =>
+            void confirmTrashCampaign()
+          }
+        >
+          <Icon icon="solar:trash-bin-trash-line-duotone" />
+
+          {trashingCampaign
+            ? "Moving…"
+            : "Move to trash"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     <Dialog open={Boolean(updatesCampaign)} onOpenChange={v=>!v&&setUpdatesCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Campaign updates</DialogTitle></DialogHeader>{updatesCampaign&&<div className="flex items-center justify-between rounded-md border border-ld p-3"><div><div className="font-medium">{updatesCampaign.title||`Campaign #${updatesCampaign.id}`}</div><div className="text-xs text-darklink">Updates linked to campaign #{updatesCampaign.id}</div></div><Button size="sm" onClick={()=>{const c=updatesCampaign;setUpdatesCampaign(null);openPostUpdate(c)}}><Icon icon="solar:add-circle-line-duotone"/> Post an update</Button></div>}<div className="max-h-[55vh] overflow-auto">{updatesLoading?<div className="py-10 text-center text-darklink">Loading updates…</div>:campaignUpdates.length===0?<div className="py-10 text-center text-darklink">No updates have been posted for this campaign.</div>:<div className="divide-y divide-border">{campaignUpdates.map((u:any,i:number)=><div key={String(u?.id??u?.post_id??i)} className="py-4"><div className="font-medium">{u?.title||u?.post_title||`Update #${u?.id??i+1}`}</div><div className="mt-1 whitespace-pre-wrap text-sm text-darklink">{u?.description||u?.content||u?.post_content||""}</div></div>)}</div>}</div></DialogContent></Dialog>
     <Dialog open={Boolean(updateCampaign)} onOpenChange={v=>!v&&setUpdateCampaign(null)}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader><div className="space-y-4"><label className="block text-sm">Title<input value={updateTitle} onChange={e=>setUpdateTitle(e.target.value)} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Update<textarea value={updateDescription} onChange={e=>setUpdateDescription(e.target.value)} rows={6} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label><label className="block text-sm">Image<input type="file" accept="image/*" onChange={e=>void uploadUpdateImage(e.target.files)} className="mt-1 block w-full text-sm" /></label>{updateImages.length>0&&<p className="text-xs text-success">{updateImages.length} image(s) uploaded.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setUpdateCampaign(null)}>Cancel</Button><Button onClick={()=>void submitPostUpdate()} disabled={postingUpdate||uploadingImage}>{postingUpdate?"Posting…":uploadingImage?"Uploading…":"Post update"}</Button></div></div></DialogContent></Dialog>
   </div>;
