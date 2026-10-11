@@ -1471,80 +1471,84 @@ async function submit(
       </div>
     </CardBox>
 
-    <div className="space-y-5">
-  <CardBox>
-    <div className="mb-5 flex items-center gap-2 text-sm text-darklink">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lightsuccess">
-        <span className="h-2 w-2 rounded-full bg-success" />
-      </span>
+   <div className="space-y-5">
+  {campaignStatus.trim().toLowerCase() === "published" && (
+    <CardBox>
+      <div className="mb-5 flex items-center gap-2 text-sm text-darklink">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lightsuccess">
+          <span className="h-2 w-2 rounded-full bg-success" />
+        </span>
 
-      <span>
-  {isEnded
-    ? "Campaign has ended"
-    : isPaused
-      ? "Campaign is paused"
-      : isHidden
-        ? "Campaign is hidden"
-        : "Actively receiving donations"}
-</span>
-    </div>
+        <span>
+          {isEnded
+            ? "Campaign has ended"
+            : isPaused
+              ? "Campaign is paused"
+              : isHidden
+                ? "Campaign is hidden"
+                : "Actively receiving donations"}
+        </span>
+      </div>
 
-    <div className="mb-2 font-medium">
-      Take an Action
-    </div>
+      <div className="mb-2 font-medium">
+        Take an Action
+      </div>
 
-    <select
-      value={selectedAction}
-      onChange={(event) =>
-        setSelectedAction(event.target.value)
-      }
-      disabled={actionBusy}
-      className="w-full rounded-md border border-ld bg-transparent px-3 py-3 outline-none focus:border-primary disabled:opacity-60"
-    >
-      <option value="">
-        Select an Action
-      </option>
+      <select
+        value={selectedAction}
+        onChange={(event) =>
+          setSelectedAction(event.target.value)
+        }
+        disabled={actionBusy}
+        className="w-full rounded-md border border-ld bg-transparent px-3 py-3 outline-none focus:border-primary disabled:opacity-60"
+      >
+        <option value="">
+          Select an Action
+        </option>
 
-      {isPaused ? (
-  <option value="resume">
-    Resume Campaign
-  </option>
-) : (
-  <option value="pause">
-    Pause Campaign
-  </option>
-)}
-     {!isEnded && (
-  <option value="ended">
-    End Campaign
-  </option>
-)}
+        {isPaused ? (
+          <option value="resume">
+            Resume Campaign
+          </option>
+        ) : (
+          <option value="pause">
+            Pause Campaign
+          </option>
+        )}
 
-{isHidden ? (
-  <option value="visible">
-    Show Campaign
-  </option>
-) : (
-  <option value="hidden">
-    Hide Campaign
-  </option>
-)}
+        {!isEnded && (
+          <option value="ended">
+            End Campaign
+          </option>
+        )}
 
-      <option value="delete">
-        Delete Campaign
-      </option>
-    </select>
+        {isHidden ? (
+          <option value="visible">
+            Show Campaign
+          </option>
+        ) : (
+          <option value="hidden">
+            Hide Campaign
+          </option>
+        )}
 
-    <Button
-      type="button"
-      className="mt-4 w-full"
-      disabled={!selectedAction || actionBusy}
-      onClick={() => void applyCampaignAction()}
-    >
-      {actionBusy ? "Updating…" : "Update"}
-    </Button>
-  </CardBox>
+        <option value="delete">
+          Delete Campaign
+        </option>
+      </select>
 
+      <Button
+        type="button"
+        className="mt-4 w-full"
+        disabled={!selectedAction || actionBusy}
+        onClick={() => void applyCampaignAction()}
+      >
+        {actionBusy ? "Updating…" : "Update"}
+      </Button>
+    </CardBox>
+  )}
+
+  
   <CardBox>
     <div>
       <div className="mb-2 font-medium">

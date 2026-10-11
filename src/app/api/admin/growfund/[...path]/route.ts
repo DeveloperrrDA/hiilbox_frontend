@@ -43,7 +43,7 @@ async function proxy(
 const needsSystemToken =
   (
     method === "GET" &&
-    /^(campaigns|users)(?:\/|$)/.test(backendPath)
+    /^(campaigns|users|donations)(?:\/|$)/.test(backendPath)
   ) ||
   (
     method === "POST" &&

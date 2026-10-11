@@ -286,66 +286,104 @@ setCampaigns(completeCampaigns);
 setDonors([]);
 setBackendStats(null);
 
-// Fetch ALL donation pages for every campaign.
-const batches = await Promise.all(
-  completeCampaigns.map(async (c: any) => {
-    const cid = Number(c?.id ?? 0);
+// Fetch donation pages without sending a request for every campaign
+// to GrowFund at the same time.
+//
+// Large Promise.all() batches can overwhelm WordPress/GrowFund when
+// the application is running behind Cloudflare.
+// Fetch donations with limited concurrency.
+//
+// Fetching every campaign simultaneously can overwhelm GrowFund/WordPress,
+// while fetching campaigns one-by-one makes Analytics unnecessarily slow.
+// Process a small number of campaigns concurrently instead.
 
-    if (!cid) {
-      return [];
-    }
+const fetchCampaignDonations = async (c: any) => {
+  const cid = Number(c?.id ?? 0);
 
-    const campaignDonations: any[] = [];
-    let currentPage = 1;
+  if (!cid) {
+    return [];
+  }
 
-    while (true) {
-      const q = new URLSearchParams({
-        page: String(currentPage),
-        per_page: "100",
-        campaign_id: String(cid),
-        orderby: "id",
-        order: "desc",
-      });
+  const campaignDonations: any[] = [];
+  let currentPage = 1;
 
-      const r = await fetch(
-        `/api/admin/growfund/donations/paginated?${q.toString()}`,
-        {
-          headers,
-          cache: "no-store",
-        }
+  while (true) {
+    const q = new URLSearchParams({
+      page: String(currentPage),
+      per_page: "100",
+      campaign_id: String(cid),
+      orderby: "id",
+      order: "desc",
+    });
+
+    const r = await fetch(
+      `/api/admin/growfund/donations/paginated?${q.toString()}`,
+      {
+        headers,
+        cache: "no-store",
+      }
+    );
+
+    const j = await r.json().catch(() => null);
+
+    if (!r.ok) {
+      throw new Error(
+        j?.message ||
+          `Unable to load donations for campaign #${cid}.`
       );
-
-      const j = await r.json().catch(() => null);
-
-      if (!r.ok) {
-        throw new Error(
-          j?.message ||
-            `Unable to load donations for campaign #${cid}.`
-        );
-      }
-
-      const pageRows = rows(j);
-
-      campaignDonations.push(...pageRows);
-
-      const hasMore = j?.data?.has_more === true;
-
-      if (!hasMore || pageRows.length === 0) {
-        break;
-      }
-
-      currentPage += 1;
-
-      // Safety guard in case the API incorrectly keeps returning has_more=true.
-      if (currentPage > 1000) {
-        break;
-      }
     }
 
-    return campaignDonations;
-  })
-);
+    if (!j) {
+      throw new Error(
+        `GrowFund returned an invalid response while loading donations for campaign #${cid}.`
+      );
+    }
 
+    const pageRows = rows(j);
+
+    campaignDonations.push(...pageRows);
+
+    const hasMore =
+      j?.data?.has_more === true ||
+      j?.has_more === true;
+
+    if (!hasMore || pageRows.length === 0) {
+      break;
+    }
+
+    currentPage += 1;
+
+    // Safety guard against a broken pagination response.
+    if (currentPage > 1000) {
+      break;
+    }
+  }
+
+  return campaignDonations;
+};
+
+// Process 4 campaigns concurrently.
+// This is much faster than sequential loading without sending every
+// campaign request to GrowFund at the same time.
+const batches: any[][] = [];
+const CONCURRENCY = 4;
+
+for (
+  let i = 0;
+  i < completeCampaigns.length;
+  i += CONCURRENCY
+) {
+  const group = completeCampaigns.slice(
+    i,
+    i + CONCURRENCY
+  );
+
+  const groupResults = await Promise.all(
+    group.map(fetchCampaignDonations)
+  );
+
+  batches.push(...groupResults);
+}
       // Deduplicate by donation ID and keep only paid donations.
       const seen=new Set<string>();
       const scoped=batches.flat().filter((d:any)=>{
