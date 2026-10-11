@@ -100,7 +100,7 @@ const FrontHeader = () => {
                     {/* Two-Column Links Grid */}
                     <div className="grid grid-cols-2 gap-x-8 gap-y-6">
                       <Link href="/how-it-works" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">How Hiilbox works</Link>
-                      <Link href="/frontend-pages/aboutus" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">About Hiilbox</Link>
+                      <Link href="/about" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">About Hiilbox</Link>
                       <Link href="/guarantee" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">Hiilbox Giving Guarantee</Link>
                       <Link href="/newsroom" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">Newsroom</Link>
                       <Link href="/countries" className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">Supported countries</Link>
