@@ -151,7 +151,9 @@ const [endDate, setEndDate] = useState("");
 const [page, setPage] = useState(1);
  useEffect(()=>{(async()=>{try{const token=localStorage.getItem("access_token")||"";const res=await fetch("/api/dashboard/fundraiser-donations",{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});const json=await res.json();if(!res.ok)throw new Error(json?.message||"Unable to load donations.");setCampaigns(Array.isArray(json?.campaigns)?json.campaigns:[]);setRows(Array.isArray(json?.data)?json.data:[]);}catch(e){setError(e instanceof Error?e.message:"Unable to load donations.");}finally{setLoading(false);}})();},[]);
  const names=useMemo(()=>new Map(campaigns.map(c=>[Number(c.id),c.title||`Campaign #${c.id}`])),[campaigns]);
- const filtered=useMemo(()=>rows.filter(r=>{if(campaignFilter&&String(campaignId(r))!==campaignFilter)return false;const raw=rawDate(r);if(!raw)return !startDate&&!endDate;const d=new Date(raw);if(Number.isNaN(d.getTime()))return false;if(startDate&&d<new Date(`${startDate}T00:00:00`))return false;if(endDate&&d>new Date(`${endDate}T23:59:59`))return false;return true;}),[rows,campaignFilter,startDate,endDate]);
+ const filtered=useMemo(()=>rows.filter(r=>{if(campaignFilter&&String(campaignId(r))!==campaignFilter)return false;const raw=rawDate(r);if(!raw)return !startDate&&!endDate;const d=new Date(raw);if(Number.isNaN(d.getTime()))return false;if(startDate&&d<new Date(`${startDate}T00:00:00`))return false;if (endDate && d > new Date(`${endDate}T23:59:59.999`)) {
+  return false;
+}return true;}),[rows,campaignFilter,startDate,endDate]);
 useEffect(() => {
   setPage(1);
 }, [campaignFilter, dateRange, startDate, endDate]);
@@ -184,14 +186,21 @@ return (
           ))}
         </select>
 
-        <DatePresetSelect
-          value={dateRange}
-          onChange={setDateRange}
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-        />
+      <DatePresetSelect
+  value={dateRange}
+  onChange={(value) => {
+    setDateRange(value);
+
+    if (value === "all") {
+      setStartDate("");
+      setEndDate("");
+    }
+  }}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/>
       </div>
     </div>
 

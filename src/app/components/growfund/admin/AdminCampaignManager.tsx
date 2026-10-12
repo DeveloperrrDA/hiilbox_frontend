@@ -1084,6 +1084,32 @@ const visibleRows = useMemo(() => {
     return true;
   });
 }, [rows, status, dateRange, startDate, endDate]);
+const campaignSummary = useMemo(() => {
+  const total = visibleRows.length;
+
+  const live = visibleRows.filter((row) =>
+    ["published", "active", "launched"].includes(
+      campaignStatus(row)
+    )
+  ).length;
+
+  const ended = visibleRows.filter((row) =>
+    ["completed", "complete", "funded", "ended"].includes(
+      campaignStatus(row)
+    )
+  ).length;
+
+  const paused = visibleRows.filter(
+    (row) => campaignStatus(row) === "paused"
+  ).length;
+
+  return {
+    total,
+    live,
+    ended,
+    paused,
+  };
+}, [visibleRows]);
 const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
   useEffect(() => {
@@ -1121,9 +1147,54 @@ const toggleAll = () => {
 };
   const toggle = (id: number) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
 
-  return (
-    <CardBox>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+ return (
+  <CardBox>
+    <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {[
+        {
+          title: "Total Campaigns",
+          value: campaignSummary.total,
+          icon: "solar:layers-linear",
+        },
+        {
+          title: "Live Campaigns",
+          value: campaignSummary.live,
+          icon: "solar:check-circle-linear",
+        },
+        {
+          title: "Ended Campaigns",
+          value: campaignSummary.ended,
+          icon: "solar:flag-linear",
+        },
+        {
+          title: "Paused Campaigns",
+          value: campaignSummary.paused,
+          icon: "solar:pause-circle-linear",
+        },
+      ].map((item) => (
+        <div
+          key={item.title}
+          className="rounded-xl border border-ld bg-white p-5 shadow-sm dark:bg-darkgray"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-darklink">
+              {item.title}
+            </p>
+
+            <Icon
+              icon={item.icon}
+              className="text-2xl text-primary"
+            />
+          </div>
+
+          <h3 className="mt-4 text-3xl font-semibold">
+            {loading ? "..." : item.value.toLocaleString()}
+          </h3>
+        </div>
+      ))}
+    </div>
+
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div><h5 className="card-title">Campaigns</h5><p className="mt-1 text-sm text-darklink">Review and manage campaigns.</p></div>
         <div className="flex flex-wrap gap-2">
           {selected.length > 0 && <><Button variant="outline" onClick={() => bulk("publish")}>Approve selected</Button><Button variant="outline" onClick={() => bulk("restore")}><Icon icon="solar:restart-line-duotone" /> Restore selected</Button><Button

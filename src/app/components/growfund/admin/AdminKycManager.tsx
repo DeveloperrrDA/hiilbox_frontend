@@ -113,15 +113,46 @@ export default function AdminKycManager() {
   const [dateRange, setDateRange] = useState<DateRangeKey>("all");
    const [selectedKyc, setSelectedKyc] = useState<KycRow | null>(null);
 
-   const loadSummary = useCallback(async () => {
-  try {
-    const response = await adminApi(
-      "fundraiser/kyc/paginated?page=1&per_page=100&orderby=user_registered&order=DESC"
-    );
 
-    const allRows: KycRow[] = Array.isArray(response?.data)
-      ? response.data
-      : [];
+const loadSummary = useCallback(async () => {
+  try {
+    const perPage = 100;
+    let currentPage = 1;
+    let allRows: KycRow[] = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      const query = new URLSearchParams({
+        page: String(currentPage),
+        per_page: String(perPage),
+        orderby: "user_registered",
+        order: "DESC",
+      });
+
+      const response = await adminApi(
+        `fundraiser/kyc/paginated?${query.toString()}`
+      );
+
+      const pageRows: KycRow[] = Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      allRows = [...allRows, ...pageRows];
+
+      const total = Number(
+        response?.total ?? response?.overall ?? 0
+      );
+
+      if (pageRows.length === 0) {
+        hasMore = false;
+      } else if (total > 0) {
+        hasMore = allRows.length < total;
+      } else {
+        hasMore = pageRows.length === perPage;
+      }
+
+      currentPage++;
+    }
 
     const submitted = allRows.filter(
       (row) =>
@@ -138,28 +169,44 @@ export default function AdminKycManager() {
     ).length;
 
     const rejected = allRows.filter((row) => {
-      const kyc = String(row.kyc_status ?? "")
-        .trim()
-        .toLowerCase();
+  const status = String(row.growfund_status ?? "")
+    .trim()
+    .toLowerCase();
 
-      const growfund = String(row.growfund_status ?? "")
-        .trim()
-        .toLowerCase();
+  return status === "inactive";
+}).length;
+console.log(
+  "KYC status counts:",
+  allRows.reduce<Record<string, number>>((counts, row) => {
+    const status = String(
+      row.kyc_status ?? "empty"
+    ).trim().toLowerCase();
 
-      return (
-        kyc === "rejected" ||
-        kyc === "declined" ||
-        growfund === "rejected" ||
-        growfund === "declined"
-      );
-    }).length;
+    counts[status] = (counts[status] ?? 0) + 1;
+
+    return counts;
+  }, {})
+);
+    console.log(
+      "GrowFund status counts:",
+      allRows.reduce<Record<string, number>>((counts, row) => {
+        const status = String(
+          row.growfund_status ?? "empty"
+        ).trim().toLowerCase();
+
+        counts[status] = (counts[status] ?? 0) + 1;
+        return counts;
+      }, {})
+    );
 
     setSummary({
       submitted,
       pending,
       rejected,
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to load KYC summary:", error);
+
     setSummary({
       submitted: 0,
       pending: 0,
@@ -167,6 +214,7 @@ export default function AdminKycManager() {
     });
   }
 }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");

@@ -243,17 +243,13 @@ const load = useCallback(async () => {
  async function emptyTrash(){if(!confirm("Permanently delete all trashed donations?"))return;try{const d=await adminApi("donations/empty-trash",{method:"POST",body:"{}"});setNotice(d?.message||"Donation trash emptied.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to empty trash.");}}
  async function bulk(action:string){if(!selected.length)return;try{const d=await adminApi("donations/bulk-action",{method:"POST",body:JSON.stringify({ids:selected,action})});setNotice(d?.message||"Donations updated.");setSelected([]);await load();}catch(e){setError(e instanceof Error?e.message:"Bulk action failed.");}}
 
- const filteredRows = useMemo(() => {
-  return rows.filter((r) => {
-    if (
-      dateRange === "all" &&
-      !startDate &&
-      !endDate
-    ) {
+const filteredRows = useMemo(() => {
+  return rows.filter((row) => {
+    if (!startDate && !endDate) {
       return true;
     }
 
-    const raw = dateOf(r);
+    const raw = dateOf(row);
 
     if (!raw) {
       return false;
@@ -265,23 +261,25 @@ const load = useCallback(async () => {
       return false;
     }
 
-    if (
-      startDate &&
-      donationDate < new Date(`${startDate}T00:00:00`)
-    ) {
-      return false;
+    if (startDate) {
+      const from = new Date(`${startDate}T00:00:00`);
+
+      if (donationDate < from) {
+        return false;
+      }
     }
 
-    if (
-      endDate &&
-      donationDate > new Date(`${endDate}T23:59:59.999`)
-    ) {
-      return false;
+    if (endDate) {
+      const to = new Date(`${endDate}T23:59:59.999`);
+
+      if (donationDate > to) {
+        return false;
+      }
     }
 
     return true;
   });
-}, [rows, dateRange, startDate, endDate]);
+}, [rows, startDate, endDate]);
 
  const pageIds=filteredRows
   .map(r=>idOf(r))
