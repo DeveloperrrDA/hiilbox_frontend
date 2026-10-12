@@ -77,6 +77,8 @@ function readDate(value: any) {
 
 export default function CampaignEditor({ id }: { id: string }) {
   const router = useRouter();
+  const isAdmin =
+  dashboardRole(savedDashboardUser()) === "admin";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -994,10 +996,12 @@ async function uploadMedia(
           faq.answer.trim()
       ),
 
-      status:
-        mode === "draft"
-          ? "draft"
-          : "published",
+     status:
+  mode === "draft"
+    ? "draft"
+    : isAdmin
+      ? "published"
+      : "pending",
     };
 
     if (form.sub_category) {
@@ -1289,7 +1293,11 @@ async function submit(
         }
         onClick={() => void saveCampaign("publish")}
       >
-        {saving ? "Saving…" : "Publish"}
+       {saving
+  ? "Saving…"
+  : isAdmin
+    ? "Publish"
+    : "Submit for Review"}
       </Button>
     </>
   ) : (
