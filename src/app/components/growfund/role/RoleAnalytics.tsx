@@ -175,7 +175,16 @@ if (range === "all") {
 
 function metricNumber(value:any):number|undefined{if(value===undefined||value===null||value==="")return undefined;const direct=Number(value);if(Number.isFinite(direct))return direct;if(typeof value==="object"){for(const key of ["value","amount","total","count","data"]){const n=metricNumber(value?.[key]);if(n!==undefined)return n;}}return undefined;}
 function deepMetric(input:any,keys:string[]):number|undefined{if(!input||typeof input!=="object")return undefined;const wanted=keys.map(k=>k.toLowerCase().replace(/[^a-z0-9]/g,""));if(Array.isArray(input)){for(const item of input){const label=String(item?.key??item?.name??item?.label??item?.title??item?.metric??"").toLowerCase().replace(/[^a-z0-9]/g,"");if(label&&wanted.includes(label)){const n=metricNumber(item?.value??item?.amount??item?.total??item?.count??item?.data);if(n!==undefined)return n;}const nested=deepMetric(item,keys);if(nested!==undefined)return nested;}return undefined;}for(const [key,v] of Object.entries(input)){const normalized=key.toLowerCase().replace(/[^a-z0-9]/g,"");if(wanted.includes(normalized)){const n=metricNumber(v);if(n!==undefined)return n;}}for(const v of Object.values(input)){if(v&&typeof v==="object"){const n=deepMetric(v,keys);if(n!==undefined)return n;}}return undefined;}
-
+function netFromMetrics(response: any): number | undefined {
+  return deepMetric(response?.data ?? response, [
+    "net_donation",
+    "net_donations",
+    "net_amount",
+    "net_revenue",
+    "total_net_donation",
+    "total_net_donations",
+  ]);
+}
 export default function RoleAnalytics(){
   const [role,setRole]=useState<DashboardRole>("guest");
   const [donations,setDonations]=useState<any[]>([]);const[donors,setDonors]=useState<any[]>([]);const[campaigns,setCampaigns]=useState<any[]>([]);const[backendStats,setBackendStats]=useState<any>(null);
@@ -183,7 +192,40 @@ export default function RoleAnalytics(){
   useEffect(()=>setRole(dashboardRole(savedDashboardUser())),[]);
   useEffect(()=>{if(!["fundraiser","admin"].includes(role))return;void (async()=>{setLoading(true);setError("");try{const token=localStorage.getItem("access_token")||"";const headers={Authorization:`Bearer ${token}`};if(role==="fundraiser"){
       const [dr,cr]=await Promise.all([fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"}),fetch("/api/dashboard/campaigns",{headers,cache:"no-store"})]);
-      const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");setDonations(rows(dj));setDonors([]);setCampaigns(rows(cj));setBackendStats(null);
+      const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");
+      const paidForNetCheck = rows(dj).filter(isSuccessful);
+
+console.log("NET DONATION FIELD CHECK", {
+  paidDonations: paidForNetCheck.length,
+
+  topLevelFields: [
+    ...new Set(
+      paidForNetCheck.flatMap((d: any) => Object.keys(d))
+    ),
+  ],
+
+  nestedObjectFields: [
+    ...new Set(
+      paidForNetCheck.flatMap((d: any) =>
+        Object.entries(d)
+          .filter(
+            ([, value]) =>
+              value !== null &&
+              typeof value === "object" &&
+              !Array.isArray(value)
+          )
+          .flatMap(([key, value]) =>
+            Object.keys(value as Record<string, unknown>).map(
+              (nestedKey) => `${key}.${nestedKey}`
+            )
+          )
+      )
+    ),
+  ],
+});
+      setDonations(rows(dj));
+      
+      setDonors([]);setCampaigns(rows(cj));setBackendStats(null);
     }else{
      
 async function fetchAdminCampaignsByStatus(campaignStatus: string) {
@@ -427,6 +469,81 @@ if (range === "all") {
 return isDateInRange(d.toISOString(), range);   }),
   [donations, range, startDate, endDate]
 );  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
+const [fundraiserNet, setFundraiserNet] = useState<number | null>(null);
+
+useEffect(() => {
+  if (role !== "fundraiser") return;
+
+  let cancelled = false;
+
+  async function loadNetDonation() {
+    setFundraiserNet(null);
+
+    const token = localStorage.getItem("access_token") || "";
+    const { start, end } = getDateRange(range);
+
+    const from = range === "custom"
+      ? startDate
+      : range === "all"
+        ? ""
+        : dayKey(start);
+
+    const to = range === "custom"
+      ? endDate
+      : range === "all"
+        ? ""
+        : dayKey(end);
+
+    const ids = [...new Set(
+      campaigns.map((c: any) => Number(c.id)).filter(Boolean)
+    )];
+
+    if (!ids.length) return;
+
+    const amounts = await Promise.all(
+      ids.map(async (id) => {
+        const params = new URLSearchParams({
+          type: "metrics",
+          campaign_id: String(id),
+        });
+
+        if (from) params.set("start_date", from);
+        if (to) params.set("end_date", to);
+
+        const response = await fetch(
+          `/api/dashboard/analytics?${params}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) return undefined;
+
+        const json = await response.json();
+        return netFromMetrics(json);
+      })
+    );
+
+    if (
+      !cancelled &&
+      amounts.every((amount) => amount !== undefined)
+    ) {
+      setFundraiserNet(
+        amounts.reduce<number>(
+          (sum, amount) => sum + (amount ?? 0),
+          0
+        )
+      );
+    }
+  }
+
+  void loadNetDonation();
+
+  return () => {
+    cancelled = true;
+  };
+}, [role, campaigns, range, startDate, endDate]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
   const revenueBreakdown = useMemo(() => {
   type RevenueGroup = {
@@ -607,7 +724,16 @@ const donorTrend = useMemo(
 
   const revenueOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:3},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.18)"},xaxis:{categories:revenue.map(x=>x.label),axisBorder:{show:false},axisTicks:{show:false},labels:{style:{colors:"#7c8798"}}},yaxis:{min:0,labels:{formatter:(v:number)=>money(v),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>money(v)}},colors:["#2f915c"],fill:{type:"gradient",gradient:{opacityFrom:.18,opacityTo:.02}}};
   const donorOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:2},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.16)"},xaxis:{categories:donorTrend.map(x=>x.label),tickAmount:4,labels:{hideOverlappingLabels:true,style:{colors:"#7c8798"}}},yaxis:{min:0,forceNiceScale:true,labels:{formatter:(v:number)=>String(Math.round(v)),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>`${Math.round(v)} donor${Math.round(v)===1?"":"s"}`}},colors:["#9b63ff"],fill:{type:"gradient",gradient:{opacityFrom:.2,opacityTo:.02}}};
-  const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{label:"Net Donation",value:money(stats.net),bg:"bg-[#e7f7ef]",icon:"solar:wallet-money-line-duotone"},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
+  const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{
+  label: "Net Donation",
+  value: role === "fundraiser"
+    ? fundraiserNet === null
+      ? "—"
+      : money(fundraiserNet)
+    : money(stats.net),
+  bg: "bg-[#e7f7ef]",
+  icon: "solar:wallet-money-line-duotone"
+},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
   return <div className="space-y-7">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">
   {role === "fundraiser"
