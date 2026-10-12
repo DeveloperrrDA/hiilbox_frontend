@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/client-auth-fetch";
@@ -637,6 +638,9 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
   });
 }, [campaigns, dateRange, startDate, endDate]);
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / 10));
+  useEffect(() => {
+  setPage((current) => Math.min(current, totalPages));
+}, [totalPages]);
   const visibleCampaigns = filteredCampaigns.slice((page - 1) * 10, page * 10);
   useEffect(() => {
   const accessToken = token();
@@ -1239,9 +1243,20 @@ const createdAt =
         );
       })
     )}
-  </TableBody>
+    </TableBody>
 </Table>
       </div>
+
+      {!loading && (
+  <ListPagination
+    page={page}
+    totalPages={totalPages}
+    totalRecords={filteredCampaigns.length}
+    pageSize={10}
+    onPageChange={setPage}
+    recordLabel="campaigns"
+  />
+)}
 
 </CardBox>
 <Dialog

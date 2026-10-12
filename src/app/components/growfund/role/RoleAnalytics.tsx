@@ -429,46 +429,154 @@ return isDateInRange(d.toISOString(), range);   }),
 );  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
   const revenueBreakdown = useMemo(() => {
-  const grouped = new Map<
-    string,
-    {
-      date: string;
-      donors: Set<string>;
-      totalDonation: number;
-      netDonation: number;
+  type RevenueGroup = {
+    date: string;
+    donors: Set<string>;
+    totalDonation: number;
+    netDonation: number;
+  };
+
+  const grouped = new Map<string, RevenueGroup>();
+
+  const today = new Date();
+
+  const isYearly =
+    range === "this_year" ||
+    range === "last_year";
+
+  const isMonthly =
+    range === "this_month" ||
+    range === "last_month";
+
+  const makeKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return isYearly
+      ? `${year}-${month}`
+      : `${year}-${month}-${day}`;
+  };
+
+  const makeLabel = (date: Date) =>
+    date.toLocaleDateString(
+      "en-US",
+      isYearly
+        ? { month: "short", year: "numeric" }
+        : { month: "short", day: "numeric", year: "numeric" }
+    );
+
+  const addEmptyDate = (date: Date) => {
+    const key = makeKey(date);
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        date: makeLabel(date),
+        donors: new Set<string>(),
+        totalDonation: 0,
+        netDonation: 0,
+      });
     }
-  >();
+  };
+
+  if (isYearly) {
+    const year =
+      today.getFullYear() -
+      (range === "last_year" ? 1 : 0);
+
+    for (let month = 0; month < 12; month++) {
+      addEmptyDate(new Date(year, month, 1));
+    }
+  } else {
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (isMonthly) {
+      const offset = range === "last_month" ? -1 : 0;
+
+      start = new Date(
+        today.getFullYear(),
+        today.getMonth() + offset,
+        1
+      );
+
+      end = new Date(
+        today.getFullYear(),
+        today.getMonth() + offset + 1,
+        0
+      );
+    } else if (range === "custom" && startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00`);
+      end = new Date(`${endDate}T00:00:00`);
+    } else if (range === "all") {
+      const dates = successful
+        .map(donationDate)
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      if (dates.length > 0) {
+        start = dates[0];
+        end = dates[dates.length - 1];
+      }
+    } else {
+      const bounds = getDateRange(range);
+      start = bounds.start;
+      end = bounds.end;
+    }
+
+    if (
+      start &&
+      end &&
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      start <= end
+    ) {
+      const cursor = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate()
+      );
+
+      const last = new Date(
+        end.getFullYear(),
+        end.getMonth(),
+        end.getDate()
+      );
+
+      while (cursor <= last) {
+        addEmptyDate(cursor);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+  }
 
   for (const donation of successful) {
     const date = donationDate(donation);
 
     if (!date) continue;
 
-    const key = dayKey(date);
+    const key = makeKey(date);
 
-    const current = grouped.get(key) ?? {
-      date: key,
-      donors: new Set<string>(),
-      totalDonation: 0,
-      netDonation: 0,
-    };
+    if (!grouped.has(key)) {
+      addEmptyDate(date);
+    }
+
+    const current = grouped.get(key)!;
 
     current.donors.add(donorKey(donation));
     current.totalDonation += donationAmount(donation);
     current.netDonation += donationNet(donation);
-
-    grouped.set(key, current);
   }
 
-  return Array.from(grouped.values())
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .map((row) => ({
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([, row]) => ({
       date: row.date,
       donors: row.donors.size,
       totalDonation: row.totalDonation,
       netDonation: row.netDonation,
     }));
-}, [successful]);
+}, [successful, range, startDate, endDate]);
  const revenue = useMemo(
   () =>
     bucketData(
