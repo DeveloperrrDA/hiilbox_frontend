@@ -1,0 +1,55 @@
+.animted-img {
+  position: absolute;
+  z-index: 9;
+  top: 35%;
+  left: 10%;
+  animation: mover 5s infinite alternate;
+  border-radius: 30px;
+}
+
+.animted-img-2 {
+  position: absolute;
+  z-index: 9;
+  top: 25%;
+  right: 10%;
+  animation: mover 5s infinite alternate;
+  border-radius: 30px;
+}
+
+@keyframes mover {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-10px);
+  }
+}
+
+.client-reviews .slick-track {
+  display: flex;
+  gap: 30px;
+  padding: 10px 0;
+}
+
+.client-reviews .slick-dots li button:before {
+  font-size: 10px;
+  color: var(--color-darkgray);
+}
+
+.client-reviews .slick-dots {
+  bottom: -40px;
+}
+
+.client-reviews .slick-dots li.slick-active button:before {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.client-reviews .slick-dots li {
+  margin: 0 1px;
+}
+
+.client-reviews .slick-dots li button:hover::before {
+  color: var(--color-primary);
+  opacity: 1;
+}

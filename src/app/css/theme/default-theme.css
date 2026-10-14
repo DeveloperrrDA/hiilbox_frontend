@@ -1,0 +1,39 @@
+:root {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="BLUE_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="AQUA_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="PURPLE_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="GREEN_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="CYAN_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="ORANGE_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}
+
+[data-color-theme="CUSTOM_THEME"] {
+  --color-primary: #01A14B;
+  --color-secondary: #018D42;
+}

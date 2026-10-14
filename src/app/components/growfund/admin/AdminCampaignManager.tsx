@@ -1,0 +1,1691 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import CardBox from "@/app/components/shared/CardBox";
+import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { savedDashboardUser } from "@/lib/dashboard/roles";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Icon } from "@iconify/react";
+import { adminApi, adminToken, dataFrom, fmtDate, idOf, money, rowsFrom } from "./adminApi";
+import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
+import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
+import { campaignImage } from "@/lib/dashboard/campaignMedia";
+
+const variants: Record<string, any> = {
+  draft: "lightGray",
+  pending: "lightWarning",
+  review: "lightWarning",
+  submitted: "lightWarning",
+
+  published: "lightPrimary",
+  approved: "lightSuccess",
+  active: "lightSuccess",
+
+  paused: "lightWarning",
+  pause: "lightWarning",
+
+  ended: "lightPrimary",
+  completed: "lightPrimary",
+  funded: "lightSuccess",
+
+  visible: "lightSuccess",
+  hidden: "lightWarning",
+
+  declined: "lightError",
+  denied: "lightError",
+  rejected: "lightError",
+
+  cancelled: "lightError",
+  canceled: "lightError",
+
+  trash: "lightError",
+  trashed: "lightError",
+};
+
+function campaignStatus(row: any) {
+  const normalize = (value: any) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+
+  const primaryStatus =
+    [
+      row?.status,
+      row?.campaign_status,
+      row?.post_status,
+    ]
+      .map(normalize)
+      .find(Boolean) || "unknown";
+
+  /*
+   * Trash must take priority over secondary campaign state.
+   *
+   * A campaign can still have is_paused/is_hidden/is_ended metadata
+   * after WordPress moves the post to trash. If those flags are checked
+   * first, the Trash filter incorrectly removes the campaign.
+   */
+  if (["trash", "trashed"].includes(primaryStatus)) {
+    return "trashed";
+  }
+
+  const isTrue = (value: any) =>
+    value === true ||
+    value === 1 ||
+    String(value ?? "").trim().toLowerCase() === "true" ||
+    String(value ?? "").trim() === "1";
+
+  if (isTrue(row?.is_ended)) {
+    return "ended";
+  }
+
+  if (isTrue(row?.is_paused)) {
+    return "paused";
+  }
+
+  if (isTrue(row?.is_hidden)) {
+    return "hidden";
+  }
+  /*
+   * Status priority:
+   *
+   * 1. Secondary/action status
+   *    paused, ended, hidden, visible, etc.
+   *
+   * 2. Event-driven status
+   *    e.g. campaign goal has been reached.
+   *
+   * 3. Primary status
+   *    draft, pending, published, declined, etc.
+   */
+
+ 
+  const secondaryStatus =
+    [
+      row?.secondary_status,
+      row?.campaign_secondary_status,
+    ]
+      .map(normalize)
+      .find(Boolean);
+
+  if (
+    secondaryStatus &&
+    ![
+      "",
+      "none",
+      "null",
+      "default",
+    ].includes(secondaryStatus)
+  ) {
+    return secondaryStatus;
+  }
+
+  /*
+   * If no explicit secondary action exists, check
+   * campaign events. A campaign that has reached its
+   * goal should display Funded instead of Published.
+   */
+  const raisedAmount = raised(row);
+  const goalAmount = goal(row);
+
+  if (
+    goalAmount > 0 &&
+    raisedAmount >= goalAmount
+  ) {
+    return "funded";
+  }
+
+  return primaryStatus;
+}
+function statusMatches(row: any, wanted: string) {
+  const actual = campaignStatus(row);
+
+  if (wanted === "all") return true;
+
+  const groups: Record<string, string[]> = {
+    pending: ["pending", "review", "submitted", "awaiting_review", "inactive"],
+    launched: ["launched"],
+    published: ["published"],
+    active: ["active"],
+    funded: ["funded"],
+    paused: ["paused"],
+    completed: ["completed", "complete"],
+    draft: ["draft"],
+    declined: ["declined", "denied", "rejected"],
+    cancelled: ["cancelled", "canceled"],
+    trash: ["trash", "trashed"],
+  };
+
+  return (groups[wanted] ?? [wanted]).includes(actual);
+}
+
+function featured(row: any) {
+  const value = row?.is_featured ?? row?.featured;
+
+  if (typeof value === "string") {
+    return ["1", "true", "yes", "featured"].includes(
+      value.trim().toLowerCase()
+    );
+  }
+
+  return value === true || value === 1;
+}
+function statusOf(row: any) {
+  return String(row?.status ?? row?.campaign_status ?? row?.post_status ?? "").trim().toLowerCase();
+}
+function creator(row: any) {
+  return row?.author?.display_name || row?.fundraiser?.display_name || row?.creator?.display_name || row?.author?.name || row?.fundraiser?.name || row?.creator?.name || row?.author_name || row?.fundraiser_name || row?.creator_name || "—";
+}
+function campaignOwnerId(row: any) {
+  return Number(
+    row?.author?.id ??
+    row?.author?.ID ??
+    row?.author_id ??
+    row?.fundraiser?.id ??
+    row?.fundraiser?.ID ??
+    row?.fundraiser_id ??
+    row?.creator?.id ??
+    row?.creator?.ID ??
+    row?.creator_id ??
+    row?.user_id ??
+    0
+  );
+}
+function deepValue(input: any, keys: string[]): any {
+  if (!input || typeof input !== "object") return undefined;
+  for (const key of keys) if (input[key] !== undefined && input[key] !== null && input[key] !== "") return input[key];
+  for (const value of Object.values(input)) if (value && typeof value === "object") { const found = deepValue(value, keys); if (found !== undefined) return found; }
+  return undefined;
+}
+function numericValue(value: any): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// The single-campaign endpoint is the same source used by the public campaign page.
+// Prefer its campaign-specific totals before any overview wrapper. A recursive overview
+// search can accidentally pick an aggregate total that belongs to another scope.
+function raised(row: any) {
+  const directCandidates = [
+    row?.fund_raised,
+    row?.raised_amount,
+    row?.amount_raised,
+    row?.total_raised,
+    row?.raised,
+  ];
+  for (const value of directCandidates) {
+    const n = numericValue(value);
+    if (n !== null) return n;
+  }
+
+  const overview = row?.__overview;
+  const overviewCandidates = [
+    overview?.fund_raised,
+    overview?.raised_amount,
+    overview?.amount_raised,
+    overview?.total_raised,
+    overview?.raised,
+    overview?.campaign?.fund_raised,
+    overview?.campaign?.raised_amount,
+    overview?.data?.fund_raised,
+    overview?.data?.raised_amount,
+  ];
+  for (const value of overviewCandidates) {
+    const n = numericValue(value);
+    if (n !== null) return n;
+  }
+  return 0;
+}
+function goal(row: any) {
+  for (const value of [row?.goal_amount, row?.goal, row?.target_amount, row?.campaign?.goal_amount]) {
+    const n = numericValue(value);
+    if (n !== null) return n;
+  }
+  return 0;
+}
+function donationCount(row: any) {
+  const direct = [
+    row?.number_of_contributions,
+    row?.number_of_individual_contributions,
+    row?.number_of_contributors,
+    row?.donations_count,
+    row?.donation_count,
+    row?.total_donations,
+    row?.number_of_donations,
+  ];
+  for (const value of direct) {
+    const n = numericValue(value);
+    if (n !== null) return n;
+  }
+  if (Array.isArray(row?.donations)) return row.donations.length;
+  const overview = row?.__overview;
+  for (const value of [overview?.number_of_contributions, overview?.donations_count, overview?.donation_count, overview?.total_donations]) {
+    const n = numericValue(value);
+    if (n !== null) return n;
+  }
+  return 0;
+}
+function createdDate(row: any) {
+  return (
+    row?.date_created ??
+    row?.created_at ??
+    row?.created_date ??
+    row?.post_date ??
+    row?.date ??
+    row?.created ??
+    row?.campaign_date ??
+    row?.campaign?.date_created ??
+    row?.campaign?.created_at ??
+    row?.campaign?.created_date ??
+    row?.campaign?.post_date ??
+    row?.campaign?.date ??
+    row?.campaign?.created ??
+    row?.start_date ??
+    row?.campaign?.start_date ??
+    ""
+  );
+}
+export default function AdminCampaignManager() {
+  const router = useRouter();
+  const adminUser = savedDashboardUser();
+
+const adminUserId = Number(
+  adminUser?.id ??
+  adminUser?.ID ??
+  adminUser?.user_id ??
+  0
+);
+const adminCanSeeCampaign = useCallback(
+  (row: any) => {
+    if (!statusMatches(row, "draft")) {
+      return true;
+    }
+
+    const ownerId = campaignOwnerId(row);
+
+    return ownerId > 0 && ownerId === adminUserId;
+  },
+  [adminUserId]
+);
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+ const [selected, setSelected] = useState<number[]>([]);
+const [page, setPage] = useState(1);
+const [totalCampaigns, setTotalCampaigns] = useState(0);
+  const [updateCampaign, setUpdateCampaign] = useState<any | null>(null);
+  const [updateForm, setUpdateForm] = useState({ title: "", description: "" });
+  const [updateImages, setUpdateImages] = useState<any[]>([]);
+  const [uploadingUpdateImage, setUploadingUpdateImage] = useState(false);
+  const [postingUpdate, setPostingUpdate] = useState(false);
+  const [updatesCampaign, setUpdatesCampaign] = useState<any | null>(null);
+  const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [selectedUpdate, setSelectedUpdate] = useState<any | null>(null);
+  const [updateComments, setUpdateComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
+  const [trashCampaign, setTrashCampaign] = useState<any | null>(null);
+const [trashingCampaign, setTrashingCampaign] = useState(false);
+const [approveCampaign, setApproveCampaign] = useState<any | null>(null);
+const [approvingCampaign, setApprovingCampaign] = useState(false);
+
+const [declineCampaign, setDeclineCampaign] = useState<any | null>(null);
+const [declineReason, setDeclineReason] = useState("");
+const [decliningCampaign, setDecliningCampaign] = useState(false);
+
+const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
+const [emptyingTrash, setEmptyingTrash] = useState(false);
+
+const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
+const [bulkTrashing, setBulkTrashing] = useState(false);
+function totalFromResponse(data: any, fallback: number) {
+  const candidates = [
+    data?.data?.total,
+    data?.total,
+    data?.data?.pagination?.total,
+    data?.pagination?.total,
+    data?.paginated?.total,
+    data?.meta?.total,
+  ];
+
+  for (const value of candidates) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+
+  return fallback;
+}
+  const load = useCallback(async () => {
+  setLoading(true);
+  setError("");
+
+  try {
+    async function fetchAllCampaigns(campaignStatus: string) {
+      const allRows: any[] = [];
+      let currentPage = 1;
+      let expectedTotal: number | null = null;
+
+      while (true) {
+        const qs = new URLSearchParams({
+          page: String(currentPage),
+          per_page: "100",
+          status: campaignStatus,
+        });
+
+        if (search.trim()) {
+          qs.set("search", search.trim());
+        }
+
+       const response = await adminApi(`campaigns?${qs}`);
+const batch = rowsFrom(response);
+
+
+if (expectedTotal === null) {
+          expectedTotal = totalFromResponse(response, batch.length);
+        }
+
+        allRows.push(...batch);
+
+        // No more rows.
+        if (batch.length === 0) break;
+
+        // We have reached the API's reported total.
+        if (
+          expectedTotal !== null &&
+          expectedTotal > 0 &&
+          allRows.length >= expectedTotal
+        ) {
+          break;
+        }
+
+        // A short page means this was the last page.
+        if (batch.length < 100) break;
+
+        currentPage += 1;
+
+        // Safety guard against a broken API repeatedly returning the same page.
+        if (currentPage > 1000) break;
+      }
+
+      return allRows;
+    }
+
+ if (status === "all") {
+  
+  const results = await Promise.allSettled([
+    fetchAllCampaigns("all"),
+    fetchAllCampaigns("pending"),
+    fetchAllCampaigns("rejected"),
+    fetchAllCampaigns("draft"),
+  ]);
+
+  const merged: any[] = [];
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      merged.push(...result.value);
+    }
+  }
+
+  const byId = new Map<string, any>();
+
+  merged.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `row-${index}`
+    );
+
+    if (!byId.has(key)) {
+      byId.set(key, row);
+    }
+  });
+
+  const completeRows = Array.from(byId.values()).filter(
+  adminCanSeeCampaign
+);
+
+setRows(completeRows);
+setTotalCampaigns(completeRows.length);
+} else if (status === "trash") {
+  /*
+   * Trashed campaigns are not expected to appear in the normal
+   * "all" campaign collection. Load the trash collection directly.
+   *
+   * GrowFund installations may expose this status as either
+   * "trash" or "trashed", so try both and merge the results.
+   */
+  const trashResults = await Promise.allSettled([
+    fetchAllCampaigns("trash"),
+    fetchAllCampaigns("trashed"),
+  ]);
+
+  const mergedTrashRows: any[] = [];
+
+  for (const result of trashResults) {
+    if (result.status === "fulfilled") {
+      mergedTrashRows.push(...result.value);
+    }
+  }
+
+  const trashById = new Map<string, any>();
+
+  mergedTrashRows.forEach((row, index) => {
+    const key = String(
+      row?.id ??
+        row?.ID ??
+        row?.campaign_id ??
+        `trash-${index}`
+    );
+
+    if (!trashById.has(key)) {
+      trashById.set(key, row);
+    }
+  });
+
+  const trashRows = Array.from(trashById.values()).filter(
+    (row: any) => statusMatches(row, "trash")
+  );
+
+  setRows(trashRows);
+  setTotalCampaigns(trashRows.length);
+} else {
+  /*
+   * First load the complete "all" collection and check whether
+   * it already contains campaigns with the requested status.
+   */
+  const allRows = await fetchAllCampaigns("all");
+
+  const local = allRows.filter(
+  (r: any) =>
+    statusMatches(r, status) &&
+    adminCanSeeCampaign(r)
+);
+
+  if (local.length) {
+    setRows(local);
+    setTotalCampaigns(local.length);
+  } else {
+    /*
+     * Some backend versions do not include every status in
+     * the "all" collection, so load that status explicitly.
+     */
+    const statusRows = await fetchAllCampaigns(status);
+
+    const filtered = statusRows.filter(
+  (r: any) =>
+    statusMatches(r, status) &&
+    adminCanSeeCampaign(r)
+);
+
+    setRows(filtered);
+    setTotalCampaigns(filtered.length);
+  }
+}
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to load campaigns."
+    );
+
+    setRows([]);
+    setTotalCampaigns(0);
+  } finally {
+    setLoading(false);
+  }
+}, [status, search, adminCanSeeCampaign]);
+  useEffect(() => void load(), [load]);
+
+  async function post(id: number, path: string, payload: any, msg: string) {
+    setBusy(id);
+    setError("");
+    setNotice("");
+    try {
+      const data = await adminApi(path, { method: "POST", body: JSON.stringify(payload) });
+setNotice(data?.message || msg);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+async function createDraft() {
+  setBusy(-1);
+  setError("");
+  setNotice("");
+
+  try {
+    const token = adminToken();
+
+    if (!token) {
+      throw new Error("Please sign in to create a campaign.");
+    }
+
+    const response = await fetch(
+      "/api/campaigns/create-draft",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          "Unable to create campaign draft."
+      );
+    }
+
+    const campaignId = Number(
+      data?.data?.id ??
+        data?.data?.campaign_id ??
+        data?.campaign?.id ??
+        data?.campaign_id ??
+        data?.id ??
+        0
+    );
+
+    if (!campaignId) {
+      throw new Error(
+        "Campaign draft was created but no campaign ID was returned."
+      );
+    }
+
+    router.push(
+      `/dashboard/campaigns/${campaignId}/edit`
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to create campaign draft."
+    );
+  } finally {
+    setBusy(null);
+  }
+}
+  async function duplicate(r: any) {
+  const id = idOf(r);
+
+  setBusy(id);
+  setError("");
+
+  try {
+    // Fetch the original campaign.
+    const full = dataFrom(
+      await adminApi(`campaigns/${id}`)
+    );
+
+    const source = full?.campaign ?? full;
+
+    // Only copy campaign fields that should belong
+    // to the new campaign.
+    //
+    // Do NOT copy:
+    // id
+    // created_at
+    // updated_at
+    // date_created
+    // timestamps
+    const payload: Record<string, any> = {};
+
+    const copyFields = [
+      "description",
+      "story",
+      "images",
+      "video",
+      "category",
+      "sub_category",
+      "start_date",
+      "end_date",
+      "location",
+      "tags",
+      "fundraiser_id",
+      "collaborators",
+      "show_collaborator_list",
+      "risk",
+      "has_goal",
+      "goal_type",
+      "reaching_action",
+      "confirmation_title",
+      "confirmation_description",
+      "provide_confirmation_pdf_receipt",
+      "goal_amount",
+      "allow_custom_donation",
+      "min_donation_amount",
+      "max_donation_amount",
+      "suggested_option_type",
+      "suggested_options",
+      "faqs",
+      "author_id",
+    ];
+
+    for (const field of copyFields) {
+      if (source?.[field] !== undefined) {
+        payload[field] = source[field];
+      }
+    }
+
+    payload.title =
+      `Copy of ${
+        source?.title ||
+        r?.title ||
+        `Campaign ${id}`
+      }`;
+
+    // A copied campaign starts as a new draft.
+    payload.status = "draft";
+
+    // Create an entirely new campaign.
+    // The backend will generate the new creation timestamp.
+    const result = await adminApi(
+      "campaigns/create",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    setNotice(
+      result?.message ||
+      "Campaign copied successfully."
+    );
+
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Unable to copy campaign."
+    );
+  } finally {
+    setBusy(null);
+  }
+}
+
+ function approve(r: any) {
+  setApproveCampaign(r);
+}
+
+async function confirmApproveCampaign() {
+  if (!approveCampaign) return;
+
+  const id = idOf(approveCampaign);
+  setApprovingCampaign(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const data = await adminApi(`campaign/${id}/update-status`, {
+      method: "POST",
+      body: JSON.stringify({ status: "published" }),
+    });
+
+    setNotice(data?.message || "Campaign approved.");
+    setApproveCampaign(null);
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error ? e.message : "Unable to approve campaign."
+    );
+  } finally {
+    setApprovingCampaign(false);
+  }
+}
+
+function decline(r: any) {
+  setDeclineCampaign(r);
+  setDeclineReason("");
+}
+
+async function confirmDeclineCampaign() {
+  if (!declineCampaign) return;
+
+  const id = idOf(declineCampaign);
+  setDecliningCampaign(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const data = await adminApi(`campaign/${id}/update-status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "declined",
+        decline_reason: declineReason.trim(),
+      }),
+    });
+
+    setNotice(data?.message || "Campaign declined.");
+    setDeclineCampaign(null);
+    setDeclineReason("");
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error ? e.message : "Unable to decline campaign."
+    );
+  } finally {
+    setDecliningCampaign(false);
+  }
+}
+
+    function trash(r: any) {
+    setTrashCampaign(r);
+  }
+
+  async function confirmTrashCampaign() {
+    if (!trashCampaign) return;
+
+    const id = idOf(trashCampaign);
+
+    setTrashingCampaign(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const data = await adminApi(
+        `campaign/${id}/delete`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        }
+      );
+
+      setNotice(
+        data?.message ||
+          "Campaign moved to trash."
+      );
+
+      setTrashCampaign(null);
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to move campaign to trash."
+      );
+    } finally {
+      setTrashingCampaign(false);
+    }
+  }
+
+  async function restore(r: any) {
+    const id = idOf(r);
+    await post(id, `campaign/${id}/restore`, {}, "Campaign restored.");
+  }
+
+  async function feature(r: any, value: boolean) {
+    const id = idOf(r);
+    await post(id, "campaign/update-featured-status", { ids: [id], is_featured: value }, value ? "Campaign featured." : "Campaign unfeatured.");
+  }
+
+
+  function openPostUpdate(r: any) {
+    setUpdateCampaign(r);
+    setUpdateForm({ title: "", description: "" });
+    setUpdateImages([]);
+    setError("");
+  }
+
+  async function uploadUpdateImages(files: FileList | null) {
+    if (!files?.length) return;
+    const token = adminToken();
+    if (!token) { setError("Please sign in to upload media."); return; }
+    setUploadingUpdateImage(true);
+    setError("");
+    try {
+      const form = new FormData();
+      Array.from(files).forEach((file) => form.append("images[]", file));
+      const response = await fetch("/api/campaigns/media", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || "Image upload failed.");
+      const uploaded = Array.isArray(data?.images) ? data.images : Array.isArray(data?.data?.images) ? data.data.images : [];
+      setUpdateImages((current) => [...current, ...uploaded]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Image upload failed.");
+    } finally {
+      setUploadingUpdateImage(false);
+    }
+  }
+
+  async function submitPostUpdate() {
+    if (!updateCampaign) return;
+    const title = updateForm.title.trim();
+    const description = updateForm.description.trim();
+    if (!title || !description) { setError("Title and description are required for a campaign update."); return; }
+    setPostingUpdate(true);
+    setError("");
+    setNotice("");
+    try {
+      const slug = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const result = await adminApi("campaign/update/create", {
+        method: "POST",
+        body: JSON.stringify({
+          campaign_id: idOf(updateCampaign),
+          title,
+          slug,
+          description,
+          image: updateImages,
+        }),
+      });
+      setNotice(result?.message || "Campaign update posted successfully.");
+      setUpdateCampaign(null);
+      setUpdateImages([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to post campaign update.");
+    } finally {
+      setPostingUpdate(false);
+    }
+  }
+
+  function campaignUpdateId(row: any) {
+    return Number(row?.id ?? row?.ID ?? row?.campaign_update_id ?? row?.post_id ?? 0);
+  }
+
+  async function openUpdates(r: any) {
+    const campaignId = idOf(r);
+    setUpdatesCampaign(r);
+    setCampaignUpdates([]);
+    setSelectedUpdate(null);
+    setUpdateComments([]);
+    setUpdatesLoading(true);
+    setError("");
+    try {
+      const qs = new URLSearchParams({ page: "1", per_page: "50", campaign_id: String(campaignId) });
+      setCampaignUpdates(rowsFrom(await adminApi(`campaign/updates/paginated?${qs}`)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load campaign updates.");
+    } finally {
+      setUpdatesLoading(false);
+    }
+  }
+
+  async function openUpdateDetail(update: any) {
+    const id = campaignUpdateId(update);
+    if (!id) return;
+    setSelectedUpdate(update);
+    setUpdateComments([]);
+    setCommentsLoading(true);
+    setCommentText("");
+    try {
+      const [detailResult, commentsResult] = await Promise.allSettled([
+        adminApi(`campaign/update/${id}/detail`),
+        adminApi(`campaign/update/comments/paginated?page=1&post_id=${id}`),
+      ]);
+      if (detailResult.status === "fulfilled") {
+        const detail = dataFrom(detailResult.value);
+        setSelectedUpdate(detail?.update ?? detail?.campaign_update ?? detail?.post ?? detail);
+      }
+      if (commentsResult.status === "fulfilled") setUpdateComments(rowsFrom(commentsResult.value));
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function addUpdateComment() {
+    const postId = campaignUpdateId(selectedUpdate);
+    const content = commentText.trim();
+    if (!postId || !content) return;
+    setCommentBusy(true);
+    setError("");
+    try {
+      await adminApi("campaign/update/comment/create", { method: "POST", body: JSON.stringify({ post_id: postId, content }) });
+      setCommentText("");
+      setUpdateComments(rowsFrom(await adminApi(`campaign/update/comments/paginated?page=1&post_id=${postId}`)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to add comment.");
+    } finally {
+      setCommentBusy(false);
+    }
+  }
+
+  function emptyTrash() {
+  setEmptyTrashOpen(true);
+}
+
+async function confirmEmptyTrash() {
+  setEmptyingTrash(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const d = await adminApi("campaigns/empty-trash", {
+      method: "POST",
+      body: "{}",
+    });
+
+    setNotice(d?.message || "Campaign trash emptied.");
+    setEmptyTrashOpen(false);
+    await load();
+  } catch (e) {
+    setError(
+      e instanceof Error ? e.message : "Unable to empty trash."
+    );
+  } finally {
+    setEmptyingTrash(false);
+  }
+}
+  async function bulk(action: string) {
+    if (!selected.length) return;
+    try {
+      const d = await adminApi("campaigns/bulk-action", { method: "POST", body: JSON.stringify({ ids: selected, action }) });
+      setNotice(d?.message || "Campaigns updated.");
+      setSelected([]);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Bulk action failed.");
+    }
+  }
+
+  async function confirmBulkTrash() {
+    if (!selected.length) return;
+
+    setBulkTrashing(true);
+
+    try {
+      await bulk("trash");
+      setBulkTrashOpen(false);
+    } finally {
+      setBulkTrashing(false);
+    }
+  }
+const visibleRows = useMemo(() => {
+  return rows.filter((r) => {
+    if (!statusMatches(r, status)) {
+      return false;
+    }
+
+    const raw = createdDate(r);
+
+    // No date filter selected.
+    if (
+      dateRange === "all" &&
+      !startDate &&
+      !endDate
+    ) {
+      return true;
+    }
+
+    // A campaign without a valid creation date cannot match
+    // an active date filter.
+    if (!raw) {
+      return false;
+    }
+
+    const d = new Date(raw);
+
+    if (Number.isNaN(d.getTime())) {
+      return false;
+    }
+
+    // Custom/manual date range.
+    // Do NOT also apply the preset filter.
+    if (startDate || endDate) {
+      if (
+        startDate &&
+        d < new Date(`${startDate}T00:00:00`)
+      ) {
+        return false;
+      }
+
+      if (
+        endDate &&
+        d > new Date(`${endDate}T23:59:59.999`)
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // Preset date filter.
+    if (dateRange !== "all") {
+      return isDateInRange(raw, dateRange);
+    }
+
+    return true;
+  });
+}, [rows, status, dateRange, startDate, endDate]);
+const campaignSummary = useMemo(() => {
+  const total = visibleRows.length;
+
+  const live = visibleRows.filter((row) =>
+    ["published", "active", "launched"].includes(
+      campaignStatus(row)
+    )
+  ).length;
+
+  const ended = visibleRows.filter((row) =>
+    ["completed", "complete", "funded", "ended"].includes(
+      campaignStatus(row)
+    )
+  ).length;
+
+  const paused = visibleRows.filter(
+    (row) => campaignStatus(row) === "paused"
+  ).length;
+
+  return {
+    total,
+    live,
+    ended,
+    paused,
+  };
+}, [visibleRows]);
+const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
+  useEffect(() => {
+    if (!pageRows.length) return;
+    let cancelled = false;
+    void Promise.all(pageRows.map(async (r:any) => {
+      const cid=idOf(r); if(!cid) return [cid,0] as const;
+      try { const result=await adminApi(`donations/paginated?page=1&per_page=100&campaign_id=${cid}&orderby=id&order=desc`); const donationRows=rowsFrom(result); const count=donationRows.filter((d:any)=>{const payment=String(d?.payment_status??"").toLowerCase();const status=String(d?.status??"").toLowerCase();return payment?payment==="paid":["paid","completed","complete","successful","success"].includes(status)}).length; return [cid,count] as const; } catch { return [cid,0] as const; }
+    })).then(entries=>{if(!cancelled)setPaidCounts(current=>({...current,...Object.fromEntries(entries)}));});
+    return()=>{cancelled=true;};
+  }, [page, visibleRows]);
+
+  useEffect(() => setPage(1), [status, search, dateRange, startDate, endDate]);
+
+  const pageIds = useMemo(
+  () => pageRows.map((r) => idOf(r)).filter((id) => id > 0),
+  [pageRows]
+);
+
+const allSelected = useMemo(
+  () =>
+    pageIds.length > 0 &&
+    pageIds.every((id) => selected.includes(id)),
+  [pageIds, selected]
+);
+
+const toggleAll = () => {
+  setSelected((current) => {
+    if (allSelected) {
+      return current.filter((id) => !pageIds.includes(id));
+    }
+
+    return Array.from(new Set([...current, ...pageIds]));
+  });
+};
+  const toggle = (id: number) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+
+ return (
+  <CardBox>
+    <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {[
+        {
+          title: "Total Campaigns",
+          value: campaignSummary.total,
+          icon: "solar:layers-linear",
+        },
+        {
+          title: "Live Campaigns",
+          value: campaignSummary.live,
+          icon: "solar:check-circle-linear",
+        },
+        {
+          title: "Ended Campaigns",
+          value: campaignSummary.ended,
+          icon: "solar:flag-linear",
+        },
+        {
+          title: "Paused Campaigns",
+          value: campaignSummary.paused,
+          icon: "solar:pause-circle-linear",
+        },
+      ].map((item) => (
+        <div
+          key={item.title}
+          className="rounded-xl border border-ld bg-white p-5 shadow-sm dark:bg-darkgray"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-darklink">
+              {item.title}
+            </p>
+
+            <Icon
+              icon={item.icon}
+              className="text-2xl text-primary"
+            />
+          </div>
+
+          <h3 className="mt-4 text-3xl font-semibold">
+            {loading ? "..." : item.value.toLocaleString()}
+          </h3>
+        </div>
+      ))}
+    </div>
+
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div><h5 className="card-title">Campaigns</h5><p className="mt-1 text-sm text-darklink">Review and manage campaigns.</p></div>
+        <div className="flex flex-wrap gap-2">
+          {selected.length > 0 && <><Button variant="outline" onClick={() => bulk("publish")}>Approve selected</Button><Button variant="outline" onClick={() => bulk("restore")}><Icon icon="solar:restart-line-duotone" /> Restore selected</Button><Button
+  variant="outline"
+  onClick={() => setBulkTrashOpen(true)}
+>
+  Trash selected
+</Button></>}
+          <Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone" /> Empty trash</Button>
+          
+<Button
+
+  type="button"
+  disabled={busy === -1}
+  onClick={() => void createDraft()}
+>
+  <Icon icon="solar:add-circle-line-duotone" />
+  {busy === -1 ? "Creating…" : "New Campaign"}
+</Button>        </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5">
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="launched">Launched</option>
+          <option value="published">Published</option>
+          <option value="paused">Paused</option>
+          <option value="active">Active</option>
+          <option value="funded">Funded</option>
+          <option value="completed">Completed</option>
+          <option value="draft">Draft</option>
+          <option value="declined">Declined</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="trash">Trash</option>
+        </select>
+        <div className="flex-1" />
+        <div className="relative sm:w-72"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-ld bg-transparent px-3 py-2.5" />{search.trim()&&rows.length>0&&<div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border border-ld bg-white p-1 shadow-lg dark:bg-darkgray">{rows.slice(0,8).map((r:any)=>{const image=campaignImage(r),rid=idOf(r);return <Link key={rid} href={`/dashboard/campaigns/${rid}/overview`} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-lightgray">{image?<img src={String(image)} alt="" className="h-9 w-9 rounded-md object-cover"/>:<span className="h-9 w-9 rounded-md bg-lightgray"/>}<span className="min-w-0"><span className="block truncate font-medium">{r?.title||`Campaign #${rid}`}</span><span className="text-xs text-darklink">Campaign #{rid}</span></span></Link>})}</div>}</div>
+<DatePresetSelect
+  value={dateRange}
+  onChange={setDateRange}
+  startDate={startDate}
+  endDate={endDate}
+  onStartDateChange={setStartDate}
+  onEndDateChange={setEndDate}
+/>      </div>
+{(status !== "all" ||
+  search.trim() ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <span className="text-sm font-medium">Active filters:</span>
+
+    {status !== "all" && (
+      <button
+        type="button"
+        onClick={() => setStatus("all")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Status: {status} ×
+      </button>
+    )}
+
+    {search.trim() && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Search: {search.trim()} ×
+      </button>
+    )}
+
+    {dateRange !== "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setDateRange("all");
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date: {dateRange.replaceAll("_", " ")} ×
+      </button>
+    )}
+
+    {(startDate || endDate) && dateRange === "all" && (
+      <button
+        type="button"
+        onClick={() => {
+          setStartDate("");
+          setEndDate("");
+        }}
+        className="rounded-full border border-ld px-3 py-1 text-xs hover:bg-lightgray"
+      >
+        Date range: {startDate || "…"} – {endDate || "…"} ×
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("all");
+        setSearch("");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+        setPage(1);
+      }}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Clear all
+    </button>
+  </div>
+)}
+      {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
+      {error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
+
+      <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-campaigns-table" columns={["Select", "ID", "Campaign", "Creator", "Status", "Raised / Goal", "Donations", "Created", "State", "Actions"]}/></div><div className="mt-4 overflow-x-auto">
+        <Table className="admin-campaigns-table">
+          <TableHeader><TableRow>
+            <TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll} /></TableHead>
+            <TableHead>ID</TableHead><TableHead>Featured</TableHead><TableHead>Campaign Name</TableHead><TableHead>Creator</TableHead><TableHead>Goal</TableHead><TableHead>Donations</TableHead><TableHead>Date Created</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {loading ? <TableRow><TableCell colSpan={10} className="py-10 text-center">Loading campaigns…</TableCell></TableRow> : visibleRows.length === 0 ? <TableRow><TableCell colSpan={10} className="py-10 text-center text-darklink">No campaigns found.</TableCell></TableRow> : pageRows.map((r) => {
+   const id = idOf(r),
+         st = campaignStatus(r),
+            isFeatured = featured(r),
+                     isBusy = busy === id;            
+                       const g = goal(r), a = raised(r), pct = g > 0 ? Math.min(100, Math.round((a / g) * 100)) : 0;
+              return <TableRow key={id}>
+                <TableCell><Checkbox checked={selected.includes(id)} onCheckedChange={() => toggle(id)} /></TableCell>
+                <TableCell>#{id}</TableCell>
+                <TableCell><button disabled={isBusy} onClick={() => feature(r, !isFeatured)} className="text-xl" title={isFeatured ? "Unfeature" : "Feature"}><Icon icon={isFeatured ? "solar:star-bold" : "solar:star-line-duotone"} /></button></TableCell>
+                <TableCell><Link className="flex items-center gap-3 font-medium hover:text-primary" href={`/dashboard/campaigns/${id}/edit`}>{campaignImage(r) ? <img src={campaignImage(r)} alt="" className="h-11 w-11 rounded-md object-cover"/> : <span className="h-11 w-11 rounded-md bg-lightgray"/>}<span>{r.title || r.campaign_name || `Campaign #${id}`}</span></Link></TableCell>
+                <TableCell>{creator(r)}</TableCell>
+                <TableCell>{g > 0 ? <div className="min-w-48"><div className="text-xs">{pct}% funded</div><div className="my-1 h-1.5 rounded-full bg-lightgray"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div><div className="text-xs text-darklink">{money(a, r.currency || "$ ")} of {money(g, r.currency || "$ ")}</div></div> : <span className="text-darklink">-No Goal Set-</span>}</TableCell>
+                <TableCell>{paidCounts[id] ?? "…"}</TableCell>
+                <TableCell>{fmtDate(createdDate(r))}</TableCell>
+                <TableCell>{["pending", "review", "submitted"].includes(st) ? <div className="flex gap-2"><Button size="sm" variant="outline" className="text-success" disabled={isBusy} onClick={() => approve(r)} title="Approve"><Icon icon="solar:check-circle-bold" /></Button><Button size="sm" variant="outline" className="text-error" disabled={isBusy} onClick={() => decline(r)} title="Decline"><Icon icon="solar:close-circle-bold" /></Button></div> : <Badge variant={variants[st] || "lightPrimary"}>{st}</Badge>}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isBusy}><Icon icon="solar:menu-dots-bold" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => openPostUpdate(r)}><Icon icon="solar:document-add-line-duotone" /> Post an update</DropdownMenuItem>
+                    <DropdownMenuItem asChild><Link href={`/dashboard/campaigns/${id}/overview`}><Icon icon="solar:chart-2-line-duotone" /> Overview</Link></DropdownMenuItem>
+                    <DropdownMenuItem asChild><Link href={`/campaign/${id}`}><Icon icon="solar:eye-line-duotone" /> Preview</Link></DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void duplicate(r)}> 
+                      <Icon icon="solar:copy-line-duotone" /> Make a copy</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+
+{!["published", "approved", "active", "trashed", "trash"].includes(st) && (
+  <>
+    <DropdownMenuItem
+      onSelect={() => approve(r)}
+      className="text-success focus:text-success"
+    >
+      <Icon icon="solar:check-circle-bold" />
+      Approve & Publish
+    </DropdownMenuItem>
+
+    <DropdownMenuItem
+      onSelect={() => decline(r)}
+      className="text-error focus:text-error"
+    >
+      <Icon icon="solar:close-circle-bold" />
+      Decline
+    </DropdownMenuItem>
+
+    <DropdownMenuSeparator />
+  </>
+)}
+
+{st === "trashed" || st === "trash" ? (
+  <DropdownMenuItem onClick={() => restore(r)}>
+    <Icon icon="solar:restart-line-duotone" />
+    Restore
+  </DropdownMenuItem>
+) : (
+  <DropdownMenuItem
+    className="text-error focus:text-error"
+    onClick={() => trash(r)}
+  >
+    <Icon icon="solar:trash-bin-trash-line-duotone" />
+    Move to trash
+  </DropdownMenuItem>
+)}
+                  </DropdownMenuContent></DropdownMenu>
+                </TableCell>
+              </TableRow>;
+            })}
+          </TableBody>
+        </Table>
+      </div>
+<ListPagination
+  page={page}
+  totalPages={totalPages}
+  totalRecords={visibleRows.length}
+  pageSize={10}
+  recordLabel="campaigns"
+  onPageChange={setPage}
+/>
+{/* Approve campaign */}
+<Dialog
+  open={Boolean(approveCampaign)}
+  onOpenChange={(open) => {
+    if (!open && !approvingCampaign) {
+      setApproveCampaign(null);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Approve campaign?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Are you sure you want to approve and publish{" "}
+        <span className="font-medium text-dark">
+          {approveCampaign?.title ||
+            approveCampaign?.campaign_name ||
+            `Campaign #${approveCampaign ? idOf(approveCampaign) : ""}`}
+        </span>
+        ?
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={approvingCampaign}
+          onClick={() => setApproveCampaign(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          disabled={approvingCampaign}
+          onClick={() => void confirmApproveCampaign()}
+        >
+          <Icon icon="solar:check-circle-bold" />
+          {approvingCampaign ? "Publishing…" : "Approve & Publish"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Decline campaign */}
+<Dialog
+  open={Boolean(declineCampaign)}
+  onOpenChange={(open) => {
+    if (!open && !decliningCampaign) {
+      setDeclineCampaign(null);
+      setDeclineReason("");
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Decline campaign?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Please provide a reason for declining{" "}
+        <span className="font-medium text-dark">
+          {declineCampaign?.title ||
+            declineCampaign?.campaign_name ||
+            `Campaign #${declineCampaign ? idOf(declineCampaign) : ""}`}
+        </span>
+        .
+      </p>
+
+      <textarea
+        value={declineReason}
+        onChange={(e) => setDeclineReason(e.target.value)}
+        placeholder="Reason for declining this campaign..."
+        rows={4}
+        className="w-full rounded-md border border-ld bg-transparent px-3 py-2.5"
+      />
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={decliningCampaign}
+          onClick={() => {
+            setDeclineCampaign(null);
+            setDeclineReason("");
+          }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={decliningCampaign}
+          onClick={() => void confirmDeclineCampaign()}
+        >
+          <Icon icon="solar:close-circle-bold" />
+          {decliningCampaign ? "Declining…" : "Decline Campaign"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Empty trash */}
+<Dialog
+  open={emptyTrashOpen}
+  onOpenChange={(open) => {
+    if (!emptyingTrash) {
+      setEmptyTrashOpen(open);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Empty campaign trash?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Permanently delete all trashed campaigns? This action cannot be undone.
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={emptyingTrash}
+          onClick={() => setEmptyTrashOpen(false)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={emptyingTrash}
+          onClick={() => void confirmEmptyTrash()}
+        >
+          <Icon icon="solar:trash-bin-trash-line-duotone" />
+          {emptyingTrash ? "Deleting…" : "Empty Trash"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Bulk trash */}
+<Dialog
+  open={bulkTrashOpen}
+  onOpenChange={(open) => {
+    if (!bulkTrashing) {
+      setBulkTrashOpen(open);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Move selected campaigns to trash?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Are you sure you want to move{" "}
+        <span className="font-medium text-dark">
+          {selected.length} selected campaign{selected.length === 1 ? "" : "s"}
+        </span>{" "}
+        to trash?
+      </p>
+
+      <p className="text-sm text-darklink">
+        You can restore them later from the Trash filter.
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={bulkTrashing}
+          onClick={() => setBulkTrashOpen(false)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={bulkTrashing}
+          onClick={() => void confirmBulkTrash()}
+        >
+          <Icon icon="solar:trash-bin-trash-line-duotone" />
+          {bulkTrashing ? "Moving…" : "Move to Trash"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<Dialog
+  open={Boolean(trashCampaign)}
+  onOpenChange={(open) => {
+    if (!open && !trashingCampaign) {
+      setTrashCampaign(null);
+    }
+  }}
+>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Move campaign to trash?</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <p className="text-sm text-darklink">
+        Are you sure you want to move{" "}
+        <span className="font-medium text-dark">
+          {trashCampaign?.title ||
+            trashCampaign?.campaign_name ||
+            `Campaign #${trashCampaign ? idOf(trashCampaign) : ""}`}
+        </span>{" "}
+        to trash?
+      </p>
+
+      <p className="text-sm text-darklink">
+        You can restore this campaign later from the Trash filter.
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={trashingCampaign}
+          onClick={() => setTrashCampaign(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={trashingCampaign}
+          onClick={() => void confirmTrashCampaign()}
+        >
+          <Icon icon="solar:trash-bin-trash-line-duotone" />
+          {trashingCampaign ? "Moving…" : "Move to trash"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+      <Dialog open={Boolean(updateCampaign)} onOpenChange={(v) => !v && setUpdateCampaign(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Post an update</DialogTitle></DialogHeader>
+          {updateCampaign && <div className="rounded-md border border-ld p-4"><div className="font-medium">{updateCampaign.title || `Campaign #${idOf(updateCampaign)}`}</div><div className="text-sm text-darklink">by {creator(updateCampaign)}</div></div>}
+          <label className="text-sm">Title<input value={updateForm.title} onChange={(e) => setUpdateForm({ ...updateForm, title: e.target.value })} placeholder="e.g. We already reached 50% of the revenue!" className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label>
+          <div>
+            <div className="mb-1 text-sm">Image</div>
+            <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-ld bg-lightgray/30 px-4 text-center">
+              <Icon icon="solar:gallery-add-line-duotone" className="text-3xl" />
+              <span className="text-sm text-darklink">{uploadingUpdateImage ? "Uploading…" : "Click to upload an update image"}</span>
+              <input type="file" accept="image/*" multiple className="hidden" disabled={uploadingUpdateImage} onChange={(e) => uploadUpdateImages(e.target.files)} />
+            </label>
+            {updateImages.length > 0 && <div className="mt-2 text-xs text-darklink">{updateImages.length} image{updateImages.length === 1 ? "" : "s"} uploaded.</div>}
+          </div>
+          <label className="text-sm">Description<textarea value={updateForm.description} onChange={(e) => setUpdateForm({ ...updateForm, description: e.target.value })} rows={5} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2.5" /></label>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setUpdateCampaign(null)} disabled={postingUpdate}>Cancel</Button><Button onClick={submitPostUpdate} disabled={postingUpdate || uploadingUpdateImage}>{postingUpdate ? "Posting…" : "Post"}</Button></div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(updatesCampaign)} onOpenChange={(v) => { if (!v) { setUpdatesCampaign(null); setSelectedUpdate(null); } }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>Campaign updates</DialogTitle></DialogHeader>
+          {updatesCampaign && <div className="flex items-center justify-between rounded-md border border-ld p-4"><div><div className="font-medium">{updatesCampaign.title || `Campaign #${idOf(updatesCampaign)}`}</div><div className="text-sm text-darklink">Published updates for this campaign</div></div><Button size="sm" onClick={() => { const r = updatesCampaign; setUpdatesCampaign(null); openPostUpdate(r); }}><Icon icon="solar:add-circle-line-duotone" /> New update</Button></div>}
+          <div className="max-h-[60vh] overflow-y-auto">
+            {updatesLoading ? <div className="py-10 text-center text-darklink">Loading updates…</div> : campaignUpdates.length === 0 ? <div className="py-10 text-center text-darklink">No updates have been posted for this campaign.</div> : !selectedUpdate ? <div className="divide-y divide-border">{campaignUpdates.map((u) => { const uid = campaignUpdateId(u); return <button key={uid || JSON.stringify(u)} type="button" onClick={() => openUpdateDetail(u)} className="w-full px-2 py-4 text-left hover:bg-lightgray/30"><div className="flex items-start justify-between gap-4"><div><div className="font-medium">{u?.title || u?.post_title || `Update #${uid}`}</div><div className="mt-1 line-clamp-2 text-sm text-darklink">{u?.description || u?.content || u?.post_content || ""}</div></div><div className="whitespace-nowrap text-xs text-darklink">{fmtDate(u?.date_created || u?.created_at || u?.date || u?.post_date)}</div></div></button>; })}</div> : <div className="space-y-4 p-1">
+              <Button variant="outline" size="sm" onClick={() => { setSelectedUpdate(null); setUpdateComments([]); }}><Icon icon="solar:arrow-left-line-duotone" /> Back to updates</Button>
+              <div><h6 className="text-lg font-semibold">{selectedUpdate?.title || selectedUpdate?.post_title || "Campaign update"}</h6><div className="mt-1 text-xs text-darklink">{fmtDate(selectedUpdate?.date_created || selectedUpdate?.created_at || selectedUpdate?.date || selectedUpdate?.post_date)}</div><div className="mt-3 whitespace-pre-wrap text-sm">{selectedUpdate?.description || selectedUpdate?.content || selectedUpdate?.post_content || ""}</div></div>
+              <div className="border-t border-border pt-4"><div className="mb-3 font-medium">Comments</div>{commentsLoading ? <div className="text-sm text-darklink">Loading comments…</div> : updateComments.length === 0 ? <div className="text-sm text-darklink">No comments yet.</div> : <div className="space-y-3">{updateComments.map((c, i) => <div key={c?.id || c?.comment_id || i} className="rounded-md border border-ld p-3"><div className="text-sm">{c?.content || c?.comment_content || c?.message || ""}</div><div className="mt-1 text-xs text-darklink">{c?.author_name || c?.user?.name || c?.name || ""}{(c?.date_created || c?.created_at || c?.date) ? ` • ${fmtDate(c?.date_created || c?.created_at || c?.date)}` : ""}</div></div>)}</div>}
+                <div className="mt-4 flex gap-2"><input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment…" className="flex-1 rounded-md border border-ld bg-transparent px-3 py-2.5" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void addUpdateComment(); } }} /><Button onClick={addUpdateComment} disabled={commentBusy || !commentText.trim()}>{commentBusy ? "Posting…" : "Comment"}</Button></div>
+              </div>
+            </div>}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </CardBox>
+  );
+}

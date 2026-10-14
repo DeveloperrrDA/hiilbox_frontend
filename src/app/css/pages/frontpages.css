@@ -1,0 +1,105 @@
+.bg-lightbtn {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.container-1218 {
+    max-width: 1218px;
+    padding: 0 20px;
+}
+
+
+.marquee1-group {
+    animation: marquee 45s linear infinite;
+}
+
+.marquee2-group {
+    animation: marquee2 45s linear infinite;
+}
+
+
+@keyframes marquee {
+    0% {
+        transform: translate3d(0, 0, 0);
+    }
+
+    100% {
+        transform: translate3d(-2086px, 0, 0);
+    }
+}
+
+@keyframes marquee2 {
+    0% {
+        transform: translate3d(-2086px, 0, 0)
+    }
+
+    100% {
+        transform: translate3d(0, 0, 0)
+    }
+}
+
+/* Hiilbox payment methods: two identical sets form one continuous track.
+   -50% lands exactly on the second set, so there is never an empty left edge. */
+.hiilbox-payment-marquee-track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+    animation: hiilbox-payment-marquee 34s linear infinite;
+}
+
+.hiilbox-payment-marquee-set {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2.5rem;
+    padding-right: 2.5rem;
+}
+
+@keyframes hiilbox-payment-marquee {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+/* Homepage hero content enters from the right while preserving its original layout. */
+.hiilbox-hero-enter {
+    animation: hiilbox-hero-from-right 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hiilbox-hero-from-right {
+    from {
+        opacity: 0;
+        transform: translate3d(64px, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hiilbox-payment-marquee-track,
+    .hiilbox-hero-enter {
+        animation: none !important;
+        transform: none !important;
+    }
+}
+
+/* Any legacy hard-coded blue action left in the theme is displayed in Hiilbox green.
+   This targets interactive elements only; informational blue content remains unchanged. */
+button[class*="bg-blue-"],
+a[class*="bg-blue-"],
+[role="button"][class*="bg-blue-"] {
+    background-color: #01A14B !important;
+    border-color: #01A14B !important;
+    color: #ffffff !important;
+}
+
+button[class*="text-blue-"],
+a[class*="text-blue-"][class*="border"],
+[role="button"][class*="text-blue-"] {
+    color: #01A14B !important;
+    border-color: #01A14B !important;
+}

@@ -1,0 +1,118 @@
+import { Icon } from "@iconify/react";
+import Link from "next/link";
+import * as MessagesData from "./Data";
+import React, { useContext, useEffect } from "react";
+import Image from "next/image";
+import { dashboardApi } from "@/lib/dashboard/api";
+import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
+import SimpleBar from "simplebar-react";
+import "simplebar-react/dist/simplebar.min.css";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { CustomizerContext } from "@/app/context/CustomizerContext";
+import { Button } from "@/components/ui/button";
+
+const Messages = () => {
+  const { activeDir } = useContext(CustomizerContext);
+useEffect(() => {
+  const user = savedDashboardUser();
+console.log("MESSAGES SAVED DASHBOARD USER:", user);
+  if (dashboardRole(user) !== "fundraiser") {
+    return;
+  }
+
+  const fundraiserId = Number(user?.id);
+  const token = localStorage.getItem("access_token") || "";
+
+  if (!fundraiserId || !token) {
+    return;
+  }
+
+  async function loadActivities() {
+  try {
+    const data = await dashboardApi(
+      `fundraiser/${fundraiserId}/activities?page=1&per_page=10&orderby=id&order=desc`
+    );
+
+    console.log("FUNDRAISER ACTIVITIES:", data);
+  } catch (error) {
+    console.error("Unable to load fundraiser activities:", error);
+  }
+}
+  void loadActivities();
+}, []);
+  return (
+    <div className="relative group/menu">
+      <DropdownMenu dir={activeDir === "rtl" ? "rtl" : "ltr"}>
+        <DropdownMenuTrigger asChild>
+          <div className="relative">
+            <span className="h-10 w-10 hover:bg-lightprimary rounded-full flex justify-center items-center cursor-pointer group-hover/menu:bg-lightprimary group-hover/menu:text-primary">
+              <Icon icon="solar:inbox-line-line-duotone" height={20} />
+            </span>
+            <span className="rounded-full absolute end-1 top-[4px] bg-primary text-[10px] h-4 w-4 flex justify-center items-center text-white">
+              3
+            </span>
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className=" w-screen sm:w-[360px] py-6  rounded-sm px-0 ">
+          <div className="flex items-center  px-6 justify-between">
+            <h3 className="mb-0 text-lg font-semibold text-ld">Inbox</h3>
+            <Badge variant="warning">3 new</Badge>
+          </div>
+          <SimpleBar className="max-h-80 mt-3">
+            {MessagesData.MessagesLink.map((links, index) => (
+              <DropdownMenuItem
+                className="px-6 py-3 flex justify-between items-center bg-hover group/link w-full cursor-pointer"
+                key={index}
+              >
+                <div className="flex items-center">
+                  <span className="flex-shrink-0 relative">
+                    <Image
+                      src={links.avatar}
+                      width={45}
+                      height={45}
+                      alt="materialm"
+                      className="rounded-full"
+                    />
+                    <i
+                      className={`h-2 w-2 rounded-full absolute end-0 top-0 ${links.color}`}
+                    ></i>
+                  </span>
+                  <div className="ps-4">
+                    <h5 className="mb-1 text-sm  group-hover/link:text-primary">
+                      {links.title}
+                    </h5>
+                    <span className="text-xs block  truncate text-darklink">
+                      {links.subtitle}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs block self-start pt-1.5">
+                  {links.time}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </SimpleBar>
+
+          <div className="pt-5 px-6">
+            <Button
+              color="primary"
+              className="w-full  rounded-full"
+              variant="outline"
+            >
+              <Link href="/apps/contacts"> See All Messages</Link>
+            </Button>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
+export default Messages;

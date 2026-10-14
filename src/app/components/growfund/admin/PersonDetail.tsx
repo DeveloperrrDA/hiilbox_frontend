@@ -1,0 +1,738 @@
+"use client";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {useParams} from "next/navigation";
+import CardBox from "@/app/components/shared/CardBox";
+import {adminApi,dataFrom,rowsFrom} from "./adminApi";
+import {Button} from "@/components/ui/button";
+import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from "@/components/ui/table";
+import {dashboardRole,savedDashboardUser} from "@/lib/dashboard/roles";
+function donorId(d:any){return Number(d?.donor?.id??d?.donor?.ID??d?.donor?.user_id??d?.user?.id??d?.user?.ID??d?.donor_id??d?.user_id??0)}
+function donorEmail(d:any){return String(d?.donor?.email??d?.donor?.user_email??d?.user?.email??d?.user?.user_email??d?.email??d?.user_email??"").trim().toLowerCase()}
+function personEmail(d:any){return String(d?.email??d?.user_email??"").trim().toLowerCase()}
+function completed(d: any) {
+  const s = String(
+    d?.payment_status ??
+    d?.status ??
+    d?.donation_status ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return [
+    "completed",
+    "complete",
+    "paid",
+    "approved",
+    "success",
+    "successful",
+  ].includes(s);
+}function donationAmount(d:any){return Number(d?.amount??d?.donation_amount??d?.total??0)}
+function donationDate(d:any){const raw=d?.created_at??d?.date_created??d?.date;const date=raw?new Date(raw):null;return date&&!Number.isNaN(date.getTime())?date:null}
+export default function PersonDetail({kind}:{kind:"donor"|"fundraiser"}){
+const { id } = useParams<{ id: string }>();
+
+const [p, setP] = useState<any>({});
+const [don, setDon] = useState<any[]>([]);
+const [campaigns, setCampaigns] = useState<any[]>([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState("");
+const [editOpen, setEditOpen] = useState(false);
+const [actionBusy, setActionBusy] = useState(false);
+const [actionNotice, setActionNotice] = useState("");
+const [profile, setProfile] = useState({
+  first_name: "",
+  last_name: "",
+  email: "",
+  username: "",
+  phone: "",
+});
+
+const [viewerRole, setViewerRole] = useState("");
+
+useEffect(() => {
+  setViewerRole(dashboardRole(savedDashboardUser()));
+}, []);
+
+const isAdminViewer = viewerRole === "admin";
+
+const [tab, setTab] = useState<
+  "overview" | "campaigns" | "donations"
+>("overview");
+
+const [page, setPage] = useState(1); 
+ useEffect(()=>{(async()=>{setLoading(true);setError("");setCampaigns([]);try{const role=dashboardRole(savedDashboardUser());if(kind==="donor"&&role==="fundraiser"){const token=localStorage.getItem("access_token")||"",headers={Authorization:`Bearer ${token}`};const[dr,rr]=await Promise.all([fetch("/api/dashboard/fundraiser-donors",{headers,cache:"no-store"}),fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"})]);const dj=await dr.json(),rj=await rr.json();if(!dr.ok)throw new Error(dj?.message||"Unable to load donor.");const donors=Array.isArray(dj?.data)?dj.data:[],person=donors.find((x:any)=>Number(x?.id??x?.user_id??x?.donor_id)===Number(id));if(!person)throw new Error("This donor was not found among donors to your campaigns.");setP(person);const all=Array.isArray(rj?.data)?rj.data:[],selectedId=Number(person?.id??person?.user_id??person?.donor_id??id),selectedEmail=personEmail(person);setDon(all.filter((x:any)=>completed(x)&&((selectedId>0&&donorId(x)===selectedId)||(!donorId(x)&&selectedEmail&&donorEmail(x)===selectedEmail))));}else{const x=dataFrom(await adminApi(`${kind}/${id}/overview`));setP(x?.[kind]||x);setLoading(false);try{if (kind === "donor") {
+  const donorRows = rowsFrom(
+    await adminApi(
+      `donations/paginated?page=1&per_page=100&user_id=${Number(id)}&orderby=id&order=desc`
+    )
+  );
+
+  setDon(donorRows);
+}else{
+const campaignRows = rowsFrom(
+  await adminApi(
+    `campaigns?page=1&per_page=100&status=all`
+  )
+);
+
+const owned = campaignRows.filter(
+  (c: any) =>
+    Number(
+      c?.author?.id ??
+        c?.author_id ??
+        c?.fundraiser?.id ??
+        c?.fundraiser_id ??
+        c?.user_id ??
+        c?.created_by ??
+        c?.owner_id ??
+        0
+    ) === Number(id)
+);
+
+setCampaigns(owned);
+
+const batches = await Promise.all(
+  owned.map((c: any) =>
+    adminApi(
+      `donations/paginated?page=1&per_page=100&campaign_id=${Number(
+        c?.id ?? 0
+      )}&orderby=id&order=desc`
+    )
+      .then(rowsFrom)
+      .catch(() => [])
+  )
+); const seen=new Set<number>();const onlyPaid=batches.flat().filter((d:any)=>{const donationId=Number(d?.id??d?.donation_id??0);if(donationId&&seen.has(donationId))return false;if(donationId)seen.add(donationId);return completed(d)});setDon(onlyPaid)}}catch{setDon([])}}}catch(e){setError(e instanceof Error?e.message:"Unable to load details.");}finally{setLoading(false)}})()},[id,kind]);
+ const completedDonations = useMemo(
+  () => don.filter(completed),
+  [don]
+);
+
+const sorted = useMemo(
+  () =>
+    [...completedDonations].sort(
+      (a, b) =>
+        (donationDate(b)?.getTime() || 0) -
+        (donationDate(a)?.getTime() || 0)
+    ),
+  [completedDonations]
+);const pages=Math.max(1,Math.ceil(sorted.length/10)),pageRows=sorted.slice((page-1)*10,page*10);
+ if(loading)return <CardBox>Loading…</CardBox>;if(error)return <CardBox><div className="rounded-md bg-lighterror px-4 py-3 text-error">{error}</div></CardBox>;
+ const u = p?.user ?? p?.donor ?? p?.fundraiser ?? p?.profile ?? p;
+ const name=[u.first_name,u.last_name].filter(Boolean).join(" ")||u.display_name||u.name||`${kind} #${id}`,scopedTotal=completedDonations.reduce((s,d)=>s+donationAmount(d),0),total=kind==="fundraiser"?scopedTotal:(completedDonations.length
+  ? scopedTotal
+  : Number(p.total_given ?? p.total_contributions ?? 0)),count=kind==="fundraiser"?don.length:completedDonations.length,avg=count?total/count:0,camps =
+  kind === "fundraiser"
+    ? campaigns.length
+    : new Set(
+        completedDonations
+          .map(
+            (d) =>
+              d?.campaign?.id ??
+              d?.campaign_id
+          )
+          .filter(Boolean)
+      ).size;
+      function openEditProfile() {
+  const u = p?.user ?? p?.donor ?? p?.profile ?? p;
+
+  setProfile({
+    first_name: String(u.first_name ?? ""),
+    last_name: String(u.last_name ?? ""),
+    email: String(u.email ?? u.user_email ?? ""),
+    username: String(u.username ?? u.user_login ?? ""),
+    phone: String(u.phone ?? ""),
+  });
+
+  setEditOpen(true);
+}
+
+async function saveProfile(e: FormEvent) {
+  e.preventDefault();
+  setActionBusy(true);
+  setError("");
+
+  try {
+    await adminApi(`donor/${id}/update`, {
+      method: "POST",
+      body: JSON.stringify(profile),
+    });
+
+    setP((previous: any) => ({
+      ...previous,
+      ...profile,
+      donor: previous?.donor
+        ? { ...previous.donor, ...profile }
+        : previous?.donor,
+    }));
+
+    setActionNotice("Donor profile updated successfully.");
+    setEditOpen(false);
+  } catch (error) {
+    setError(error instanceof Error ? error.message : "Update failed.");
+  } finally {
+    setActionBusy(false);
+  }
+}
+
+async function makeFundraiser() {
+  if (!confirm("Make this donor a fundraiser?")) return;
+
+  setActionBusy(true);
+  setError("");
+
+  try {
+    await adminApi("fundraiser/make-fundraiser", {
+      method: "POST",
+      body: JSON.stringify({ user_id: Number(id) }),
+    });
+
+    setActionNotice("Donor successfully made a fundraiser.");
+  } catch (error) {
+    setError(error instanceof Error ? error.message : "Conversion failed.");
+  } finally {
+    setActionBusy(false);
+  }
+}
+return <div className="space-y-5">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-xl font-semibold">{name}</h2>
+
+    {kind === "donor" && isAdminViewer && (
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={actionBusy}
+          onClick={openEditProfile}
+        >
+          Edit Profile
+        </Button>
+
+        <Button
+          disabled={actionBusy}
+          onClick={makeFundraiser}
+        >
+          Make Fundraiser
+        </Button>
+      </div>
+    )}
+  </div>
+
+  {actionNotice && (
+    <p className="text-sm text-green-600">{actionNotice}</p>
+  )}<div className="flex gap-2 border-b border-ld">
+    <button
+  className={`px-4 py-3 text-sm font-medium ${
+    tab === "overview"
+      ? "border-b-2 border-primary text-primary"
+      : "text-darklink"
+  }`}
+  onClick={() => {
+    setTab("overview");
+    setPage(1);
+  }}
+>
+  Overview
+</button>
+
+{kind === "fundraiser" && (
+  <button
+    className={`px-4 py-3 text-sm font-medium ${
+      tab === "campaigns"
+        ? "border-b-2 border-primary text-primary"
+        : "text-darklink"
+    }`}
+    onClick={() => {
+      setTab("campaigns");
+      setPage(1);
+    }}
+  >
+    Campaigns
+  </button>
+)}
+
+<button
+  className={`px-4 py-3 text-sm font-medium ${
+    tab === "donations"
+      ? "border-b-2 border-primary text-primary"
+      : "text-darklink"
+  }`}
+  onClick={() => {
+    setTab("donations");
+    setPage(1);
+  }}
+>
+  Donations
+</button>
+{editOpen && kind === "donor" && isAdminViewer && (
+  <div className="rounded-xl border border-ld p-5">
+    <h3 className="mb-4 font-semibold">Edit Donor Profile</h3>
+
+    <form onSubmit={saveProfile} className="grid gap-3 sm:grid-cols-2">
+      {(
+        [
+          ["first_name", "First Name"],
+          ["last_name", "Last Name"],
+          ["email", "Email"],
+          ["username", "Username"],
+          ["phone", "Phone"],
+        ] as const
+      ).map(([key, label]) => (
+        <label key={key} className="text-sm">
+          {label}
+          <input
+            required={key === "first_name" || key === "email" || key === "username"}
+            type={key === "email" ? "email" : "text"}
+            value={profile[key]}
+            onChange={(e) =>
+              setProfile((current) => ({
+                ...current,
+                [key]: e.target.value,
+              }))
+            }
+            className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"
+          />
+        </label>
+      ))}
+
+      <div className="flex gap-2 sm:col-span-2">
+        <Button type="submit" disabled={actionBusy}>
+          Save Changes
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setEditOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  </div>
+)}
+ </div>
+ {tab==="overview"&&<><div className="grid grid-cols-2 gap-5 xl:grid-cols-4">{[
+  [
+    kind === "fundraiser"
+      ? "Total Raised"
+      : "Total Donated",
+    `$${total.toFixed(2)}`,
+  ],
+  [
+    "Average Donation",
+    `$${avg.toFixed(2)}`,
+  ],
+  [
+    kind === "fundraiser"
+      ? "Total Campaigns"
+      : "Donated Campaigns",
+    camps,
+  ],
+  [
+    kind === "fundraiser"
+      ? "Donations Received"
+      : "Total Donations",
+    count,
+  ],
+].map(([a,b])=><CardBox key={String(a)}><p className="text-darklink">{a}</p><h3 className="mt-3 text-2xl font-semibold">{b}</h3></CardBox>)}</div><div className="grid gap-5 lg:grid-cols-[430px_1fr]"><CardBox>
+  <div className="flex items-center gap-4">
+    {u.avatar_url ||
+    u.profile_image ||
+    u.image ||
+    u.avatar ? (
+      <img
+        src={
+          u.avatar_url ??
+          u.profile_image ??
+          u.image.url ??
+          u.avatar
+        }
+        alt={name}
+        className="h-16 w-16 rounded-full object-cover"
+      />
+    ) : (
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-lightprimary text-xl font-semibold text-primary">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    )}
+
+    <div className="min-w-0">
+      <h3 className="truncate text-lg font-semibold">
+        {name}
+      </h3>
+
+      <p className="mt-1 text-sm text-darklink">
+        {kind === "fundraiser"
+          ? "Fundraiser"
+          : "Donor"}{" "}
+        · ID #{id}
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-6 space-y-5">
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-darklink">
+        Email
+      </p>
+
+      <p className="mt-1 break-all font-medium">
+        {u.email ??
+          u.user_email ??
+          "—"}
+      </p>
+    </div>
+
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-darklink">
+        Verification Status
+      </p>
+
+      <div className="mt-2">
+        {[
+  true,
+  1,
+  "1",
+  "true",
+  "verified",
+  "yes",
+].includes(
+  typeof (
+    u.is_verified ??
+    u.verified ??
+    u.email_verified ??
+    u.is_email_verified ??
+    u.verification_status
+  ) === "string"
+    ? (
+        u.is_verified ??
+        u.verified ??
+        u.email_verified ??
+        u.is_email_verified ??
+        u.verification_status
+      ).toLowerCase()
+    : (
+        u.is_verified ??
+        u.verified ??
+        u.email_verified ??
+        u.is_email_verified ??
+        u.verification_status
+      )
+) ?  (
+          <span className="inline-flex rounded-full bg-lightsuccess px-3 py-1 text-xs font-medium text-success">
+            Verified
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full bg-lightwarning px-3 py-1 text-xs font-medium text-warning">
+            Not verified
+          </span>
+        )}
+      </div>
+    </div>
+
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-darklink">
+        Joined Date
+      </p>
+
+      <p className="mt-1 font-medium">
+        {u.joined_at ||
+        u.user_registered ||
+        u.date_created ||
+        u.created_at
+          ? new Date(
+              u.joined_at ??
+                u.user_registered ??
+                u.date_created ??
+                u.created_at
+            ).toLocaleDateString()
+          : "—"}
+      </p>
+    </div>
+  </div>
+</CardBox><CardBox><h3 className="text-lg font-semibold">{kind==="donor"?"Donor Activities":"Activity Logs"}</h3><div className="mt-5 divide-y divide-ld">{sorted.length?sorted.slice(0,10).map((d,i)=><div key={d.id||d.donation_id||i} className="py-3"><p className="font-medium">{kind==="donor"?"Donation":"Donation received"} #{d.id||d.donation_id||"—"}</p><p className="mt-1 text-sm text-darklink">{d.campaign?.title||d.campaign_title||`Campaign #${d.campaign?.id||d.campaign_id||"—"}`} · ${donationAmount(d).toFixed(2)} · {donationDate(d)?.toLocaleDateString()||"—"}</p></div>):<p className="py-10 text-center text-darklink">No activities found.</p>}</div></CardBox></div></>}
+ {tab === "campaigns" && kind === "fundraiser" && (
+  <CardBox>
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold">
+          Campaigns
+        </h3>
+
+        <p className="mt-1 text-sm text-darklink">
+          {campaigns.length} total campaign
+          {campaigns.length === 1 ? "" : "s"}
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-5 overflow-x-auto">
+      <Table>
+       <TableHeader>
+  <TableRow>
+    {isAdminViewer && <TableHead>ID</TableHead>}
+
+    <TableHead>Campaign</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Goal</TableHead>
+    <TableHead>Raised</TableHead>
+
+    {isAdminViewer && (
+      <TableHead>Donations</TableHead>
+    )}
+
+    <TableHead>Created</TableHead>
+  </TableRow>
+</TableHeader>
+
+        <TableBody>
+          {campaigns.length ? (
+            campaigns.map((campaign: any) => {
+              const campaignId =
+                campaign?.id ?? "—";
+
+              const title =
+                campaign?.title ??
+                campaign?.name ??
+                `Campaign #${campaignId}`;
+
+              const status =
+                campaign?.status ??
+                "—";
+
+              const goal = Number(
+                campaign?.goal_amount ??
+                  campaign?.goal ??
+                  0
+              );
+
+              const raised = Number(
+                campaign?.fund_raised ??
+                  campaign?.raised_amount ??
+                  0
+              );
+
+              const rawDate =
+                campaign?.created_at ??
+                campaign?.start_date ??
+                campaign?.date_created;
+
+              const createdDate = rawDate
+                ? new Date(rawDate)
+                : null;
+
+              return (
+  <TableRow key={campaignId}>
+    {isAdminViewer && (
+      <TableCell>#{campaignId}</TableCell>
+    )}
+
+    <TableCell>
+                    <div>
+                      <p className="font-medium">
+                        {title}
+                      </p>
+
+                      <p className="mt-1 text-xs text-darklink">
+                        #{campaignId}
+                      </p>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="capitalize">
+                    {String(status)
+                      .replace(/-/g, " ")
+                      .replace(/_/g, " ")}
+                  </TableCell>
+
+                  <TableCell>
+                    ${goal.toFixed(2)}
+                  </TableCell>
+
+                  <TableCell>
+  ${raised.toFixed(2)}
+</TableCell>
+
+{isAdminViewer && (
+  <TableCell>
+    {Number(
+      campaign?.donations_count ??
+      campaign?.donation_count ??
+      campaign?.total_donations ??
+      campaign?.donations ??
+      0
+    )}
+  </TableCell>
+)}
+
+<TableCell>
+                    {createdDate &&
+                    !Number.isNaN(
+                      createdDate.getTime()
+                    )
+                      ? createdDate.toLocaleDateString()
+                      : "—"}
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          ) : (
+            <TableRow>
+              <TableCell
+  colSpan={isAdminViewer ? 7 : 5}
+  className="py-10 text-center text-darklink"
+>
+                No campaigns found for this
+                fundraiser.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  </CardBox>
+)}
+{tab === "donations" && (
+  <CardBox>
+    <h3 className="text-lg font-semibold">Donations</h3>
+
+    <div className="mt-5 overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Donation</TableHead>
+            <TableHead>Campaign</TableHead>
+            <TableHead>Amount</TableHead>
+
+            {isAdminViewer && (
+              <>
+                <TableHead>Status</TableHead>
+                <TableHead>Gateway Fee</TableHead>
+                <TableHead>Platform Fee</TableHead>
+                <TableHead>Tip</TableHead>
+                <TableHead>Payment Method</TableHead>
+              </>
+            )}
+
+            <TableHead>Date</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {pageRows.length ? (
+            pageRows.map((d, i) => (
+              <TableRow key={d.id || d.donation_id || i}>
+                <TableCell>
+                  #{d.id || d.donation_id || "—"}
+                </TableCell>
+
+                <TableCell>
+                  {d.campaign?.title ||
+                    d.campaign_title ||
+                    `#${
+                      d.campaign?.id ||
+                      d.campaign_id ||
+                      "—"
+                    }`}
+                </TableCell>
+
+                <TableCell>
+                  ${donationAmount(d).toFixed(2)}
+                </TableCell>
+
+                {isAdminViewer && (
+                  <>
+                    <TableCell className="capitalize">
+                      {String(
+                        d.payment_status ??
+                        d.status ??
+                        d.donation_status ??
+                        "—"
+                      )}
+                    </TableCell>
+
+                    <TableCell>
+  ${(Number(d.gateway_fee ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+
+<TableCell>
+  ${(Number(d.platform_fee ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+
+<TableCell>
+  ${(Number(d.tip_amount ?? 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}
+</TableCell>
+                   <TableCell>
+  {typeof d.payment_method === "object" && d.payment_method !== null
+    ? d.payment_method.label ??
+      d.payment_method.name ??
+      d.payment_method.type ??
+      "—"
+    : d.payment_method ??
+      (typeof d.gateway === "object" && d.gateway !== null
+        ? d.gateway.label ??
+          d.gateway.name ??
+          d.gateway.type ??
+          "—"
+        : d.gateway ?? d.gateway_id ?? "—")}
+</TableCell>
+                  </>
+                )}
+
+                <TableCell>
+                  {donationDate(d)?.toLocaleDateString() || "—"}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={isAdminViewer ? 9 : 4}
+                className="py-10 text-center text-darklink"
+              >
+                No donations found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+
+    <div className="mt-4 flex items-center justify-between">
+      <p className="text-sm text-darklink">
+        Page {page} of {pages} · 10 items per page
+      </p>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => setPage((x) => x - 1)}
+        >
+          Previous
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= pages}
+          onClick={() => setPage((x) => x + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </CardBox>
+)}
+ </div>;
+}

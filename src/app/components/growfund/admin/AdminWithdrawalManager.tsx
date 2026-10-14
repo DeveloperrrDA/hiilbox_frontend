@@ -1,0 +1,1115 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import CardBox from "@/app/components/shared/CardBox";
+import ColumnVisibilityControl from "@/app/components/growfund/shared/ColumnVisibilityControl";
+import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
+import ListPagination from "@/app/components/growfund/shared/ListPagination";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { Icon } from "@iconify/react";
+
+import {
+  adminApi,
+  fmtDate,
+  money,
+  nameOf,
+  rowsFrom,
+} from "./adminApi";
+
+import {
+  isDateInRange,
+  type DateRangeKey,
+} from "@/lib/dashboard/dateRanges";
+
+function deepValue(
+  input: any,
+  keys: string[]
+): any {
+  if (!input || typeof input !== "object") {
+    return undefined;
+  }
+
+  for (const key of keys) {
+    if (
+      input[key] !== undefined &&
+      input[key] !== null &&
+      input[key] !== ""
+    ) {
+      return input[key];
+    }
+  }
+
+  for (const value of Object.values(input)) {
+    if (value && typeof value === "object") {
+      const found = deepValue(value, keys);
+
+      if (found !== undefined) {
+        return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function requestId(row: any) {
+  return Number(
+    row?.withdrawal_request_id ??
+      row?.withdrawal_id ??
+      row?.request_id ??
+      row?.id ??
+      row?.ID ??
+      0
+  );
+}
+
+function requestStatus(row: any) {
+  return String(
+    row?.status ??
+      row?.withdrawal_status ??
+      row?.request_status ??
+      "pending"
+  ).toLowerCase();
+}
+
+function statusVariant(
+  status: string
+):
+  | "lightSuccess"
+  | "lightError"
+  | "lightWarning"
+  | "lightPrimary" {
+  if (
+    [
+      "approved",
+      "paid",
+      "completed",
+      "complete",
+      "success",
+      "successful",
+    ].includes(status)
+  ) {
+    return "lightSuccess";
+  }
+
+  if (
+    [
+      "declined",
+      "rejected",
+      "failed",
+      "cancelled",
+      "canceled",
+    ].includes(status)
+  ) {
+    return "lightError";
+  }
+
+  if (
+    [
+      "pending",
+      "processing",
+      "review",
+      "submitted",
+    ].includes(status)
+  ) {
+    return "lightWarning";
+  }
+
+  return "lightPrimary";
+}
+
+function fundraiserFromRow(row: any) {
+  return (
+    row?.fundraiser ??
+    row?.user ??
+    row?.requester ??
+    row?.owner ??
+    null
+  );
+}
+
+function fundraiserIdFromRow(row: any) {
+  return Number(
+    row?.fundraiser_id ??
+      row?.fundraiser?.id ??
+      row?.fundraiser?.ID ??
+      row?.user_id ??
+      row?.user?.id ??
+      row?.user?.ID ??
+      0
+  );
+}
+function decisionDate(row: any, status: string) {
+  if (
+    status === "approved" ||
+    status === "declined" ||
+    status === "rejected"
+  ) {
+    return deepValue(row, [
+      "approved_at",
+      "declined_at",
+      "rejected_at",
+      "approval_date",
+      "decline_date",
+      "updated_at",
+    ]);
+  }
+
+  return undefined;
+}
+
+function fmtDateTime(value: any) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString();
+}
+export default function AdminWithdrawalManager() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [totalPayable, setTotalPayable] = useState<number | null>(null);
+const [payableError, setPayableError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [busy, setBusy] = useState<
+    number | null
+  >(null);
+
+  const [error, setError] =
+    useState("");
+
+  const [notice, setNotice] =
+    useState("");
+
+  const [search, setSearch] =
+    useState("");
+
+  const [status, setStatus] =
+    useState("all");
+
+  const [dateRange, setDateRange] =
+    useState<DateRangeKey>("this_year");
+
+  const [startDate, setStartDate] =
+    useState("");
+
+  const [endDate, setEndDate] =
+    useState("");
+
+  const [page, setPage] =
+    useState(1);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    setPayableError("");
+setTotalPayable(null);
+
+const token = localStorage.getItem("access_token") || "";
+
+const payableRequest = fetch("/api/admin/total-payable", {
+  headers: { Authorization: `Bearer ${token}` },
+  cache: "no-store",
+})
+  .then(async (response) => {
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to load Total Payable.");
+    }
+    setTotalPayable(result.total_payable);
+  })
+  .catch((error) => {
+    setPayableError(error.message);
+  });
+
+    try {
+      const q = new URLSearchParams({
+        page: "1",
+        per_page: "100",
+        orderby: "id",
+        order: "desc",
+      });
+
+      const response = await adminApi(
+        `fundraiser/withdrawal/requests/paginated?${q.toString()}`
+      );
+
+      const withdrawalRows =
+        rowsFrom(response);
+
+      withdrawalRows.sort((a, b) => {
+        const aDate = new Date(
+          deepValue(a, [
+            "created_at",
+            "date_created",
+            "requested_at",
+            "request_date",
+            "date",
+          ]) || 0
+        ).getTime();
+
+        const bDate = new Date(
+          deepValue(b, [
+            "created_at",
+            "date_created",
+            "requested_at",
+            "request_date",
+            "date",
+          ]) || 0
+        ).getTime();
+
+        return bDate - aDate;
+      });
+
+      setRows(withdrawalRows);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to load withdrawal requests."
+      );
+
+      setRows([]);
+    } finally {
+      setLoading(false);
+      await payableRequest;
+    }
+  }, []);
+
+ useEffect(() => {
+  void load();
+}, [load]);
+
+const withdrawalSummary = useMemo(() => {
+  let totalPayable = 0;
+  let totalPending = 0;
+  let totalApproved = 0;
+
+  const pendingFundraisers = new Set<number>();
+
+  for (const row of rows) {
+    const rawAmount = deepValue(row, [
+      "amount",
+      "withdrawal_amount",
+      "requested_amount",
+    ]);
+
+    const parsedAmount = Number(rawAmount);
+    const amount = Number.isFinite(parsedAmount)
+      ? parsedAmount
+      : 0;
+
+    const rowStatus = requestStatus(row);
+
+    if (
+      [
+        "pending",
+        "processing",
+        "review",
+        "submitted",
+      ].includes(rowStatus)
+    ) {
+      totalPending += amount;
+      totalPayable += amount;
+
+      const fundraiserId =
+        fundraiserIdFromRow(row);
+
+      if (fundraiserId > 0) {
+        pendingFundraisers.add(fundraiserId);
+      }
+    }
+
+    if (rowStatus === "approved") {
+      totalPayable += amount;
+    }
+
+    if (
+      [
+        "approved",
+        "paid",
+        "completed",
+        "complete",
+        "success",
+        "successful",
+      ].includes(rowStatus)
+    ) {
+      totalApproved += amount;
+    }
+  }
+
+  return {
+    totalPayable,
+    totalPending,
+    totalApproved,
+    totalPendingFundraisers:
+      pendingFundraisers.size,
+  };
+}, [rows]);
+
+const visibleRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const st = requestStatus(row);
+
+        if (
+          status !== "all" &&
+          st !== status
+        ) {
+          return false;
+        }
+
+        const fundraiser =
+          fundraiserFromRow(row);
+
+        const fundraiserId =
+          fundraiserIdFromRow(row);
+
+        const haystack = [
+          requestId(row),
+          fundraiserId,
+          nameOf(fundraiser),
+          fundraiser?.email,
+          fundraiser?.user_email,
+          deepValue(row, [
+            "fundraiser_name",
+            "display_name",
+            "user_name",
+          ]),
+          deepValue(row, [
+            "fundraiser_email",
+            "email",
+            "user_email",
+          ]),
+          deepValue(row, [
+            "method",
+            "payment_method",
+            "payout_method",
+          ]),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (
+          search.trim() &&
+          !haystack.includes(
+            search
+              .trim()
+              .toLowerCase()
+          )
+        ) {
+          return false;
+        }
+
+        const rawDate = deepValue(
+          row,
+          [
+            "created_at",
+            "date_created",
+            "requested_at",
+            "request_date",
+            "date",
+          ]
+        );
+
+        const parsedDate = rawDate
+          ? new Date(rawDate)
+          : null;
+
+        if (
+          startDate &&
+          (!parsedDate ||
+            parsedDate <
+              new Date(
+                `${startDate}T00:00:00`
+              ))
+        ) {
+          return false;
+        }
+
+        if (
+          endDate &&
+          (!parsedDate ||
+            parsedDate >
+              new Date(
+                `${endDate}T23:59:59`
+              ))
+        ) {
+          return false;
+        }
+
+        if (
+          !isDateInRange(
+            rawDate,
+            dateRange
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      }),
+    [
+      rows,
+      search,
+      status,
+      dateRange,
+      startDate,
+      endDate,
+    ]
+  );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      visibleRows.length / 10
+    )
+  );
+
+  const pageRows =
+    visibleRows.slice(
+      (page - 1) * 10,
+      page * 10
+    );
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    search,
+    status,
+    dateRange,
+    startDate,
+    endDate,
+  ]);
+
+  async function updateStatus(
+    row: any,
+    action: "approve" | "decline"
+  ) {
+    const id = requestId(row);
+
+    if (!id) {
+      setError(
+        "Unable to identify this withdrawal request."
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        `${
+          action === "approve"
+            ? "Approve"
+            : "Decline"
+        } withdrawal request #${id}?`
+      )
+    ) {
+      return;
+    }
+
+    const note = prompt(
+      "Optional note:",
+      ""
+    );
+
+    if (note === null) {
+      return;
+    }
+
+    setBusy(id);
+    setError("");
+    setNotice("");
+
+    try {
+      const response =
+        await adminApi(
+          "fundraiser/withdrawal/request/update-status",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              withdrawal_request_id:
+                id,
+              action,
+              ...(note.trim()
+                ? {
+                    note: note.trim(),
+                  }
+                : {}),
+            }),
+          }
+        );
+
+      setNotice(
+        response?.message ||
+          `Withdrawal ${
+            action === "approve"
+              ? "approved"
+              : "declined"
+          }.`
+      );
+
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to update withdrawal request."
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <CardBox className="w-full !max-w-none">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h5 className="card-title">
+            Withdrawals
+          </h5>
+
+          <p className="mt-1 text-sm text-darklink">
+            Review fundraiser withdrawal
+            requests and approve or decline
+            them.
+          </p>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={() =>
+            void load()
+          }
+          disabled={loading}
+        >
+          <Icon icon="solar:refresh-line-duotone" />
+          Refresh
+               </Button>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-ld p-5">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm text-darklink">
+        Total Payable
+      </p>
+
+      <h4 className="mt-2 text-2xl font-semibold">
+       {loading
+  ? "…"
+  : totalPayable === null
+    ? "—"
+    : money(totalPayable)}
+      </h4>
+    </div>
+
+    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
+      <Icon
+        icon="solar:wallet-money-line-duotone"
+        height={25}
+      />
+    </span>
+  </div>
+</div>
+        <div className="rounded-xl border border-ld p-5">
+          
+          <div className="flex items-center justify-between">
+            
+            <div>
+              
+              <p className="text-sm text-darklink">
+                Total Pending
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : money(
+                      withdrawalSummary.totalPending
+                    )}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightwarning text-warning">
+              <Icon
+                icon="solar:hourglass-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-ld p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Approved
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : money(
+                      withdrawalSummary.totalApproved
+                    )}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightsuccess text-success">
+              <Icon
+                icon="solar:check-circle-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-ld p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Pending Fundraisers
+              </p>
+
+              <h4 className="mt-2 text-2xl font-semibold">
+                {loading
+                  ? "…"
+                  : withdrawalSummary.totalPendingFundraisers}
+              </h4>
+            </div>
+
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
+              <Icon
+                icon="solar:users-group-rounded-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_200px]">
+        <input
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+          placeholder="Search withdrawals or fundraiser"
+          className="rounded-md border border-ld bg-transparent px-3 py-2.5"
+        />
+
+        <select
+          value={status}
+          onChange={(e) =>
+            setStatus(e.target.value)
+          }
+          className="rounded-md border border-ld bg-transparent px-3"
+        >
+          <option value="all">
+            All statuses
+          </option>
+          <option value="pending">
+            Pending
+          </option>
+          <option value="approved">
+            Approved
+          </option>
+          <option value="declined">
+            Declined
+          </option>
+          <option value="processing">
+            Processing
+          </option>
+          <option value="paid">
+            Paid
+          </option>
+        </select>
+
+        <DatePresetSelect
+          value={dateRange}
+          onChange={setDateRange}
+        />
+
+       
+      </div>
+{(search ||
+  status !== "all" ||
+  dateRange !== "all" ||
+  startDate ||
+  endDate) && (
+  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+    <span className="text-darklink">
+      Active filters:
+    </span>
+
+    {search && (
+      <Badge variant="lightPrimary">
+        Search: {search}
+      </Badge>
+    )}
+
+    {status !== "all" && (
+      <Badge variant="lightPrimary">
+        Status: {status}
+      </Badge>
+    )}
+
+    {dateRange !== "all" && (
+      <Badge variant="lightPrimary">
+        Date: {dateRange.replaceAll("_", " ")}
+      </Badge>
+    )}
+
+    {(startDate || endDate) && (
+      <Badge variant="lightPrimary">
+        Custom: {startDate || "…"} – {endDate || "…"}
+      </Badge>
+    )}
+
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        setSearch("");
+        setStatus("all");
+        setDateRange("all");
+        setStartDate("");
+        setEndDate("");
+      }}
+    >
+      Clear filters
+    </Button>
+  </div>
+)}
+      {notice && (
+        <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">
+          {notice}
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-4 flex justify-end">
+        <ColumnVisibilityControl
+          tableClass="admin-withdrawals-table"
+          columns={[
+            "Request",
+            "Fundraiser",
+            "Amount",
+            "Method",
+            "Status",
+            "Date",
+            "Actions",
+          ]}
+        />
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <Table className="admin-withdrawals-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                Request
+              </TableHead>
+
+              <TableHead>
+                Fundraiser
+              </TableHead>
+
+              <TableHead>
+                Amount
+              </TableHead>
+
+              <TableHead>
+                Method
+              </TableHead>
+
+              <TableHead>
+                Status
+              </TableHead>
+
+              <TableHead>
+                Date
+              </TableHead>
+
+              <TableHead className="text-right">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="py-10 text-center"
+                >
+                  Loading withdrawals…
+                </TableCell>
+              </TableRow>
+            ) : visibleRows.length ===
+              0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="py-10 text-center text-darklink"
+                >
+                  No withdrawal requests
+                  found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              pageRows.map(
+                (row, index) => {
+                  const id =
+                    requestId(row);
+
+                  const st =
+                    requestStatus(row);
+
+                    const statusDate = decisionDate(row, st);
+
+                  const fundraiser =
+                    fundraiserFromRow(
+                      row
+                    );
+
+                  const fundraiserId =
+                    fundraiserIdFromRow(
+                      row
+                    );
+
+                  const fundraiserName =
+                    nameOf(
+                      fundraiser
+                    ) ||
+                    String(
+                      deepValue(row, [
+                        "fundraiser_name",
+                        "display_name",
+                        "user_name",
+                      ]) ?? ""
+                    );
+
+                  const fundraiserEmail =
+                    fundraiser?.email ||
+                    fundraiser?.user_email ||
+                    deepValue(row, [
+                      "fundraiser_email",
+                      "email",
+                      "user_email",
+                    ]);
+
+                  const rowCurrency =
+                    String(
+                      deepValue(row, [
+                        "currency",
+                        "currency_code",
+                        "currency_symbol",
+                      ]) ?? "$"
+                    );
+
+                  const amount =
+                    deepValue(row, [
+                      "amount",
+                      "withdrawal_amount",
+                      "requested_amount",
+                    ]);
+
+                  const method =
+                    deepValue(row, [
+                      "method",
+                      "payment_method",
+                      "payout_method",
+                      "withdrawal_method",
+                    ]);
+
+                  const date =
+                    deepValue(row, [
+                      "created_at",
+                      "date_created",
+                      "requested_at",
+                      "request_date",
+                      "date",
+                    ]);
+
+                  const canReview =
+                    [
+                      "pending",
+                      "review",
+                      "submitted",
+                      "processing",
+                    ].includes(st);
+
+                  return (
+                    <TableRow
+                      key={`${
+                        id ||
+                        "request"
+                      }-${
+                        fundraiserId ||
+                        "fundraiser"
+                      }-${index}`}
+                    >
+                      <TableCell>
+                        #
+                        {id ||
+                          "—"}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="font-medium">
+                          {fundraiserName ||
+                            (fundraiserId
+                              ? `Fundraiser #${fundraiserId}`
+                              : "—")}
+                        </div>
+
+                        <div className="text-xs text-darklink">
+                          {fundraiserEmail ||
+                            "—"}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="font-medium">
+                        {money(
+                          amount ??
+                            0,
+                          rowCurrency
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {String(
+                          method ??
+                            "—"
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+  <div className="flex items-center gap-2">
+    <Badge variant={statusVariant(st)}>
+      {st}
+    </Badge>
+
+    {["approved", "declined", "rejected"].includes(st) &&
+      statusDate && (
+        <button
+          type="button"
+          title={`${
+            st === "approved"
+              ? "Approved"
+              : "Declined"
+          }: ${fmtDateTime(statusDate)}`}
+          aria-label={`${
+            st === "approved"
+              ? "Approved"
+              : "Declined"
+          } on ${fmtDateTime(statusDate)}`}
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-ld text-xs font-semibold text-darklink hover:bg-lightgray"
+        >
+          i
+        </button>
+      )}
+  </div>
+</TableCell>
+
+                      <TableCell>
+                        {fmtDate(
+                          date
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        {canReview ? (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-success"
+                              disabled={
+                                busy ===
+                                id
+                              }
+                              onClick={() =>
+                                updateStatus(
+                                  row,
+                                  "approve"
+                                )
+                              }
+                            >
+                              <Icon icon="solar:check-circle-line-duotone" />
+                              Approve
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-error"
+                              disabled={
+                                busy ===
+                                id
+                              }
+                              onClick={() =>
+                                updateStatus(
+                                  row,
+                                  "decline"
+                                )
+                              }
+                            >
+                              <Icon icon="solar:close-circle-line-duotone" />
+                              Decline
+                            </Button>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+              )
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+     <ListPagination
+  page={page}
+  totalPages={totalPages}
+  totalRecords={visibleRows.length}
+  pageSize={10}
+  onPageChange={setPage}
+/>
+    </CardBox>
+  );
+}
