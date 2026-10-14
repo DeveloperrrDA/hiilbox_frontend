@@ -6,6 +6,7 @@ import {
   getCampaignUpdates
 } from "@/lib/campaigns";
 import { type CampaignUpdate } from "@/lib/campaigns";
+import { getYouTubeId } from "@/lib/youtube";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
@@ -305,7 +306,7 @@ const extractedUpdates = campaignUpdatesResponse.data;
 
   const fundraiserInitial =
     fundraiserName.charAt(0).toUpperCase();
-
+const youtubeId = getYouTubeId(campaign.video?.url);
   const imageUrl =
     campaign.image_url ||
     campaign.images?.[0]?.url ||
@@ -350,24 +351,29 @@ const extractedUpdates = campaignUpdatesResponse.data;
             </h1>
             <div className="relative aspect-[16/7] overflow-hidden rounded-[16px] bg-gray-100 mb-10">
             
-          {imageUrl ? (
-            // Use the already-normalized campaign URL directly here. The
-            // campaign cards use the same URL successfully; avoiding the
-            // Next image pipeline on this server-rendered detail page also
-            // avoids remote-image/proxy differences between the two views.
-            <img
-              src={imageUrl}
-              alt={campaign.title}
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="eager"
-              decoding="async"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">
-              No image available
-            </div>
-          )}
+          {youtubeId ? (
+  <iframe
+    src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
+    title={`${campaign.title} - Campaign video`}
+    className="absolute inset-0 h-full w-full"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerPolicy="strict-origin-when-cross-origin"
+    allowFullScreen
+  />
+) : imageUrl ? (
+  <img
+    src={imageUrl}
+    alt={campaign.title}
+    className="absolute inset-0 h-full w-full object-cover"
+    loading="eager"
+    decoding="async"
+    referrerPolicy="no-referrer"
+  />
+) : (
+  <div className="flex h-full items-center justify-center text-sm text-gray-400">
+    No image available
+  </div>
+)}
         </div>
             {/* Fundraiser */}
 

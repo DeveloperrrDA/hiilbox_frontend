@@ -187,6 +187,8 @@ function fmtDateTime(value: any) {
 }
 export default function AdminWithdrawalManager() {
   const [rows, setRows] = useState<any[]>([]);
+  const [totalPayable, setTotalPayable] = useState<number | null>(null);
+const [payableError, setPayableError] = useState("");
   const [loading, setLoading] =
     useState(true);
 
@@ -221,6 +223,25 @@ export default function AdminWithdrawalManager() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    setPayableError("");
+setTotalPayable(null);
+
+const token = localStorage.getItem("access_token") || "";
+
+const payableRequest = fetch("/api/admin/total-payable", {
+  headers: { Authorization: `Bearer ${token}` },
+  cache: "no-store",
+})
+  .then(async (response) => {
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to load Total Payable.");
+    }
+    setTotalPayable(result.total_payable);
+  })
+  .catch((error) => {
+    setPayableError(error.message);
+  });
 
     try {
       const q = new URLSearchParams({
@@ -272,6 +293,7 @@ export default function AdminWithdrawalManager() {
       setRows([]);
     } finally {
       setLoading(false);
+      await payableRequest;
     }
   }, []);
 
@@ -596,11 +618,11 @@ const visibleRows = useMemo(
       </p>
 
       <h4 className="mt-2 text-2xl font-semibold">
-        {loading
-          ? "…"
-          : money(
-              withdrawalSummary.totalPayable
-            )}
+       {loading
+  ? "…"
+  : totalPayable === null
+    ? "—"
+    : money(totalPayable)}
       </h4>
     </div>
 

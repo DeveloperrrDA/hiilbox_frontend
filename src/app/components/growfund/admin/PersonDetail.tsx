@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {useParams} from "next/navigation";
 import CardBox from "@/app/components/shared/CardBox";
 import {adminApi,dataFrom,rowsFrom} from "./adminApi";
@@ -37,6 +37,16 @@ const [don, setDon] = useState<any[]>([]);
 const [campaigns, setCampaigns] = useState<any[]>([]);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState("");
+const [editOpen, setEditOpen] = useState(false);
+const [actionBusy, setActionBusy] = useState(false);
+const [actionNotice, setActionNotice] = useState("");
+const [profile, setProfile] = useState({
+  first_name: "",
+  last_name: "",
+  email: "",
+  username: "",
+  phone: "",
+});
 
 const [viewerRole, setViewerRole] = useState("");
 
@@ -123,7 +133,94 @@ const sorted = useMemo(
           )
           .filter(Boolean)
       ).size;
- return <div className="space-y-5"><h2 className="text-xl font-semibold">{name}</h2><div className="flex gap-2 border-b border-ld">
+      function openEditProfile() {
+  const u = p?.user ?? p?.donor ?? p?.profile ?? p;
+
+  setProfile({
+    first_name: String(u.first_name ?? ""),
+    last_name: String(u.last_name ?? ""),
+    email: String(u.email ?? u.user_email ?? ""),
+    username: String(u.username ?? u.user_login ?? ""),
+    phone: String(u.phone ?? ""),
+  });
+
+  setEditOpen(true);
+}
+
+async function saveProfile(e: FormEvent) {
+  e.preventDefault();
+  setActionBusy(true);
+  setError("");
+
+  try {
+    await adminApi(`donor/${id}/update`, {
+      method: "POST",
+      body: JSON.stringify(profile),
+    });
+
+    setP((previous: any) => ({
+      ...previous,
+      ...profile,
+      donor: previous?.donor
+        ? { ...previous.donor, ...profile }
+        : previous?.donor,
+    }));
+
+    setActionNotice("Donor profile updated successfully.");
+    setEditOpen(false);
+  } catch (error) {
+    setError(error instanceof Error ? error.message : "Update failed.");
+  } finally {
+    setActionBusy(false);
+  }
+}
+
+async function makeFundraiser() {
+  if (!confirm("Make this donor a fundraiser?")) return;
+
+  setActionBusy(true);
+  setError("");
+
+  try {
+    await adminApi("fundraiser/make-fundraiser", {
+      method: "POST",
+      body: JSON.stringify({ user_id: Number(id) }),
+    });
+
+    setActionNotice("Donor successfully made a fundraiser.");
+  } catch (error) {
+    setError(error instanceof Error ? error.message : "Conversion failed.");
+  } finally {
+    setActionBusy(false);
+  }
+}
+return <div className="space-y-5">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-xl font-semibold">{name}</h2>
+
+    {kind === "donor" && isAdminViewer && (
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={actionBusy}
+          onClick={openEditProfile}
+        >
+          Edit Profile
+        </Button>
+
+        <Button
+          disabled={actionBusy}
+          onClick={makeFundraiser}
+        >
+          Make Fundraiser
+        </Button>
+      </div>
+    )}
+  </div>
+
+  {actionNotice && (
+    <p className="text-sm text-green-600">{actionNotice}</p>
+  )}<div className="flex gap-2 border-b border-ld">
     <button
   className={`px-4 py-3 text-sm font-medium ${
     tab === "overview"
@@ -167,6 +264,52 @@ const sorted = useMemo(
 >
   Donations
 </button>
+{editOpen && kind === "donor" && isAdminViewer && (
+  <div className="rounded-xl border border-ld p-5">
+    <h3 className="mb-4 font-semibold">Edit Donor Profile</h3>
+
+    <form onSubmit={saveProfile} className="grid gap-3 sm:grid-cols-2">
+      {(
+        [
+          ["first_name", "First Name"],
+          ["last_name", "Last Name"],
+          ["email", "Email"],
+          ["username", "Username"],
+          ["phone", "Phone"],
+        ] as const
+      ).map(([key, label]) => (
+        <label key={key} className="text-sm">
+          {label}
+          <input
+            required={key === "first_name" || key === "email" || key === "username"}
+            type={key === "email" ? "email" : "text"}
+            value={profile[key]}
+            onChange={(e) =>
+              setProfile((current) => ({
+                ...current,
+                [key]: e.target.value,
+              }))
+            }
+            className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"
+          />
+        </label>
+      ))}
+
+      <div className="flex gap-2 sm:col-span-2">
+        <Button type="submit" disabled={actionBusy}>
+          Save Changes
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setEditOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  </div>
+)}
  </div>
  {tab==="overview"&&<><div className="grid grid-cols-2 gap-5 xl:grid-cols-4">{[
   [
