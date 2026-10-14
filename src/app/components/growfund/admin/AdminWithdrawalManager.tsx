@@ -187,6 +187,8 @@ function fmtDateTime(value: any) {
 }
 export default function AdminWithdrawalManager() {
   const [rows, setRows] = useState<any[]>([]);
+  const [totalPayable, setTotalPayable] = useState<number | null>(null);
+const [payableError, setPayableError] = useState("");
   const [loading, setLoading] =
     useState(true);
 
@@ -221,6 +223,25 @@ export default function AdminWithdrawalManager() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    setPayableError("");
+setTotalPayable(null);
+
+const token = localStorage.getItem("access_token") || "";
+
+const payableRequest = fetch("/api/admin/total-payable", {
+  headers: { Authorization: `Bearer ${token}` },
+  cache: "no-store",
+})
+  .then(async (response) => {
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to load Total Payable.");
+    }
+    setTotalPayable(result.total_payable);
+  })
+  .catch((error) => {
+    setPayableError(error.message);
+  });
 
     try {
       const q = new URLSearchParams({
@@ -272,6 +293,7 @@ export default function AdminWithdrawalManager() {
       setRows([]);
     } finally {
       setLoading(false);
+      await payableRequest;
     }
   }, []);
 
@@ -280,6 +302,7 @@ export default function AdminWithdrawalManager() {
 }, [load]);
 
 const withdrawalSummary = useMemo(() => {
+  let totalPayable = 0;
   let totalPending = 0;
   let totalApproved = 0;
 
@@ -308,6 +331,7 @@ const withdrawalSummary = useMemo(() => {
       ].includes(rowStatus)
     ) {
       totalPending += amount;
+      totalPayable += amount;
 
       const fundraiserId =
         fundraiserIdFromRow(row);
@@ -315,6 +339,10 @@ const withdrawalSummary = useMemo(() => {
       if (fundraiserId > 0) {
         pendingFundraisers.add(fundraiserId);
       }
+    }
+
+    if (rowStatus === "approved") {
+      totalPayable += amount;
     }
 
     if (
@@ -332,6 +360,7 @@ const withdrawalSummary = useMemo(() => {
   }
 
   return {
+    totalPayable,
     totalPending,
     totalApproved,
     totalPendingFundraisers:
@@ -580,10 +609,37 @@ const visibleRows = useMemo(
                </Button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-ld p-5">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm text-darklink">
+        Total Payable
+      </p>
+
+      <h4 className="mt-2 text-2xl font-semibold">
+       {loading
+  ? "…"
+  : totalPayable === null
+    ? "—"
+    : money(totalPayable)}
+      </h4>
+    </div>
+
+    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
+      <Icon
+        icon="solar:wallet-money-line-duotone"
+        height={25}
+      />
+    </span>
+  </div>
+</div>
+        <div className="rounded-xl border border-ld p-5">
+          
           <div className="flex items-center justify-between">
+            
             <div>
+              
               <p className="text-sm text-darklink">
                 Total Pending
               </p>

@@ -11,6 +11,12 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+  {
+    "binding": "HIILBOX_CACHE",
+    "id": "1d68922f529541ce84bbe4ecb9dfcf9b"
+  }
+],
 
   "vars": {
     "NEXT_PUBLIC_SITE_URL": "https://hiilboxfrontend.mohamoud-ali15.workers.dev",

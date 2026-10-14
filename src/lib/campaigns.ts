@@ -495,10 +495,27 @@ function normalizeCampaign(raw: any): Campaign {
 
     images: normalizedImages,
 
-    video:
-      raw?.video ??
-      null,
+    video: (() => {
+  const uploaded = Array.isArray(raw?.video)
+    ? raw.video[0]
+    : raw?.video;
 
+  if (uploaded && typeof uploaded === "object" && uploaded.url) {
+    return {
+      id: String(uploaded.id ?? ""),
+      url: String(uploaded.url),
+    };
+  }
+
+  const url =
+    typeof raw?.video_url === "string"
+      ? raw.video_url.trim()
+      : typeof uploaded === "string"
+        ? uploaded.trim()
+        : "";
+
+  return url ? { id: "", url } : null;
+})(),
     is_featured:
       Boolean(raw?.is_featured),
 

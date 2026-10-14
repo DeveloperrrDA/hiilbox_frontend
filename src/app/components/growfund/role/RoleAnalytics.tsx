@@ -38,18 +38,28 @@ function bucketData(
   customStartDate = "",
   customEndDate = ""
 ) {
-  let { start, end } = getDateRange(range);
+let { start, end } = getDateRange(range);
 
-  if (range === "custom") {
-    if (customStartDate) {
-      start = new Date(`${customStartDate}T00:00:00`);
-    }
+if (range === "all") {
+  const donationDates = donations
+    .filter(isSuccessful)
+    .map(donationDate)
+    .filter((date): date is Date => date !== null)
+    .sort((a, b) => a.getTime() - b.getTime());
 
-    if (customEndDate) {
-      end = new Date(`${customEndDate}T23:59:59.999`);
-    }
+  if (donationDates.length > 0) {
+    start = new Date(donationDates[0]);
+    end = new Date(donationDates[donationDates.length - 1]);
+  }
+} else if (range === "custom") {
+  if (customStartDate) {
+    start = new Date(`${customStartDate}T00:00:00`);
   }
 
+  if (customEndDate) {
+    end = new Date(`${customEndDate}T23:59:59.999`);
+  }
+}
   const startDay = new Date(start);
   startDay.setHours(0, 0, 0, 0);
 
@@ -125,11 +135,12 @@ function bucketData(
 
     if (donationDateValue === null) continue;
 
-   if (range === "custom") {
+  if (range === "custom") {
   if (donationDateValue < startDay || donationDateValue > endDay) {
     continue;
   }
 } else if (
+  range !== "all" &&
   !isDateInRange(
     donationDateValue.toISOString(),
     range
@@ -164,7 +175,16 @@ function bucketData(
 
 function metricNumber(value:any):number|undefined{if(value===undefined||value===null||value==="")return undefined;const direct=Number(value);if(Number.isFinite(direct))return direct;if(typeof value==="object"){for(const key of ["value","amount","total","count","data"]){const n=metricNumber(value?.[key]);if(n!==undefined)return n;}}return undefined;}
 function deepMetric(input:any,keys:string[]):number|undefined{if(!input||typeof input!=="object")return undefined;const wanted=keys.map(k=>k.toLowerCase().replace(/[^a-z0-9]/g,""));if(Array.isArray(input)){for(const item of input){const label=String(item?.key??item?.name??item?.label??item?.title??item?.metric??"").toLowerCase().replace(/[^a-z0-9]/g,"");if(label&&wanted.includes(label)){const n=metricNumber(item?.value??item?.amount??item?.total??item?.count??item?.data);if(n!==undefined)return n;}const nested=deepMetric(item,keys);if(nested!==undefined)return nested;}return undefined;}for(const [key,v] of Object.entries(input)){const normalized=key.toLowerCase().replace(/[^a-z0-9]/g,"");if(wanted.includes(normalized)){const n=metricNumber(v);if(n!==undefined)return n;}}for(const v of Object.values(input)){if(v&&typeof v==="object"){const n=deepMetric(v,keys);if(n!==undefined)return n;}}return undefined;}
-
+function netFromMetrics(response: any): number | undefined {
+  return deepMetric(response?.data ?? response, [
+    "net_donation",
+    "net_donations",
+    "net_amount",
+    "net_revenue",
+    "total_net_donation",
+    "total_net_donations",
+  ]);
+}
 export default function RoleAnalytics(){
   const [role,setRole]=useState<DashboardRole>("guest");
   const [donations,setDonations]=useState<any[]>([]);const[donors,setDonors]=useState<any[]>([]);const[campaigns,setCampaigns]=useState<any[]>([]);const[backendStats,setBackendStats]=useState<any>(null);
@@ -172,24 +192,42 @@ export default function RoleAnalytics(){
   useEffect(()=>setRole(dashboardRole(savedDashboardUser())),[]);
   useEffect(()=>{if(!["fundraiser","admin"].includes(role))return;void (async()=>{setLoading(true);setError("");try{const token=localStorage.getItem("access_token")||"";const headers={Authorization:`Bearer ${token}`};if(role==="fundraiser"){
       const [dr,cr]=await Promise.all([fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"}),fetch("/api/dashboard/campaigns",{headers,cache:"no-store"})]);
-      const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");setDonations(rows(dj));setDonors([]);setCampaigns(rows(cj));setBackendStats(null);
+      const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");
+      const paidForNetCheck = rows(dj).filter(isSuccessful);
+
+console.log("NET DONATION FIELD CHECK", {
+  paidDonations: paidForNetCheck.length,
+
+  topLevelFields: [
+    ...new Set(
+      paidForNetCheck.flatMap((d: any) => Object.keys(d))
+    ),
+  ],
+
+  nestedObjectFields: [
+    ...new Set(
+      paidForNetCheck.flatMap((d: any) =>
+        Object.entries(d)
+          .filter(
+            ([, value]) =>
+              value !== null &&
+              typeof value === "object" &&
+              !Array.isArray(value)
+          )
+          .flatMap(([key, value]) =>
+            Object.keys(value as Record<string, unknown>).map(
+              (nestedKey) => `${key}.${nestedKey}`
+            )
+          )
+      )
+    ),
+  ],
+});
+      setDonations(rows(dj));
+      
+      setDonors([]);setCampaigns(rows(cj));setBackendStats(null);
     }else{
-      // GrowFund campaign data confirms this admin account is author/fundraiser ID 1.
-      // Only those campaigns are included in Admin Analytics.
-   // GrowFund campaign data confirms this admin account is
-// author/fundraiser ID 1.
-const ADMIN_GROWFUND_ID = 1;
-const debugResponse = await fetch(
-  "/api/admin/growfund/donations/paginated?page=1&per_page=100&orderby=id&order=desc",
-  {
-    headers,
-    cache: "no-store",
-  }
-);
-
-const debugData = await debugResponse.json().catch(() => null);
-
-console.log("ADMIN ALL DONATIONS DEBUG:", debugData);
+     
 async function fetchAdminCampaignsByStatus(campaignStatus: string) {
   const allCampaigns: any[] = [];
   let currentPage = 1;
@@ -284,80 +322,110 @@ const completeCampaigns = Array.from(
 );
 
 // Keep only campaigns belonging to this GrowFund admin.
-const owned = completeCampaigns.filter((c: any) => {
-  const authorId = Number(c?.author?.id ?? 0);
-  const fundraiserId = Number(c?.fundraiser?.id ?? 0);
-
-  return (
-    authorId === ADMIN_GROWFUND_ID ||
-    fundraiserId === ADMIN_GROWFUND_ID
-  );
-});
-
-setCampaigns(owned);
+// Admin Analytics is system-wide.
+// Include every GrowFund campaign regardless of owner/fundraiser.
+setCampaigns(completeCampaigns);
 setDonors([]);
 setBackendStats(null);
 
-     // Fetch ALL donation pages for each owned campaign.
-const batches = await Promise.all(
-  owned.map(async (c: any) => {
-    const cid = Number(c?.id ?? 0);
+// Fetch donation pages without sending a request for every campaign
+// to GrowFund at the same time.
+//
+// Large Promise.all() batches can overwhelm WordPress/GrowFund when
+// the application is running behind Cloudflare.
+// Fetch donations with limited concurrency.
+//
+// Fetching every campaign simultaneously can overwhelm GrowFund/WordPress,
+// while fetching campaigns one-by-one makes Analytics unnecessarily slow.
+// Process a small number of campaigns concurrently instead.
 
-    if (!cid) {
-      return [];
-    }
+const fetchCampaignDonations = async (c: any) => {
+  const cid = Number(c?.id ?? 0);
 
-    const campaignDonations: any[] = [];
-    let currentPage = 1;
+  if (!cid) {
+    return [];
+  }
 
-    while (true) {
-      const q = new URLSearchParams({
-        page: String(currentPage),
-        per_page: "100",
-        campaign_id: String(cid),
-        orderby: "id",
-        order: "desc",
-      });
+  const campaignDonations: any[] = [];
+  let currentPage = 1;
 
-      const r = await fetch(
-        `/api/admin/growfund/donations/paginated?${q.toString()}`,
-        {
-          headers,
-          cache: "no-store",
-        }
+  while (true) {
+    const q = new URLSearchParams({
+      page: String(currentPage),
+      per_page: "100",
+      campaign_id: String(cid),
+      orderby: "id",
+      order: "desc",
+    });
+
+    const r = await fetch(
+      `/api/admin/growfund/donations/paginated?${q.toString()}`,
+      {
+        headers,
+        cache: "no-store",
+      }
+    );
+
+    const j = await r.json().catch(() => null);
+
+    if (!r.ok) {
+      throw new Error(
+        j?.message ||
+          `Unable to load donations for campaign #${cid}.`
       );
-
-      const j = await r.json().catch(() => null);
-
-      if (!r.ok) {
-        throw new Error(
-          j?.message ||
-            `Unable to load donations for campaign #${cid}.`
-        );
-      }
-
-      const pageRows = rows(j);
-
-      campaignDonations.push(...pageRows);
-
-      const hasMore = j?.data?.has_more === true;
-
-      if (!hasMore || pageRows.length === 0) {
-        break;
-      }
-
-      currentPage += 1;
-
-      // Safety guard in case the API incorrectly keeps returning has_more=true.
-      if (currentPage > 1000) {
-        break;
-      }
     }
 
-    return campaignDonations;
-  })
-);
+    if (!j) {
+      throw new Error(
+        `GrowFund returned an invalid response while loading donations for campaign #${cid}.`
+      );
+    }
 
+    const pageRows = rows(j);
+
+    campaignDonations.push(...pageRows);
+
+    const hasMore =
+      j?.data?.has_more === true ||
+      j?.has_more === true;
+
+    if (!hasMore || pageRows.length === 0) {
+      break;
+    }
+
+    currentPage += 1;
+
+    // Safety guard against a broken pagination response.
+    if (currentPage > 1000) {
+      break;
+    }
+  }
+
+  return campaignDonations;
+};
+
+// Process 4 campaigns concurrently.
+// This is much faster than sequential loading without sending every
+// campaign request to GrowFund at the same time.
+const batches: any[][] = [];
+const CONCURRENCY = 4;
+
+for (
+  let i = 0;
+  i < completeCampaigns.length;
+  i += CONCURRENCY
+) {
+  const group = completeCampaigns.slice(
+    i,
+    i + CONCURRENCY
+  );
+
+  const groupResults = await Promise.all(
+    group.map(fetchCampaignDonations)
+  );
+
+  batches.push(...groupResults);
+}
       // Deduplicate by donation ID and keep only paid donations.
       const seen=new Set<string>();
       const scoped=batches.flat().filter((d:any)=>{
@@ -394,51 +462,238 @@ const filtered = useMemo(
         return true;
       }
 
-return isDateInRange(d.toISOString(), range);    }),
+if (range === "all") {
+  return true;
+}
+
+return isDateInRange(d.toISOString(), range);   }),
   [donations, range, startDate, endDate]
 );  const successful=useMemo(()=>filtered.filter(isSuccessful),[filtered]);
+const [fundraiserNet, setFundraiserNet] = useState<number | null>(null);
+
+useEffect(() => {
+  if (role !== "fundraiser") return;
+
+  let cancelled = false;
+
+  async function loadNetDonation() {
+    setFundraiserNet(null);
+
+    const token = localStorage.getItem("access_token") || "";
+    const { start, end } = getDateRange(range);
+
+    const from = range === "custom"
+      ? startDate
+      : range === "all"
+        ? ""
+        : dayKey(start);
+
+    const to = range === "custom"
+      ? endDate
+      : range === "all"
+        ? ""
+        : dayKey(end);
+
+    const ids = [...new Set(
+      campaigns.map((c: any) => Number(c.id)).filter(Boolean)
+    )];
+
+    if (!ids.length) return;
+
+    const amounts = await Promise.all(
+      ids.map(async (id) => {
+        const params = new URLSearchParams({
+          type: "metrics",
+          campaign_id: String(id),
+        });
+
+        if (from) params.set("start_date", from);
+        if (to) params.set("end_date", to);
+
+        const response = await fetch(
+          `/api/dashboard/analytics?${params}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) return undefined;
+
+        const json = await response.json();
+        return netFromMetrics(json);
+      })
+    );
+
+    if (
+      !cancelled &&
+      amounts.every((amount) => amount !== undefined)
+    ) {
+      setFundraiserNet(
+        amounts.reduce<number>(
+          (sum, amount) => sum + (amount ?? 0),
+          0
+        )
+      );
+    }
+  }
+
+  void loadNetDonation();
+
+  return () => {
+    cancelled = true;
+  };
+}, [role, campaigns, range, startDate, endDate]);
   const stats=useMemo(()=>{const total=successful.reduce((sum,r)=>sum+donationAmount(r),0);const net=successful.reduce((sum,r)=>sum+donationNet(r),0);const average=successful.length?total/successful.length:0;const unique=new Set(successful.map(donorKey));return{total,net,average,donors:unique.size};},[successful]);
   const revenueBreakdown = useMemo(() => {
-  const grouped = new Map<
-    string,
-    {
-      date: string;
-      donors: Set<string>;
-      totalDonation: number;
-      netDonation: number;
+  type RevenueGroup = {
+    date: string;
+    donors: Set<string>;
+    totalDonation: number;
+    netDonation: number;
+  };
+
+  const grouped = new Map<string, RevenueGroup>();
+
+  const today = new Date();
+
+  const isYearly =
+    range === "this_year" ||
+    range === "last_year";
+
+  const isMonthly =
+    range === "this_month" ||
+    range === "last_month";
+
+  const makeKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return isYearly
+      ? `${year}-${month}`
+      : `${year}-${month}-${day}`;
+  };
+
+  const makeLabel = (date: Date) =>
+    date.toLocaleDateString(
+      "en-US",
+      isYearly
+        ? { month: "short", year: "numeric" }
+        : { month: "short", day: "numeric", year: "numeric" }
+    );
+
+  const addEmptyDate = (date: Date) => {
+    const key = makeKey(date);
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        date: makeLabel(date),
+        donors: new Set<string>(),
+        totalDonation: 0,
+        netDonation: 0,
+      });
     }
-  >();
+  };
+
+  if (isYearly) {
+    const year =
+      today.getFullYear() -
+      (range === "last_year" ? 1 : 0);
+
+    for (let month = 0; month < 12; month++) {
+      addEmptyDate(new Date(year, month, 1));
+    }
+  } else {
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (isMonthly) {
+      const offset = range === "last_month" ? -1 : 0;
+
+      start = new Date(
+        today.getFullYear(),
+        today.getMonth() + offset,
+        1
+      );
+
+      end = new Date(
+        today.getFullYear(),
+        today.getMonth() + offset + 1,
+        0
+      );
+    } else if (range === "custom" && startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00`);
+      end = new Date(`${endDate}T00:00:00`);
+    } else if (range === "all") {
+      const dates = successful
+        .map(donationDate)
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      if (dates.length > 0) {
+        start = dates[0];
+        end = dates[dates.length - 1];
+      }
+    } else {
+      const bounds = getDateRange(range);
+      start = bounds.start;
+      end = bounds.end;
+    }
+
+    if (
+      start &&
+      end &&
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      start <= end
+    ) {
+      const cursor = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate()
+      );
+
+      const last = new Date(
+        end.getFullYear(),
+        end.getMonth(),
+        end.getDate()
+      );
+
+      while (cursor <= last) {
+        addEmptyDate(cursor);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+  }
 
   for (const donation of successful) {
     const date = donationDate(donation);
 
     if (!date) continue;
 
-    const key = dayKey(date);
+    const key = makeKey(date);
 
-    const current = grouped.get(key) ?? {
-      date: key,
-      donors: new Set<string>(),
-      totalDonation: 0,
-      netDonation: 0,
-    };
+    if (!grouped.has(key)) {
+      addEmptyDate(date);
+    }
+
+    const current = grouped.get(key)!;
 
     current.donors.add(donorKey(donation));
     current.totalDonation += donationAmount(donation);
     current.netDonation += donationNet(donation);
-
-    grouped.set(key, current);
   }
 
-  return Array.from(grouped.values())
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .map((row) => ({
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([, row]) => ({
       date: row.date,
       donors: row.donors.size,
       totalDonation: row.totalDonation,
       netDonation: row.netDonation,
     }));
-}, [successful]);
+}, [successful, range, startDate, endDate]);
  const revenue = useMemo(
   () =>
     bucketData(
@@ -469,9 +724,22 @@ const donorTrend = useMemo(
 
   const revenueOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:3},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.18)"},xaxis:{categories:revenue.map(x=>x.label),axisBorder:{show:false},axisTicks:{show:false},labels:{style:{colors:"#7c8798"}}},yaxis:{min:0,labels:{formatter:(v:number)=>money(v),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>money(v)}},colors:["#2f915c"],fill:{type:"gradient",gradient:{opacityFrom:.18,opacityTo:.02}}};
   const donorOptions:any={chart:{toolbar:{show:false},fontFamily:"inherit",zoom:{enabled:false}},stroke:{curve:"smooth",width:2},dataLabels:{enabled:false},grid:{borderColor:"rgba(120,130,140,.16)"},xaxis:{categories:donorTrend.map(x=>x.label),tickAmount:4,labels:{hideOverlappingLabels:true,style:{colors:"#7c8798"}}},yaxis:{min:0,forceNiceScale:true,labels:{formatter:(v:number)=>String(Math.round(v)),style:{colors:"#7c8798"}}},tooltip:{y:{formatter:(v:number)=>`${Math.round(v)} donor${Math.round(v)===1?"":"s"}`}},colors:["#9b63ff"],fill:{type:"gradient",gradient:{opacityFrom:.2,opacityTo:.02}}};
-  const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{label:"Net Donation",value:money(stats.net),bg:"bg-[#e7f7ef]",icon:"solar:wallet-money-line-duotone"},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
+  const cards=[{label:"Total Donation",value:money(stats.total),bg:"bg-[#e6f5fc]",icon:"solar:hand-money-line-duotone"},{
+  label: "Net Donation",
+  value: role === "fundraiser"
+    ? fundraiserNet === null
+      ? "—"
+      : money(fundraiserNet)
+    : money(stats.net),
+  bg: "bg-[#e7f7ef]",
+  icon: "solar:wallet-money-line-duotone"
+},{label:"Average Donation",value:money(stats.average),bg:"bg-[#f3eafd]",icon:"solar:chart-2-line-duotone"},{label:"Total Donors",value:String(stats.donors),bg:"bg-[#fff4c9]",icon:"solar:users-group-rounded-line-duotone"}];
   return <div className="space-y-7">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">{role==="fundraiser"?"Real performance data from donations to your campaigns only.":"Performance from campaigns created by this admin account only."}</p></div><div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold text-dark dark:text-white">Overview</h2><p className="mt-1 text-sm text-darklink">
+  {role === "fundraiser"
+    ? "Real performance data from donations to your campaigns only."
+    : "System-wide performance across all campaigns and fundraisers."}
+</p></div><div className="flex flex-wrap gap-2">
   <DatePresetSelect
     value={range}
     onChange={setRange}

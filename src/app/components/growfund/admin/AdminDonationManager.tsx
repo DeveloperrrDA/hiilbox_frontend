@@ -199,6 +199,15 @@ export default function AdminDonationManager(){
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[status,setStatus]=useState("all"),[search,setSearch]=useState(""),[campaignId,setCampaignId]=useState("");
 const [startDate,setStartDate]=useState(""),[endDate,setEndDate]=useState(""),[page,setPage]=useState(1),[totalPages,setTotalPages]=useState(1),[totalRecords,setTotalRecords]=useState(0),[selected,setSelected]=useState<number[]>([]); const [createOpen,setCreateOpen]=useState(false);const [createForm,setCreateForm]=useState({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});
 const [dateRange, setDateRange] = useState<DateRangeKey>("all");
+const [summary, setSummary] = useState<Record<string, number | null>>({
+  all: null,
+  completed: null,
+  pending: null,
+  failed: null,
+});
+
+const [summaryLoading, setSummaryLoading] = useState(false);
+const [summaryRefresh, setSummaryRefresh] = useState(0);
 const [visible,setVisible]=useState<Record<ColumnKey,boolean>>(()=>Object.fromEntries(Object.keys(labels).map(k=>[k,true])) as Record<ColumnKey,boolean>);
  const visibleCount=useMemo(()=>Object.values(visible).filter(Boolean).length+2,[visible]);
 const load = useCallback(async () => {
@@ -235,25 +244,77 @@ const load = useCallback(async () => {
     setLoading(false);
   }
 }, [status, search, campaignId, startDate, endDate, page]);
+useEffect(() => {
+  let cancelled = false;
 
+  async function loadSummary() {
+    setSummaryLoading(true);
+
+    const statuses = ["all", "completed", "pending", "failed"];
+
+    const results = await Promise.all(
+      statuses.map(async (item) => {
+        try {
+          const q = new URLSearchParams({
+            page: "1",
+            per_page: "1",
+            orderby: "id",
+            order: "desc",
+          });
+
+          if (item !== "all") q.set("status", item);
+          if (campaignId) q.set("campaign_id", campaignId);
+          if (search.trim()) q.set("search", search.trim());
+          if (startDate) q.set("start_date", startDate);
+          if (endDate) q.set("end_date", endDate);
+
+          const data = await adminApi(`donations/paginated?${q}`);
+
+          const candidates = [
+            data?.data?.total,
+            data?.total,
+            data?.data?.pagination?.total,
+            data?.pagination?.total,
+            data?.paginated?.total,
+          ];
+
+          const count = candidates
+            .map(Number)
+            .find((value) => Number.isFinite(value) && value >= 0);
+
+          return [item, count ?? null] as const;
+        } catch {
+          return [item, null] as const;
+        }
+      })
+    );
+
+    if (!cancelled) {
+      setSummary(Object.fromEntries(results));
+      setSummaryLoading(false);
+    }
+  }
+
+  void loadSummary();
+
+  return () => {
+    cancelled = true;
+  };
+}, [campaignId, search, startDate, endDate, summaryRefresh]);
  useEffect(()=>void load(),[load]);useEffect(()=>setPage(1),[status,search,campaignId,startDate,endDate]);
- async function act(id:number,path:string,payload:any,msg:string){setBusy(id);setError("");setNotice("");try{const d=await adminApi(path,{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||msg);await load();}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(null);}}
+ async function act(id:number,path:string,payload:any,msg:string){setBusy(id);setError("");setNotice("");try{const d=await adminApi(path,{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||msg);await load();setSummaryRefresh((value) => value + 1);}catch(e){setError(e instanceof Error?e.message:"Action failed.");}finally{setBusy(null);}}
  async function trash(r:any){const id=idOf(r);if(confirm("Move this donation to trash?"))await act(id,`donation/${id}/delete`,{is_permanent:false},"Donation moved to trash.");}
- async function createDonation(e:FormEvent){e.preventDefault();setError("");try{const payload={...createForm,campaign_id:Number(createForm.campaign_id),amount:Number(createForm.amount)};const d=await adminApi("donations/create",{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||"Donation created successfully.");setCreateOpen(false);setCreateForm({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});setPage(1);await load();}catch(e){setError(e instanceof Error?e.message:"Unable to create donation.");}}
- async function emptyTrash(){if(!confirm("Permanently delete all trashed donations?"))return;try{const d=await adminApi("donations/empty-trash",{method:"POST",body:"{}"});setNotice(d?.message||"Donation trash emptied.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to empty trash.");}}
- async function bulk(action:string){if(!selected.length)return;try{const d=await adminApi("donations/bulk-action",{method:"POST",body:JSON.stringify({ids:selected,action})});setNotice(d?.message||"Donations updated.");setSelected([]);await load();}catch(e){setError(e instanceof Error?e.message:"Bulk action failed.");}}
+ async function createDonation(e:FormEvent){e.preventDefault();setError("");try{const payload={...createForm,campaign_id:Number(createForm.campaign_id),amount:Number(createForm.amount)};const d=await adminApi("donations/create",{method:"POST",body:JSON.stringify(payload)});setNotice(d?.message||"Donation created successfully.");setCreateOpen(false);setCreateForm({campaign_id:"",email:"",amount:"",notes:"",status:"pending",payment_method:"",payment_status:"pending",is_anonymous:false});setPage(1);await load();setSummaryRefresh((value) => value + 1);}catch(e){setError(e instanceof Error?e.message:"Unable to create donation.");}}
+ async function emptyTrash(){if(!confirm("Permanently delete all trashed donations?"))return;try{const d=await adminApi("donations/empty-trash",{method:"POST",body:"{}"});setNotice(d?.message||"Donation trash emptied.");await load();setSummaryRefresh((value) => value + 1);}catch(e){setError(e instanceof Error?e.message:"Unable to empty trash.");}}
+ async function bulk(action:string){if(!selected.length)return;try{const d=await adminApi("donations/bulk-action",{method:"POST",body:JSON.stringify({ids:selected,action})});setNotice(d?.message||"Donations updated.");setSelected([]);await load(); setSummaryRefresh((value) => value + 1);}catch(e){setError(e instanceof Error?e.message:"Bulk action failed.");}}
 
- const filteredRows = useMemo(() => {
-  return rows.filter((r) => {
-    if (
-      dateRange === "all" &&
-      !startDate &&
-      !endDate
-    ) {
+const filteredRows = useMemo(() => {
+  return rows.filter((row) => {
+    if (!startDate && !endDate) {
       return true;
     }
 
-    const raw = dateOf(r);
+    const raw = dateOf(row);
 
     if (!raw) {
       return false;
@@ -265,23 +326,25 @@ const load = useCallback(async () => {
       return false;
     }
 
-    if (
-      startDate &&
-      donationDate < new Date(`${startDate}T00:00:00`)
-    ) {
-      return false;
+    if (startDate) {
+      const from = new Date(`${startDate}T00:00:00`);
+
+      if (donationDate < from) {
+        return false;
+      }
     }
 
-    if (
-      endDate &&
-      donationDate > new Date(`${endDate}T23:59:59.999`)
-    ) {
-      return false;
+    if (endDate) {
+      const to = new Date(`${endDate}T23:59:59.999`);
+
+      if (donationDate > to) {
+        return false;
+      }
     }
 
     return true;
   });
-}, [rows, dateRange, startDate, endDate]);
+}, [rows, startDate, endDate]);
 
  const pageIds=filteredRows
   .map(r=>idOf(r))
@@ -309,7 +372,38 @@ const toggle=(id:number)=>{
       ? current.filter(x=>x!==id)
       : [...current,id]
   );
-}; return <CardBox className="w-full !max-w-none">
+
+};return (
+  <CardBox className="w-full !max-w-none">
+
+<div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {[
+    { key: "all", label: "Total Donations", color: "text-primary" },
+    { key: "completed", label: "Completed", color: "text-success" },
+    { key: "pending", label: "Pending", color: "text-warning" },
+    { key: "failed", label: "Failed", color: "text-error" },
+  ].map((item) => (
+    <div
+      key={item.key}
+      className="rounded-xl border border-ld bg-white/60 p-5 shadow-sm dark:bg-white/5"
+    >
+      <p className="text-sm text-darklink">{item.label}</p>
+
+      <p className="mt-2 text-3xl font-semibold text-black dark:text-white">
+        {summaryLoading
+          ? "…"
+          : summary[item.key] === null
+            ? "—"
+            : summary[item.key]?.toLocaleString()}
+      </p>
+
+      <p className="mt-2 text-xs text-darklink">
+        Number of donations
+      </p>
+    </div>
+  ))}
+</div>
+
   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h5 className="card-title">Donations</h5><p className="mt-1 text-sm text-darklink">Manage donation records, statuses and trash.</p></div><div className="flex flex-wrap gap-2">{selected.length>0&&<><Button variant="outline" onClick={()=>bulk("restore")}><Icon icon="solar:restart-line-duotone"/> Restore selected</Button><Button variant="outline" onClick={()=>bulk("trash")}>Trash selected</Button></>}<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline"><Icon icon="solar:settings-minimalistic-line-duotone"/> Show/Hide Columns</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuLabel>Columns</DropdownMenuLabel><DropdownMenuSeparator/>{(Object.keys(labels) as ColumnKey[]).map(k=><DropdownMenuCheckboxItem key={k} checked={visible[k]} onCheckedChange={v=>setVisible(x=>({...x,[k]:Boolean(v)}))}>{labels[k]}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu><Button variant="outline" onClick={emptyTrash}><Icon icon="solar:trash-bin-trash-line-duotone"/> Empty trash</Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button><Icon icon="solar:add-circle-line-duotone"/> New Donation</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>New Donation</DialogTitle></DialogHeader><form onSubmit={createDonation} className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Campaign ID<input required type="number" value={createForm.campaign_id} onChange={e=>setCreateForm({...createForm,campaign_id:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Amount<input required min="0" step="0.01" type="number" value={createForm.amount} onChange={e=>setCreateForm({...createForm,amount:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Donor email<input type="email" value={createForm.email} onChange={e=>setCreateForm({...createForm,email:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Payment method<input value={createForm.payment_method} onChange={e=>setCreateForm({...createForm,payment_method:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="text-sm">Status<select value={createForm.status} onChange={e=>setCreateForm({...createForm,status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option></select></label><label className="text-sm">Payment status<select value={createForm.payment_status} onChange={e=>setCreateForm({...createForm,payment_status:e.target.value})} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"><option value="pending">Pending</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label className="sm:col-span-2 text-sm">Notes<textarea value={createForm.notes} onChange={e=>setCreateForm({...createForm,notes:e.target.value})} rows={3} className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"/></label><label className="sm:col-span-2 flex items-center gap-2 text-sm"><Checkbox checked={createForm.is_anonymous} onCheckedChange={v=>setCreateForm({...createForm,is_anonymous:Boolean(v)})}/> Anonymous donation</label><div className="sm:col-span-2 flex justify-end"><Button type="submit">Create donation</Button></div></form></DialogContent></Dialog></div></div>
   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-md border border-ld bg-transparent px-3 py-2.5"><option value="all">All Statuses</option><option value="completed">Completed</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="declined">Declined</option><option value="trash">Trash</option></select><input value={campaignId} onChange={e=>setCampaignId(e.target.value)} placeholder="Campaign ID" className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="rounded-md border border-ld bg-transparent px-3 py-2.5"/><DatePresetSelect
   value={dateRange}
@@ -619,5 +713,6 @@ const toggle=(id:number)=>{
   recordLabel="donations"
   onPageChange={setPage}
 />
- </CardBox>;
+</CardBox>
+);
 }

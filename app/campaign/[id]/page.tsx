@@ -6,6 +6,7 @@ import {
   getCampaignUpdates
 } from "@/lib/campaigns";
 import { type CampaignUpdate } from "@/lib/campaigns";
+import { getYouTubeId } from "@/lib/youtube";
 import { Icon } from "@iconify/react";
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
@@ -307,7 +308,7 @@ const extractedUpdates = campaignUpdatesResponse.data;
 
   const fundraiserInitial =
     fundraiserName.charAt(0).toUpperCase();
-
+const youtubeId = getYouTubeId(campaign.video?.url);
   const imageUrl =
     campaign.image_url ||
     campaign.images?.[0]?.url ||

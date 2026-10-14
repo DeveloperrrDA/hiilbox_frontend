@@ -41,7 +41,9 @@ async function proxy(
   // Campaign GET routes use GFCM_Combined_Auth_Middleware. That middleware
   // expects the GrowFund *system* bearer token + X-API-Key, not the user's JWT.
   // We still call requireUser() above so this proxy remains admin/authenticated-only.
-  const needsSystemToken = method === "GET" && /^campaigns(?:\/|$)/.test(backendPath);
+  const needsSystemToken =
+  method === "GET" &&
+  /^(campaigns|users)(?:\/|$)/.test(backendPath)
   if (needsSystemToken) {
     if (!apiKey) {
       return NextResponse.json(
