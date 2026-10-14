@@ -18,7 +18,7 @@ const FrontEndBreadcrumb = ({ title, link }: BreadCrumbType) => {
               {title}
             </h2>
             <div className="flex  items-center gap-4 uppercase text-sm font-bold md:mt-0 mt-4">
-              <span className="text-ld opacity-80">materialm</span>
+              <span className="text-ld opacity-80">Hiilbox</span>
               <IconChevronRight size={15} />{" "}
               <Link href={"/"} className="text-primary">
                 {link}

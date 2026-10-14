@@ -114,7 +114,8 @@ const FrontHeader = () => {
                 </div>
               </div>
 
-              <Link href="/campaigns" className={navClass}>Campaigns</Link>
+             <Link href="/campaigns" className={navClass}>Campaigns</Link>
+<Link href="/blog" className={navClass}>Blog</Link>
             </nav>
 
             {/* AUTH BUTTONS */}
