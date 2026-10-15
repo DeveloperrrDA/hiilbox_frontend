@@ -48,7 +48,14 @@ export interface CheckoutResult {
   order_key?: string;
   nextjs_success_path?: string | null;
 }
-
+export interface Donation {
+  id: string | number;
+  donor_name?: string | null;
+  is_anonymous?: boolean;
+  amount: number | string;
+  currency?: string | null;
+  created_at?: string | null;
+}
 async function json<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
@@ -96,4 +103,71 @@ export async function processCheckout(input: CheckoutInput): Promise<CheckoutRes
   });
   const payment = await json<CheckoutResult>(paymentResponse);
   return { ...payment, order_key: order.order_key, redirect: payment.redirect_url ?? null };
+}
+export async function getRecentDonations(): Promise<Donation[]> {
+  const api = (
+    process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
+    "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
+  ).replace(/\/$/, "");
+
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const tokenResponse = await fetch(`${api}/auth/system-token`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "X-API-Key": apiKey,
+      },
+      cache: "no-store",
+    });
+
+    if (!tokenResponse.ok) return [];
+
+    const tokenData = await tokenResponse.json();
+    const token = tokenData?.system_access_token;
+    if (!token) return [];
+
+    const response = await fetch(
+      `${api}/donations/recent?page=1&per_page=50&orderby=created_at&order=DESC`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-API-Key": apiKey,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const payload = await response.json();
+
+    const records = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.data?.results)
+          ? payload.data.results
+          : Array.isArray(payload?.paginated?.results)
+            ? payload.paginated.results
+            : [];
+
+    return records.map((item: any, index: number) => ({
+      id: item.id ?? index,
+      donor_name:
+        item.donor_name ??
+        item.contributor_name ??
+        item.name ??
+        "Anonymous",
+      is_anonymous: Boolean(item.is_anonymous),
+      amount: Number(item.amount ?? 0),
+      currency: item.currency ?? "USD",
+      created_at: item.created_at ?? item.date ?? null,
+    }));
+  } catch {
+    return [];
+  }
 }

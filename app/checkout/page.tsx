@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -301,7 +301,41 @@ useEffect(() => {
       gateway: gatewayById("premier_wallet_pay"),
     },
   ];
+  // Detect the mobile payment gateway from the phone prefix.
+  const normalizedWalletNumber = walletNumber.replace(/\D/g, "");
+  const localWalletNumber = normalizedWalletNumber.startsWith("252")
+    ? `0${normalizedWalletNumber.slice(3)}`
+    : normalizedWalletNumber.startsWith("0")
+      ? normalizedWalletNumber
+      : `0${normalizedWalletNumber}`;
 
+  const mobilePrefix = localWalletNumber.slice(0, 3);
+
+  const mobileProviders: Record<string, { name: string; gatewayId: string | null }> = {
+    "061": { name: "EVC Plus", gatewayId: "zes_pay" },
+    "077": { name: "EVC Plus", gatewayId: "zes_pay" },
+    "062": { name: "eDahab", gatewayId: "edahab_pay" },
+    "063": { name: "ZAAD", gatewayId: "zes_pay" },
+    "064": { name: "Somlink", gatewayId: null },
+    "065": { name: "eDahab", gatewayId: "edahab_pay" },
+    "066": { name: "eDahab", gatewayId: "edahab_pay" },
+    "067": { name: "Somtelco", gatewayId: null },
+    "068": { name: "Jeeb", gatewayId: "zes_pay" },
+    "069": { name: "NationLink (Unavailable)", gatewayId: null },
+    "090": { name: "Sahal", gatewayId: "zes_pay" },
+    "071": { name: "Amtel", gatewayId: null },
+  };
+
+  const detectedMobileProvider = mobileProviders[mobilePrefix] ?? null;
+  const detectedMobileGateway = detectedMobileProvider?.gatewayId
+  ? gatewayById(detectedMobileProvider.gatewayId)
+  : null;
+
+  useEffect(() => {
+  if (paymentGroup !== "somali-wallets") return;
+
+  setPaymentMethod(detectedMobileGateway?.id ?? "");
+}, [paymentGroup, mobilePrefix, gateways]);
   const ethiopiaGatewayOptions = [
     {
       key: "ebirr",
@@ -1086,50 +1120,55 @@ const total =
                           Mobile Money Provider <span className="text-red-500">*</span>
                         </p>
 
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {(paymentGroup === "somali-wallets"
-                            ? walletGatewayOptions
-                            : paymentGroup === "ethiopia-wallets"
-                              ? ethiopiaGatewayOptions
-                              : eastAfricaGatewayOptions
-                          ).map((provider) => {
-                            const gateway = provider.gateway;
-                            const selected = Boolean(gateway && paymentMethod === gateway.id);
-
-                            return (
-                              <button
-                                key={provider.key}
-                                type="button"
-                                disabled={!gateway || loading}
-                                onClick={() => {
-                                  if (!gateway) return;
-                                  setPaymentMethod(gateway.id);
-                                  setWalletNumber("");
-                                  setError("");
-                                }}
-                                className={`flex min-h-[54px] items-center gap-3 rounded-[12px] border px-4 py-3 text-left text-sm font-semibold transition ${
-                                  selected
-                                    ? "border-primary bg-lightprimary text-dark dark:text-white"
-                                    : gateway
-                                      ? "border-[#d8dee4] bg-white text-dark dark:text-white hover:border-primary/45"
-                                      : "cursor-not-allowed border-[#edf0f2] bg-[#fafbfc] text-[#9aa6b2]"
-                                }`}
-                              >
-                                <span className={`h-4 w-4 shrink-0 rounded-full border ${
-                                  selected
-                                    ? "border-[5px] border-primary"
-                                    : "border-[#aeb8c4]"
-                                }`} />
-                                <span className="flex-1">{provider.label}</span>
-                                {!gateway && (
-                                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#9aa6b2]">
-                                    Unavailable
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                       {paymentGroup === "somali-wallets" ? (
+  <div className="space-y-3">
+    <label htmlFor="auto_wallet_number" className="block text-sm font-semibold">
+      Mobile phone number
+    </label>
+    <input
+      id="auto_wallet_number"
+      type="tel"
+      value={walletNumber}
+      onChange={(e) => setWalletNumber(e.target.value)}
+      placeholder="063XXXXXXX"
+      disabled={loading}
+      className="w-full rounded-md border border-gray-300 px-4 py-3"
+    />
+    {detectedMobileProvider && (
+      <p className="text-sm">
+        {detectedMobileGateway
+          ? `Detected: ${detectedMobileProvider.name}`
+          : `${detectedMobileProvider.name} — payment unavailable`}
+      </p>
+    )}
+  </div>
+) : (
+  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    {(paymentGroup === "ethiopia-wallets"
+      ? ethiopiaGatewayOptions
+      : eastAfricaGatewayOptions
+    ).map((provider) => {
+      const gateway = provider.gateway;
+      return (
+        <button
+          key={provider.key}
+          type="button"
+          disabled={!gateway || loading}
+          onClick={() => {
+            if (!gateway) return;
+            setPaymentMethod(gateway.id);
+            setWalletNumber("");
+            setError("");
+          }}
+          className="rounded-md border p-3 text-left"
+        >
+          {provider.label}
+          {!gateway && " — Unavailable"}
+        </button>
+      );
+    })}
+  </div>
+)}
 
                         {paymentMethod &&
                           gateways.find((gateway) => gateway.id === paymentMethod)?.requires_account && (
