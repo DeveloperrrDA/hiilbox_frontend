@@ -509,6 +509,68 @@ export default function HowItWorksPage() {
               </div>
             </div>
 
+            {/* Manage Donors */}
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+              <div className="">
+                <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                    <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                  </svg>
+                </div>
+                <div className="mb-3 flex items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                    <Icon icon="solar:users-group-two-rounded-bold" className="text-xl" />
+                  </div>
+                  <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Your Donors</h3>
+                </div>
+                <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
+                  See the list of your donors, their total contributions, and latest donations in one place.
+                </p>
+                
+                <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+                  <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donors</div>
+                  <div className="mb-3 flex gap-2">
+                    <div className="flex w-full max-w-[120px] cursor-pointer items-center justify-between rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
+                    <div className="ml-auto flex w-full max-w-[100px] items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-400 dark:border-gray-700 dark:bg-gray-800/50"><Icon icon="solar:magnifer-bold" /> Search...</div>
+                  </div>
+                  
+                  <div className="w-full">
+                    <div className="mb-1.5 flex border-b border-gray-100 pb-1.5 text-[7px] font-bold text-gray-400 dark:border-gray-800">
+                      <div className="w-[35%]">Donor Details</div><div className="w-[20%] text-center">Donations</div><div className="w-[20%]">Total Given</div><div className="w-[25%] text-right">Latest Donation</div>
+                    </div>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">TU</div>
+                        <span className="truncate text-[8px]">Test User2</span>
+                      </div>
+                      <div className="w-[20%] text-center">2</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$6.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    </div>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">SA</div>
+                        <span className="truncate text-[8px]">Saeed Abdilahi</span>
+                      </div>
+                      <div className="w-[20%] text-center">1</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
+                      <div className="w-[25%] text-right text-[7px]">06/11/2026</div>
+                    </div>
+                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">RA</div>
+                        <span className="truncate text-[8px]">Ridwan Ahmed</span>
+                      </div>
+                      <div className="w-[20%] text-center">3</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    </div>
+                  </div>
+                </div>
+               </div> 
+            </div>
+
             {/* Withdraw Funds */}
             <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
               <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
@@ -571,67 +633,7 @@ export default function HowItWorksPage() {
               </div>
             </div>
 
-            {/* Manage Donors */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
-              <div className="">
-                <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
-                  <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
-                    <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
-                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
-                  </svg>
-                </div>
-                <div className="mb-3 flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
-                    <Icon icon="solar:users-group-two-rounded-bold" className="text-xl" />
-                  </div>
-                  <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Your Donors</h3>
-                </div>
-                <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
-                  See the list of your donors, their total contributions, and latest donations in one place.
-                </p>
-                
-                <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
-                  <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donors</div>
-                  <div className="mb-3 flex gap-2">
-                    <div className="flex w-full max-w-[120px] cursor-pointer items-center justify-between rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
-                    <div className="ml-auto flex w-full max-w-[100px] items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-400 dark:border-gray-700 dark:bg-gray-800/50"><Icon icon="solar:magnifer-bold" /> Search...</div>
-                  </div>
-                  
-                  <div className="w-full">
-                    <div className="mb-1.5 flex border-b border-gray-100 pb-1.5 text-[7px] font-bold text-gray-400 dark:border-gray-800">
-                      <div className="w-[35%]">Donor Details</div><div className="w-[20%] text-center">Donations</div><div className="w-[20%]">Total Given</div><div className="w-[25%] text-right">Latest Donation</div>
-                    </div>
-                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
-                      <div className="flex w-[35%] items-center gap-1.5">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">TU</div>
-                        <span className="truncate text-[8px]">Test User2</span>
-                      </div>
-                      <div className="w-[20%] text-center">2</div>
-                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$6.00</div>
-                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
-                    </div>
-                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
-                      <div className="flex w-[35%] items-center gap-1.5">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">SA</div>
-                        <span className="truncate text-[8px]">Saeed Abdilahi</span>
-                      </div>
-                      <div className="w-[20%] text-center">1</div>
-                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
-                      <div className="w-[25%] text-right text-[7px]">06/11/2026</div>
-                    </div>
-                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
-                      <div className="flex w-[35%] items-center gap-1.5">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">RA</div>
-                        <span className="truncate text-[8px]">Ridwan Ahmed</span>
-                      </div>
-                      <div className="w-[20%] text-center">3</div>
-                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
-                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
-                    </div>
-                  </div>
-                </div>
-               </div> 
-            </div>
+            
 
           </div>
         </section>

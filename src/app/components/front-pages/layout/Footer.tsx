@@ -81,7 +81,7 @@ export const Footer = () => {
   ];
   return (
     <>
-      <div className="bg-dark">
+      <div className="bg-lightgray dark:bg-dark">
         <div className="container-1218 mx-auto ">
           <div className="border-b border-darkborder lg:py-24 py-12">
             <div className="grid grid-cols-12 gap-10 ">
@@ -94,7 +94,7 @@ export const Footer = () => {
                   height={40}
                 />
                 <div className="flex flex-col gap-4">
-                  <p className="text-base leading-8 text-darklink  opacity-80 py-6">
+                  <p className="text-base leading-8 text-dark dark:text-darklink dark:opacity-80 py-6">
                     Hiilbox is a trusted Somali crowdfunding platform that helps people raise funds for medical needs, education, emergencies, 
                     community projects, and charitable causes. By bringing communities together, Hiilbox makes it easy for people to help each 
                     other and create meaningful impact through secure and transparent fundraising.
@@ -104,12 +104,13 @@ export const Footer = () => {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Link href="/">
+                        <Link href="/" className="bg-primary rounded-full p-2">
                           <Image
                             src="/images/front-pages/background/facebook.svg"
                             height={22}
                             width={22}
                             alt="icon"
+                            
                           />
                         </Link>
                       </TooltipTrigger>
@@ -122,16 +123,18 @@ export const Footer = () => {
 
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Link href="/">
+                      <TooltipTrigger asChild>
+                        <Link href="/" className="bg-primary rounded-full p-2">
                           <Image
                             src="/images/front-pages/background/twitter.svg"
                             height={22}
                             width={22}
                             alt="icon"
+                            
                           />
                         </Link>
                       </TooltipTrigger>
+
                       <TooltipContent side="bottom" className="text-xs">
                         Twitter
                       </TooltipContent>
@@ -140,25 +143,29 @@ export const Footer = () => {
 
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Link href="/">
+                      <TooltipTrigger asChild>
+                        <Link href="/" className="bg-primary rounded-full p-2">
                           <Image
                             src="/images/front-pages/background/instagram.svg"
                             height={22}
                             width={22}
                             alt="icon"
+                            
                           />
                         </Link>
                       </TooltipTrigger>
+
                       <TooltipContent side="bottom" className="text-xs">
                         Instagram
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+
+                  
                 </div>
               </div>
               <div className="lg:col-span-2 sm:col-span-6 col-span-12">
-                <h4 className="text-17 text-white font-semibold mb-8">
+                <h4 className="text-lg text-dark dark:text-white font-semibold mb-8">
                   Fundraise
                 </h4>
                 <div className="flex flex-col gap-4">
@@ -167,7 +174,7 @@ export const Footer = () => {
                       <Link
                         key={item.key}
                         href={item.link}
-                        className="text-sm text-lightmuted hover:text-primary block"
+                        className="text-base text-lightmuted hover:text-primary block"
                       >
                         {item.title}
                       </Link>
@@ -176,7 +183,7 @@ export const Footer = () => {
                 </div>
               </div>
               <div className="lg:col-span-2 sm:col-span-6 col-span-12">
-                <h4 className="text-17 text-white font-semibold mb-8">
+                <h4 className="text-lg text-dark dark:text-white font-semibold mb-8">
                   Resources
                 </h4>
                 <div className="flex flex-col gap-4">
@@ -185,7 +192,7 @@ export const Footer = () => {
                       <Link
                         key={item.key}
                         href={item.link}
-                        className="text-sm text-lightmuted hover:text-primary block"
+                        className="text-base text-lightmuted hover:text-primary block"
                       >
                         {item.title}
                       </Link>
@@ -194,7 +201,7 @@ export const Footer = () => {
                 </div>
               </div>
               <div className="lg:col-span-4 sm:col-span-6 col-span-12">
-                <h4 className="text-17 text-white font-semibold mb-8">
+                <h4 className="text-lg text-dark dark:text-white font-semibold mb-8">
                   Follow us
                 </h4>
                 
@@ -206,17 +213,17 @@ export const Footer = () => {
           <div className="flex md:justify-between justify-center items-center flex-wrap md:py-10 py-8">
             <div className="flex items-center gap-3">
               <Logo />
-              <p className="text-sm text-lightmuted ">
-                All rights reserved by MaterialM.
+              <p className="text-base text-lightmuted ">
+                All rights reserved by | Hiilbox.
               </p>
             </div>
-            <p className="text-sm text-lightmuted  flex items-center gap-1 md:pt-0 pt-3">
+            <p className="text-base text-lightmuted  flex items-center gap-1 md:pt-0 pt-3">
               Produced by{" "}
               <Link
-                className="text-white text-primary-ld"
-                href="https://www.wrappixel.com/"
+                className="text-dark dark:text-white text-primary-ld"
+                href="#"
               >
-                Wrappixel
+                ABS
               </Link>{" "}
             </p>
           </div>
