@@ -37,7 +37,7 @@ export default function AboutPage() {
                 <span>CROWDFUNDING PLATFORM</span>
               </div>
               
-              <h1 className="mb-6 text-4xl font-black leading-[1.05] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[4rem]">
+              <h1 className="mb-6 text-4xl font-black leading-[1.05] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[2.5rem]">
                 Making Fundraising <br className="hidden lg:block"/> <span className="text-[#01A14B]">Accessible</span>, Trusted, <br className="hidden lg:block"/> and Global
               </h1>
               
@@ -66,69 +66,69 @@ export default function AboutPage() {
         {/* =========================================
             WHY CHOOSE US (DARK BACKGROUND + GLASS CARDS)
         ========================================= */}
-        <section className="relative w-full overflow-hidden bg-[#0F1F17] py-24 px-6 text-white">
+        <section className="relative w-full overflow-hidden dark:bg-darkgray py-24 px-6 text-dark dark:text-white">
           {/* Ambient Glowing Blobs */}
           <div className="absolute left-0 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#01A14B] opacity-20 blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 h-[500px] w-[500px] translate-x-1/2 translate-y-1/2 rounded-full bg-[#8BD3A8] opacity-10 blur-[120px] pointer-events-none"></div>
           
           <div className="container-1218 relative z-10">
             <div className="relative mb-16 flex flex-col items-center text-center">
-              <div className="mb-6 rounded-full bg-[#01A14B]/20 px-5 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#8BD3A8] border border-[#01A14B]/30">
+              <div className="mb-6 rounded-full bg-[#01A14B]/20 px-5 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-primary dark:text-lightprimary border border-[#01A14B]/30">
                 Why Choose Us
               </div>
               
-              <h2 className="relative mb-4 inline-block mx-auto max-w-4xl text-3xl font-black leading-tight text-white md:text-[2.75rem]">
-                Built on trust, transparency, and <span className="text-[#01A14B]">accountability</span>
+              <h2 className="relative mb-4 inline-block mx-auto max-w-4xl text-3xl font-black leading-tight text-dark dark:text-white md:text-[2.75rem]">
+                Built on trust, transparency, and <span className="text-primary">accountability</span>
               </h2>
               
-              <p className="mx-auto mb-6 max-w-3xl text-lg text-white/70">
+              <p className="mx-auto mb-6 max-w-3xl text-lg text-dark dark:text-white/70">
                 We are committed to creating a safe, transparent, and reliable crowdfunding platform that empowers communities and connects them with global support.
               </p>
-              <div className="mx-auto h-1.5 w-10 rounded-full bg-[#01A14B]"></div>
+              <div className="mx-auto h-1.5 w-10 rounded-full bg-primary"></div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               
               {/* Feature 1: Global Reach */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:global-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 border border-[#01A14B]/30">
+                      <Icon icon="solar:global-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Global Reach</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Global Reach</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">Supporters from around the world can discover and contribute to campaigns that matter to them.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">Supporters from around the world can discover and contribute to campaigns that matter to them.</p>
                 </div>
                 <div className="absolute right-0 top-1/2 flex h-40 w-40 -translate-y-1/2 shrink-0 items-center justify-center">
-                  <div className="flex h-24 w-24 animate-[spin_20s_linear_infinite] items-center justify-center rounded-full border border-dashed border-[#8BD3A8]/50">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 backdrop-blur-sm">
-                      <Icon icon="solar:global-bold" className="text-4xl text-[#8BD3A8] opacity-50" />
+                  <div className="flex h-24 w-24 animate-[spin_20s_linear_infinite] items-center justify-center rounded-full border border-dashed border-primary/50">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-lightprimary backdrop-blur-sm">
+                      <Icon icon="solar:global-bold" className="text-4xl text-primary dark:opacity-50" />
                     </div>
                   </div>
-                  <div className="absolute right-6 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[10px] text-white shadow-md backdrop-blur-md"><Icon icon="solar:user-bold" /></div>
-                  <div className="absolute bottom-6 left-6 flex h-7 w-7 items-center justify-center rounded-full border border-[#01A14B]/50 bg-[#01A14B] text-[12px] text-white shadow-md"><Icon icon="solar:user-bold" /></div>
-                  <div className="absolute left-2 top-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-[#8BD3A8] text-[8px] text-white shadow-sm"><Icon icon="solar:user-bold" /></div>
+                  <div className="absolute right-6 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-primary/50 dark:lightprimary text-[10px] text-white shadow-md backdrop-blur-md"><Icon icon="solar:user-bold" /></div>
+                  <div className="absolute bottom-6 left-6 flex h-7 w-7 items-center justify-center rounded-full border border-primary/50 bg-primary/70 text-[12px] text-white shadow-md"><Icon icon="solar:user-bold" /></div>
+                  <div className="absolute left-2 top-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] text-white shadow-sm"><Icon icon="solar:user-bold" /></div>
                 </div>
               </div>
               
               {/* Feature 2: Trusted Platform */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:shield-check-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary border border-[#01A14B]/30">
+                      <Icon icon="solar:shield-check-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Trusted Platform</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Trusted Platform</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">We are committed to building trust through transparency, accountability, and responsible fund management.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">We are committed to building trust through transparency, accountability, and responsible fund management.</p>
                 </div>
                 <div className="absolute right-2 top-1/2 flex h-32 w-32 -translate-y-1/2 shrink-0 items-center justify-center">
-                  <div className="relative z-10 flex h-24 w-20 rotate-6 transform flex-col rounded-lg border border-white/10 bg-white/5 p-2.5 shadow-sm backdrop-blur-md">
-                    <div className="mb-2 h-1.5 w-6 rounded bg-white/50"></div>
-                    <div className="mb-1.5 h-1.5 w-full rounded bg-white/30"></div>
-                    <div className="mb-1.5 h-1.5 w-3/4 rounded bg-white/30"></div>
-                    <div className="h-1.5 w-full rounded bg-white/30"></div>
+                  <div className="relative z-10 flex h-24 w-20 rotate-6 transform flex-col rounded-lg border border-white/10 bg-primary/70 dark:bg-white/5 p-2.5 shadow-sm backdrop-blur-md">
+                    <div className="mb-2 h-1.5 w-6 rounded bg-white dark:bg-white/50"></div>
+                    <div className="mb-1.5 h-1.5 w-full rounded bg-white dark:bg-white/30"></div>
+                    <div className="mb-1.5 h-1.5 w-3/4 rounded bg-white dark:bg-white/30"></div>
+                    <div className="h-1.5 w-full rounded bg-white dark:bg-white/30"></div>
                   </div>
                   <div className="absolute -right-2 bottom-2 z-20 flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-white/20 bg-[#01A14B] text-white shadow-lg backdrop-blur-md">
                     <Icon icon="solar:check-read-bold" className="text-xl" />
@@ -137,74 +137,74 @@ export default function AboutPage() {
               </div>
               
               {/* Feature 3: Secure Donations */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:lock-password-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary border border-primary/30">
+                      <Icon icon="solar:lock-password-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Secure Donations</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Secure Donations</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">We utilize modern security standards and trusted payment technologies to help protect your transactions.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">We utilize modern security standards and trusted payment technologies to help protect your transactions.</p>
                 </div>
                 <div className="absolute right-4 top-1/2 flex h-32 w-32 -translate-y-1/2 shrink-0 items-center justify-center">
                   <div className="relative z-10 flex h-24 w-[5.5rem] items-center justify-center rounded-b-xl rounded-t-full border border-white/10 bg-white/5 backdrop-blur-md shadow-lg">
-                    <div className="absolute inset-1.5 rounded-b-lg rounded-t-full border border-white/20 bg-[#01A14B]/40"></div>
+                    <div className="absolute inset-1.5 rounded-b-lg rounded-t-full border border-white/20 bg-primary dark:bg-primary/40"></div>
                     <Icon icon="solar:check-circle-bold" className="text-3xl text-white z-10" />
                   </div>
-                  <Icon icon="solar:stars-bold" className="absolute right-2 top-4 text-lg text-[#8BD3A8]" />
-                  <Icon icon="solar:stars-bold" className="absolute bottom-4 left-2 text-base text-[#8BD3A8]" />
+                  <Icon icon="solar:stars-bold" className="absolute right-2 top-4 text-lg text-primary" />
+                  <Icon icon="solar:stars-bold" className="absolute bottom-4 left-2 text-base text-primary" />
                 </div>
               </div>
 
               {/* Feature 4: Easy to Use */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:cursor-square-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary border border-primary/30">
+                      <Icon icon="solar:cursor-square-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Easy to Use</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Easy to Use</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">Our platform is designed to make fundraising and donating simple, intuitive, and accessible for everyone.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">Our platform is designed to make fundraising and donating simple, intuitive, and accessible for everyone.</p>
                 </div>
                 <div className="absolute right-2 top-1/2 flex h-32 w-36 -translate-y-1/2 shrink-0 items-center justify-center">
-                  <div className="relative z-10 flex h-20 w-28 flex-col justify-between rounded-xl border border-white/10 bg-white/5 p-2 shadow-sm backdrop-blur-md">
+                  <div className="relative z-10 flex h-20 w-28 flex-col justify-between rounded-xl border border-white/10 bg-primary/50 dark:bg-white/5 p-2 shadow-sm backdrop-blur-md">
                     <div className="flex gap-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#8BD3A8]/70"></div>
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#8BD3A8]/70"></div>
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#8BD3A8]/70"></div>
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#8BD3A8]/70"></div>
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#8BD3A8]/70"></div>
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#8BD3A8]/70"></div>
                     </div>
                     <div className="space-y-1.5">
-                      <div className="h-2 w-full rounded-full bg-white/50"></div>
-                      <div className="h-2 w-3/4 rounded-full bg-white/30"></div>
+                      <div className="h-2 w-full rounded-full bg-white dark:bg-white/50"></div>
+                      <div className="h-2 w-3/4 rounded-full bg-white dark:bg-white/30"></div>
                     </div>
                   </div>
                   <div className="absolute bottom-4 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-white/20 bg-[#01A14B] text-white shadow-lg backdrop-blur-md">
                     <Icon icon="solar:add-circle-bold" className="text-xl" />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 z-30 -rotate-12 transform text-[#8BD3A8]">
+                  <div className="absolute -bottom-1 -right-1 z-30 -rotate-12 transform text-primary dark:text-lightprimary">
                     <Icon icon="solar:cursor-bold" className="text-4xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]" />
                   </div>
                 </div>
               </div>
 
               {/* Feature 5: Real-Time Tracking */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:chart-square-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary border border-primary/30">
+                      <Icon icon="solar:chart-square-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Real-Time Tracking</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Real-Time Tracking</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">Fundraisers and donors can monitor campaign progress and fundraising performance in real time.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">Fundraisers and donors can monitor campaign progress and fundraising performance in real time.</p>
                 </div>
                 <div className="absolute right-4 top-1/2 flex h-32 w-32 -translate-y-1/2 shrink-0 items-center justify-center">
-                  <div className="relative z-10 flex h-24 w-28 items-end gap-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur-md">
-                    <div className="h-8 w-4 rounded-t bg-[#8BD3A8] shadow-sm opacity-60"></div>
-                    <div className="h-12 w-4 rounded-t bg-[#8BD3A8] shadow-sm opacity-80"></div>
-                    <div className="h-16 w-4 rounded-t bg-[#01A14B] shadow-sm"></div>
+                  <div className="relative z-10 flex h-24 w-28 items-end gap-1.5 overflow-hidden rounded-2xl border border-white/10 bg-lightprimary dark:bg-white/5 p-3 backdrop-blur-md">
+                    <div className="h-8 w-4 rounded-t bg-primary/50 shadow-sm opacity-60"></div>
+                    <div className="h-12 w-4 rounded-t bg-primary/70 shadow-sm opacity-80"></div>
+                    <div className="h-16 w-4 rounded-t bg-primary shadow-sm"></div>
                   </div>
                   <div className="absolute -right-1 bottom-2 z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-white/20 bg-[#01A14B] text-white shadow-lg backdrop-blur-md">
                     <Icon icon="solar:history-bold" className="text-xl" />
@@ -213,21 +213,21 @@ export default function AboutPage() {
               </div>
 
               {/* Feature 6: Dedicated Support */}
-              <div className="relative flex h-[180px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
+              <div className="relative flex h-[250px] items-center justify-between gap-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="z-10 w-[55%]">
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                      <Icon icon="solar:chat-round-dots-bold" className="text-xl text-[#8BD3A8]" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary border border-primary/30">
+                      <Icon icon="solar:chat-round-dots-bold" className="text-xl text-primary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Dedicated Support</h3>
+                    <h3 className="text-lg font-bold text-dark dark:text-white">Dedicated Support</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/70">Our customer support team is available to assist fundraisers and donors throughout their journey.</p>
+                  <p className="text-base leading-relaxed text-dark dark:text-white/70">Our customer support team is available to assist fundraisers and donors throughout their journey.</p>
                 </div>
                 <div className="absolute right-4 top-1/2 flex h-32 w-32 -translate-y-1/2 shrink-0 items-center justify-center">
-                  <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-[1.5rem] rounded-br-lg border border-[#01A14B]/50 bg-[#01A14B]/40 text-white shadow-lg backdrop-blur-md">
+                  <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-[1.5rem] rounded-br-lg border border-primary/50  bg-primary dark:bg-primary/40 text-white shadow-lg backdrop-blur-md">
                     <Icon icon="solar:menu-dots-bold" className="text-4xl opacity-80" />
-                    <div className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-xl rounded-bl-sm border border-white/20 bg-white/10 text-white shadow-md backdrop-blur-lg">
-                      <Icon icon="solar:chat-square-text-bold" className="text-xl" />
+                    <div className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-xl rounded-bl-sm border border-white/20 bg-white dark:bg-white/10 text-primary dark:text-white shadow-md backdrop-blur-lg">
+                      <Icon icon="solar:chat-round-dots-bold" className="text-xl" />
                     </div>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function AboutPage() {
                   <Icon icon="solar:wallet-bold" /> PAYMENT & PAYOUTS
                 </div>
                 
-                <h2 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
+                <h2 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[2rem]">
                   Multiple Payment Options, <br/><span className="text-[#01A14B]">Directly to You</span>
                 </h2>
                 
@@ -291,8 +291,8 @@ export default function AboutPage() {
                     <Icon icon={item.icon} className="text-2xl text-[#01A14B]" />
                   </div>
                   <div>
-                    <h4 className="mb-1 font-bold text-[#0F1F17] dark:text-white">{item.title}</h4>
-                    <p className="text-sm leading-relaxed text-[#687280] dark:text-gray-400">{item.desc}</p>
+                    <h4 className="mb-1 text-lg font-bold text-[#0F1F17] dark:text-white">{item.title}</h4>
+                    <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -303,18 +303,18 @@ export default function AboutPage() {
         {/* =========================================
             WHO WE SERVE (DARK BACKGROUND + GLASS CARDS)
         ========================================= */}
-        <section className="relative w-full overflow-hidden bg-[#0F1F17] py-24 px-6 text-white">
+        <section className="relative w-full overflow-hidden dark:bg-darkgray py-24 px-6 text-white">
           <div className="absolute right-0 top-0 h-[600px] w-[600px] -translate-y-1/2 translate-x-1/2 rounded-full bg-[#01A14B] opacity-10 blur-[120px] pointer-events-none"></div>
           
           <div className="container-1218 relative z-10">
             <div className="relative mb-16 flex flex-col items-center text-center">
-              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#8BD3A8]">
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
                 OUR CATEGORIES
               </div>
-              <h2 className="mb-6 text-4xl font-black text-white md:text-[2.75rem]">
+              <h2 className="mb-6 text-4xl font-black text-dark dark:text-white md:text-[2.75rem]">
                 Who <span className="text-[#01A14B]">We Serve</span>
               </h2>
-              <p className="mx-auto mb-6 max-w-2xl text-lg text-white/70">
+              <p className="mx-auto mb-6 max-w-2xl text-lg text-dark dark:text-white/70">
                 HiilBox supports a wide range of fundraising needs, connecting generosity to where it matters most.
               </p>
               <div className="h-1.5 w-10 rounded-full bg-[#01A14B]"></div>
@@ -328,7 +328,7 @@ export default function AboutPage() {
                 { icon: "solar:hand-stars-bold", title: "Humanitarian\nAssistance", desc: "Support vulnerable communities across Somalia.", slug: "humanitarian", image: "https://hiilbox.com/about/who-we-serve/humanitarian_causes_who-we-serve-Hiilbox.webp" },
                 { icon: "solar:buildings-bold", title: "Community\nProjects", desc: "Fund local development projects that create lasting change.", slug: "community", image: "https://hiilbox.com/about/who-we-serve/community-projects_causes_who-we-serve-Hiilbox.webp" },
                 { icon: "solar:hand-heart-bold", title: "Non-profit\nInitiatives", desc: "Support NGOs and non-profit organizations driving social impact.", slug: "non-profit", image: "https://hiilbox.com/about/who-we-serve/non-profit_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:mosque-bold", title: "Religious\nCauses", desc: "Support mosque construction and religious education.", slug: "masjid", image: "https://hiilbox.com/about/who-we-serve/religious_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:moon-stars-bold", title: "Religious\nCauses", desc: "Support mosque construction and religious education.", slug: "masjid", image: "https://hiilbox.com/about/who-we-serve/religious_causes_who-we-serve-Hiilbox.webp" },
                 { icon: "solar:leaf-bold", title: "Environmental", desc: "Contribute to environmental protection and sustainable initiatives for a greener tomorrow.", slug: "environment", image: "https://hiilbox.com/about/who-we-serve/environmental_causes_who-we-serve-Hiilbox.webp" },
               ].map((cat, i) => (
                 <div key={i} className="group relative flex min-h-[240px] items-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
@@ -336,13 +336,13 @@ export default function AboutPage() {
                     <div>
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30">
-                          <Icon icon={cat.icon} className="text-2xl text-[#8BD3A8]" />
+                          <Icon icon={cat.icon} className="text-2xl text-primary dark:text-lightprimary" />
                         </div>
-                        <h4 className="whitespace-pre-line text-lg font-bold leading-tight text-white">{cat.title}</h4>
+                        <h4 className="whitespace-pre-line text-lg font-bold leading-tight text-dark dark:text-white">{cat.title}</h4>
                       </div>
-                      <p className="mb-6 text-sm leading-relaxed text-white/70">{cat.desc}</p>
+                      <p className="mb-6 text-base leading-relaxed text-dark dark:text-white/70">{cat.desc}</p>
                     </div>
-                    <Link href={`/campaigns?category=${cat.slug}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors group-hover:bg-[#01A14B] hover:text-white">
+                    <Link href={`/campaigns?category=${cat.slug}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/70 dark:bg-white/10 text-white transition-colors group-hover:bg-primary hover:text-primary">
                       <Icon icon="solar:arrow-right-bold" />
                     </Link>
                   </div>
@@ -364,7 +364,7 @@ export default function AboutPage() {
           <div className="container-1218">
             <div className="relative flex flex-col items-center justify-between gap-12 overflow-hidden rounded-4xl bg-[#003D1B] p-10 md:flex-row md:p-16">
               <div className="relative z-10 md:w-1/2">
-                <span className="mb-4 block text-sm font-bold uppercase tracking-wider text-[#8BD3A8]">Trust & Security</span>
+                <span className="mb-4 block text-sm font-bold uppercase tracking-wider text-lightprimary">Trust & Security</span>
                 <h2 className="mb-6 text-3xl font-black text-white md:text-4xl">Transparency & Accountability</h2>
                 <p className="text-lg leading-relaxed text-gray-300">
                   We continuously work to strengthen our platform, improve user confidence, and ensure that contributions reach their intended purpose responsibly and efficiently.
@@ -379,7 +379,7 @@ export default function AboutPage() {
                     "Real-Time Tracking", "24/7 Support"
                   ].map((item, i) => (
                     <li key={i} className="flex items-center space-x-3 text-white">
-                      <Icon icon="solar:check-circle-bold" className="text-xl text-[#01A14B]" />
+                      <Icon icon="solar:check-circle-bold" className="text-xl text-primary" />
                       <span className="text-sm font-medium">{item}</span>
                     </li>
                   ))}
@@ -404,10 +404,10 @@ export default function AboutPage() {
               </p>
               
               <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Link href="/create-campaign" className="rounded-full bg-[#01A14B] px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-[#006B30] dark:shadow-none">
+                <Link href="/create-campaign" className="rounded-full bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-[#006B30] dark:shadow-none">
                   Start your Campaign
                 </Link>
-                <Link href="/campaigns" className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 text-lg font-bold text-[#0F1F17] transition hover:border-[#01A14B] hover:text-[#01A14B] dark:border-gray-700 dark:bg-dark dark:text-white dark:hover:border-[#01A14B] dark:hover:text-[#01A14B]">
+                <Link href="/campaigns" className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 text-lg font-bold text-[#0F1F17] transition hover:border-primary hover:text-primary dark:border-gray-700 dark:bg-dark dark:text-white dark:hover:border-[#01A14B] dark:hover:text-[#01A14B]">
                   Explore Causes
                 </Link>
               </div>

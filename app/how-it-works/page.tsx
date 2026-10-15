@@ -84,18 +84,17 @@ export default function HowItWorksPage() {
         {/* =========================================
             HERO SECTION
         ========================================= */}
-        <section className="mx-auto max-w-3xl py-16 text-center">
-          <div className="mb-6 inline-flex items-center space-x-3">
-            <div className="h-px w-8 bg-[#8BD3A8] dark:bg-gray-700"></div>
-            <span className="rounded-full border border-white/50 bg-white/60 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+        <section className="mx-auto max-w-3xl py-16 items-center text-center">
+          <div className="flex items-center justify-center"> 
+            <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
               HOW HIILBOX WORKS
-            </span>
-            <div className="h-px w-8 bg-[#8BD3A8] dark:bg-gray-700"></div>
+            </div>
           </div>
+          
           
           <h1 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
             Turn Your Cause Into Support<br/>
-            <span className="text-[#01A14B]">in Six Simple Steps</span>
+            <span className="text-primary">in Six Simple Steps</span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-[#687280] dark:text-gray-300">
             From creating your account to receiving your funds, HiilBox makes fundraising easy, secure, and transparent — all in one trusted platform.
@@ -115,7 +114,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 01</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Create Your<br/>HiilBox Account</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">Sign up and set up your fundraiser profile to get started.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">Sign up and set up your fundraiser profile to get started.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 w-48 rounded-xl border border-white/60 bg-white/80 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -151,7 +150,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 02</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Tell Your Story</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">Set your goal, add photos or videos, and explain how the funds will help.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">Set your goal, add photos or videos, and explain how the funds will help.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 flex w-56 gap-3 rounded-xl border border-white/60 bg-white/80 p-3 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -182,7 +181,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 03</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Verification<br/>and Review</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">Submit required documents and get your campaign reviewed and approved.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">Submit required documents and get your campaign reviewed and approved.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 w-48 rounded-xl border border-white/60 bg-white/80 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -216,7 +215,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 04</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Share Your<br/>Campaign</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">Share your campaign link with friends, family, and supporters worldwide.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">Share your campaign link with friends, family, and supporters worldwide.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 flex w-56 flex-col items-center rounded-xl border border-white/60 bg-white/80 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -243,7 +242,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 05</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Receive Donations</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">Get donations through multiple secure payment methods.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">Get donations through multiple secure payment methods.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 w-48 rounded-xl border border-white/60 bg-white/80 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -278,7 +277,7 @@ export default function HowItWorksPage() {
               </div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#01A14B] dark:text-[#8BD3A8]">STEP 06</div>
               <h3 className="mb-2 text-xl font-bold leading-tight text-[#0F1F17] dark:text-white">Request Your Payout</h3>
-              <p className="text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">When funds are ready, submit a payout request to your bank account.</p>
+              <p className="text-base leading-relaxed text-[#687280] dark:text-gray-400">When funds are ready, submit a payout request to your bank account.</p>
             </div>
             <div className="relative flex h-48 w-full items-center justify-center sm:w-[55%]">
               <div className="relative z-10 mr-8 w-40 rounded-xl border border-white/60 bg-white/80 p-3 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
@@ -305,10 +304,10 @@ export default function HowItWorksPage() {
         ========================================= */}
         <section className="mb-24 relative z-10">
           <div className="mb-16 flex flex-col items-center text-center">
-            <div className="relative mb-6 inline-flex items-center space-x-2 rounded-full border border-white/50 bg-white/60 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
-              <div className="absolute -left-6 top-1/2 h-px w-4 -translate-y-1/2 bg-[#01A14B] dark:bg-[#8BD3A8]"></div>
-              PLATFORM FEATURES
-              <div className="absolute -right-6 top-1/2 h-px w-4 -translate-y-1/2 bg-[#01A14B] dark:bg-[#8BD3A8]"></div>
+            <div className="flex items-center justify-center"> 
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+                PLATFORM FEATURES
+              </div>
             </div>
             
             <h2 className="mb-6 max-w-3xl text-3xl font-black leading-tight tracking-tight text-[#0F1F17] dark:text-white md:text-4xl lg:text-[2.75rem]">
@@ -323,18 +322,24 @@ export default function HowItWorksPage() {
           <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             
             {/* Dashboard Analytics */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10 md:p-8">
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10 md:p-8">
+              <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                  <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                </svg>
+              </div>
               <div className="mb-4 flex items-center gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/50 text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
                   <Icon icon="solar:chart-square-bold" className="text-2xl" />
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Dashboard Analytics</h3>
               </div>
-              <p className="mb-8 pr-4 text-[15px] text-[#687280] dark:text-gray-400">
+              <p className="mb-8 pr-4 text-base text-[#687280] dark:text-gray-400">
                 Get a clear overview of your campaign performance, track donations, and see key statistics in real time.
               </p>
               
-              <div className="mt-auto rounded-xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+              <div className="mt-auto rounded-xl border border-white/60 bg-white p-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
                 <div className="mb-5 flex items-center justify-between">
                   <h4 className="text-sm font-bold text-[#0F1F17] dark:text-white">Overview</h4>
                   <div className="flex cursor-pointer items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1.5 text-[10px] text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 dark:hover:bg-gray-800">
@@ -385,18 +390,24 @@ export default function HowItWorksPage() {
             </div>
 
             {/* Create Campaign Easily */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10 md:p-8">
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30  p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10 md:p-8">
+              <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                  <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                </svg>
+              </div>
               <div className="mb-4 flex items-center gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/50 text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
                   <Icon icon="solar:pen-bold" className="text-2xl" />
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Create a Campaign Easily</h3>
               </div>
-              <p className="mb-8 pr-4 text-[15px] text-[#687280] dark:text-gray-400">
+              <p className="mb-8 pr-4 text-base text-[#687280] dark:text-gray-400">
                 Set your goal, tell your story, upload photos or videos, and launch your campaign in just a few minutes.
               </p>
               
-              <div className="mt-auto rounded-xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+              <div className="mt-auto rounded-xl border border-white/60 bg-white p-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
                 <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3 text-[11px] font-bold text-gray-400 dark:border-gray-800">
                   <span className="text-[#0F1F17] dark:text-white">Edit Campaign</span>
                   <div className="flex gap-4">
@@ -456,18 +467,24 @@ export default function HowItWorksPage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             
             {/* Manage Donations */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+              <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                  <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                </svg>
+              </div>
               <div className="mb-3 flex items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/50 text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
                   <Icon icon="solar:hand-heart-bold" className="text-xl" />
                 </div>
                 <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Donations</h3>
               </div>
-              <p className="mb-6 pr-2 text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">
+              <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
                 View and manage all donations in one place. Track donor details, payment status, and campaign progress easily.
               </p>
               
-              <div className="mt-auto rounded-xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+              <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
                 <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donations</div>
                 <div className="mb-3 flex gap-2">
                   <div className="flex cursor-pointer items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
@@ -493,18 +510,24 @@ export default function HowItWorksPage() {
             </div>
 
             {/* Withdraw Funds */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+              <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                  <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                </svg>
+              </div>
               <div className="mb-3 flex items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/50 text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
                   <Icon icon="solar:wallet-bold" className="text-xl" />
                 </div>
                 <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Withdraw Your Funds</h3>
               </div>
-              <p className="mb-6 pr-2 text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">
+              <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
                 Request a withdrawal and receive your funds directly to your bank account through our secure process.
               </p>
               
-              <div className="mt-auto rounded-xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+              <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
                 <div className="mb-1 text-xs font-bold text-[#0F1F17] dark:text-white">Wallet</div>
                 <div className="mb-4 flex items-end justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                   <div>
@@ -549,57 +572,65 @@ export default function HowItWorksPage() {
             </div>
 
             {/* Manage Donors */}
-            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
-              <div className="mb-3 flex items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/50 text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
-                  <Icon icon="solar:users-group-two-rounded-bold" className="text-xl" />
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+              <div className="">
+                <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                    <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                  </svg>
                 </div>
-                <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Your Donors</h3>
-              </div>
-              <p className="mb-6 pr-2 text-[13px] leading-relaxed text-[#687280] dark:text-gray-400">
-                See the list of your donors, their total contributions, and latest donations in one place.
-              </p>
-              
-              <div className="mt-auto rounded-xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
-                <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donors</div>
-                <div className="mb-3 flex gap-2">
-                  <div className="flex w-full max-w-[120px] cursor-pointer items-center justify-between rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
-                  <div className="ml-auto flex w-full max-w-[100px] items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-400 dark:border-gray-700 dark:bg-gray-800/50"><Icon icon="solar:magnifer-bold" /> Search...</div>
+                <div className="mb-3 flex items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                    <Icon icon="solar:users-group-two-rounded-bold" className="text-xl" />
+                  </div>
+                  <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Your Donors</h3>
                 </div>
+                <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
+                  See the list of your donors, their total contributions, and latest donations in one place.
+                </p>
                 
-                <div className="w-full">
-                  <div className="mb-1.5 flex border-b border-gray-100 pb-1.5 text-[7px] font-bold text-gray-400 dark:border-gray-800">
-                    <div className="w-[35%]">Donor Details</div><div className="w-[20%] text-center">Donations</div><div className="w-[20%]">Total Given</div><div className="w-[25%] text-right">Latest Donation</div>
+                <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+                  <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donors</div>
+                  <div className="mb-3 flex gap-2">
+                    <div className="flex w-full max-w-[120px] cursor-pointer items-center justify-between rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
+                    <div className="ml-auto flex w-full max-w-[100px] items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-400 dark:border-gray-700 dark:bg-gray-800/50"><Icon icon="solar:magnifer-bold" /> Search...</div>
                   </div>
-                  <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
-                    <div className="flex w-[35%] items-center gap-1.5">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">TU</div>
-                      <span className="truncate text-[8px]">Test User2</span>
+                  
+                  <div className="w-full">
+                    <div className="mb-1.5 flex border-b border-gray-100 pb-1.5 text-[7px] font-bold text-gray-400 dark:border-gray-800">
+                      <div className="w-[35%]">Donor Details</div><div className="w-[20%] text-center">Donations</div><div className="w-[20%]">Total Given</div><div className="w-[25%] text-right">Latest Donation</div>
                     </div>
-                    <div className="w-[20%] text-center">2</div>
-                    <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$6.00</div>
-                    <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
-                  </div>
-                  <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
-                    <div className="flex w-[35%] items-center gap-1.5">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">SA</div>
-                      <span className="truncate text-[8px]">Saeed Abdilahi</span>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">TU</div>
+                        <span className="truncate text-[8px]">Test User2</span>
+                      </div>
+                      <div className="w-[20%] text-center">2</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$6.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
                     </div>
-                    <div className="w-[20%] text-center">1</div>
-                    <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
-                    <div className="w-[25%] text-right text-[7px]">06/11/2026</div>
-                  </div>
-                  <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
-                    <div className="flex w-[35%] items-center gap-1.5">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">RA</div>
-                      <span className="truncate text-[8px]">Ridwan Ahmed</span>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">SA</div>
+                        <span className="truncate text-[8px]">Saeed Abdilahi</span>
+                      </div>
+                      <div className="w-[20%] text-center">1</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
+                      <div className="w-[25%] text-right text-[7px]">06/11/2026</div>
                     </div>
-                    <div className="w-[20%] text-center">3</div>
-                    <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
-                    <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">RA</div>
+                        <span className="truncate text-[8px]">Ridwan Ahmed</span>
+                      </div>
+                      <div className="w-[20%] text-center">3</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    </div>
                   </div>
                 </div>
-              </div>
+               </div> 
             </div>
 
           </div>
@@ -610,10 +641,10 @@ export default function HowItWorksPage() {
         ========================================= */}
         <section className="mt-24 flex w-full flex-col items-center justify-between gap-16 py-16 lg:flex-row relative z-10">
           <div className="relative z-10 flex w-full flex-col items-start lg:w-1/2">
-            <div className="relative mb-8 inline-flex items-center space-x-2 rounded-full border border-white/50 bg-white/60 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
-              <Icon icon="solar:sun-bold" className="text-lg" />
-              <span>MAKE A DIFFERENCE TODAY</span>
-              <div className="ml-2 h-px w-8 bg-[#8BD3A8] dark:bg-gray-700"></div>
+            <div className="flex items-center justify-center"> 
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+                MAKE A DIFFERENCE TODAY
+              </div>
             </div>
 
             <h2 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
@@ -664,12 +695,10 @@ export default function HowItWorksPage() {
         ========================================= */}
         <section className="mx-auto mt-24 max-w-4xl relative z-10">
           <div className="mb-10 text-center">
-            <div className="mb-4 inline-flex items-center space-x-2">
-              <div className="h-px w-8 bg-[#8BD3A8] dark:bg-gray-700"></div>
-              <span className="flex items-center gap-1 rounded-full border border-white/50 bg-white/60 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
-                <Icon icon="solar:question-circle-bold" className="text-sm" /> FAQs
-              </span>
-              <div className="h-px w-8 bg-[#8BD3A8] dark:bg-gray-700"></div>
+            <div className="flex items-center justify-center"> 
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+                FAQS
+              </div>
             </div>
             <h2 className="mb-4 text-3xl font-black leading-tight tracking-tight text-[#0F1F17] dark:text-white md:text-4xl lg:text-[2.75rem]">
               Got Questions? <span className="text-[#01A14B]">We're Here to Help</span>
