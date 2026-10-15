@@ -9,7 +9,13 @@ const MainBanner = async () => {
   const placeholderImg = "https://cdn.hiilbox.com/2026/06/A-Trusted-Way-to-Raise-Funds-Online-Hiilbox.webp";
   
   // Fetch global recent donations on the server
-  const recentDonations = await getRecentDonations();
+  let recentDonations: Awaited<ReturnType<typeof getRecentDonations>> = [];
+
+try {
+  recentDonations = await getRecentDonations();
+} catch (error) {
+  console.error("Homepage recent donations failed:", error);
+}
 
   return (
     <div className="bg-[#FAFAFA] dark:bg-darkgray overflow-hidden">
