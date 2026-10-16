@@ -223,7 +223,7 @@ export const Footer = () => {
                 className="text-dark dark:text-white text-primary-ld"
                 href="#"
               >
-                ABS
+                ABS Printing & Software Solutions
               </Link>{" "}
             </p>
           </div>
