@@ -3,20 +3,12 @@ import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import HeroRecentDonations from "@/app/components/front-pages/HeroRecentDonations";
-import { getRecentDonations } from "@/lib/donations";
 
-const MainBanner = async () => {
+
+const MainBanner = () => {
   const placeholderImg = "https://cdn.hiilbox.com/2026/06/A-Trusted-Way-to-Raise-Funds-Online-Hiilbox.webp";
   
-  // Fetch global recent donations on the server
-  let recentDonations: Awaited<ReturnType<typeof getRecentDonations>> = [];
-
-try {
-  recentDonations = await getRecentDonations();
-} catch (error) {
-  console.error("Homepage recent donations failed:", error);
-}
-
+ 
   return (
     <div className="bg-[#FAFAFA] dark:bg-darkgray overflow-hidden">
       <div className="container-1218 mx-auto px-6 py-16 lg:py-20">
@@ -171,7 +163,7 @@ try {
 
             {/* Recent Donations Ticker directly below the cards */}
             <div className="relative z-20 w-full pl-4 pr-4 lg:pr-0">
-              <HeroRecentDonations donations={recentDonations} />
+              <HeroRecentDonations donations={[]} />
             </div>
 
           </div>
