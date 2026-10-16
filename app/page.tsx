@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <HomeLayout>
-      <MainBanner />
+     {/* <MainBanner /> */}
       <Highlights />
       <CampaignGridFeatured />
       <OurClients />
