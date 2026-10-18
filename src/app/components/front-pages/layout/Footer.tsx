@@ -44,7 +44,7 @@ export const Footer = () => {
     {
       key: "link1",
       title: "How to start HiilBox",
-      link: "/widgets/banners",
+      link: "/get-started/",
     },
     {
       key: "link2",

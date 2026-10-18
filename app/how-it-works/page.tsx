@@ -505,6 +505,12 @@ export default function HowItWorksPage() {
                   <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
                     <div className="w-[12%]">#169</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$1.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Community Health</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
                   </div>
+                  <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                    <div className="w-[12%]">#168</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$10.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Support Local Causes</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
+                  </div>
+                  <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                    <div className="w-[12%]">#167</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$100.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Medical Support</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -564,6 +570,15 @@ export default function HowItWorksPage() {
                       </div>
                       <div className="w-[20%] text-center">3</div>
                       <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/01/2026</div>
+                    </div>
+                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">AA</div>
+                        <span className="truncate text-[8px]">Abdilahi Abdirisaq</span>
+                      </div>
+                      <div className="w-[20%] text-center">5</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
                       <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
                     </div>
                   </div>
