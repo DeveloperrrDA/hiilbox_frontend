@@ -79,11 +79,12 @@ function CheckoutContent() {
 
   // Keep checkout completely empty initially.
   const [amount, setAmount] = useState("");
-  const [tipPercent, setTipPercent] = useState(10);
+  const [manualTip, setManualTip] = useState<string | null>(null);
   const [showSuggestedAmounts, setShowSuggestedAmounts] = useState(true);
   const [currency, setCurrency] = useState("USD");
   const [currencies, setCurrencies] = useState<CheckoutCurrency[]>([
     { code: "USD", name: "US Dollar", rate: 1 },
+    { code: "SOS", name: "Somaliland Shilling", rate: 1 },
   ]);
 
   const [firstName, setFirstName] = useState("");
@@ -208,6 +209,7 @@ const [loadingGateways, setLoadingGateways] =
     getCheckoutCurrencies()
       .then((available) => {
         if (cancelled || !available.length) return;
+        // Preserve the working SOS gateway/rate; only its customer-facing label is SLSH.
         setCurrencies(available);
         setCurrency((current) =>
           available.some((item) => item.code === current) ? current : "USD"
@@ -410,11 +412,12 @@ useEffect(() => {
   ];
 
   const cardGateway =
+    gatewayMatching([/shalo/, /sifalo/]) ||
     gatewayById("card_pay") ||
     gatewayMatching([/card/, /visa/, /mastercard/, /credit/, /debit/]);
 
   const bankGateway =
-    gatewayMatching([/bank.?transfer/, /bacs/, /bank/]);
+    gatewayById("bacs") || gatewayById("cod") || gatewayMatching([/bank.?transfer/, /bacs/, /cash.?on.?delivery/, /cash/]);
 
   // --------------------------------------------------
   // AMOUNT / TIP
@@ -425,19 +428,10 @@ useEffect(() => {
       ? 0
       : Number(amount);
 
-  const tipAmount = useMemo(() => {
-    if (
-      !Number.isFinite(donationAmount) ||
-      donationAmount <= 0
-    ) {
-      return 0;
-    }
-
-    return (
-      (donationAmount * tipPercent) /
-      100
-    );
-  }, [donationAmount, tipPercent]);
+  // Default to 10% of the donation until the donor edits the tip.
+  const tipAmount = manualTip === null
+    ? Math.round(Math.max(0, donationAmount || 0) * 10) / 100
+    : Math.max(0, Number(manualTip) || 0);
 
  const selectedRates =
   paymentMethod && platformRates[paymentMethod]
@@ -447,21 +441,9 @@ useEffect(() => {
 const gatewayRate = Number(selectedRates?.gateway ?? 0);
 const platformRate = Number(selectedRates?.platform ?? 0);
 
-const gatewayFee =
-  Number.isFinite(donationAmount) && donationAmount > 0
-    ? donationAmount * (gatewayRate / 100)
-    : 0;
-
-const platformFee =
-  Number.isFinite(donationAmount) && donationAmount > 0
-    ? donationAmount * (platformRate / 100)
-    : 0;
-
-const total =
-  donationAmount +
-  tipAmount +
-  gatewayFee +
-  platformFee;
+// Processing fees are deducted by the server from the amount paid,
+// not added to the donor's checkout total.
+const total = donationAmount + tipAmount;
 
   const selectedCurrency =
     currencies.find((item) => item.code === currency) ?? currencies.find((item) => item.code === "USD");
@@ -639,6 +621,12 @@ const total =
         return;
       }
 
+      if (result.payment_status === "on-hold" || (result.payment_status === "pending" && ["bacs", "cod"].includes(paymentMethod))) {
+        setError("Your offline donation order has been placed. Payment is pending; please follow HiilBox bank transfer or cash payment instructions. Do not send money without verified instructions.");
+        setLoading(false);
+        return;
+      }
+
       if (result.payment_status === "pending") {
         throw new Error(
           "Your payment request was started, but the gateway has not confirmed the donation yet."
@@ -705,30 +693,31 @@ const total =
             Back
           </Button>
 
-          <header className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight text-dark dark:text-white">Make a donation</h1>
-            <p className="mt-2 text-sm text-gray-500">Support this campaign with a secure donation.</p>
-          </header>
+        
 
           <form onSubmit={handleSubmit}>
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
 
               {/* LEFT */}
-              <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white/70 p-5 shadow-[0_18px_65px_rgba(13,70,51,0.10)] backdrop-blur-xl ring-1 ring-emerald-100/60 sm:p-8">
+              <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_18px_65px_rgba(13,70,51,0.10)] backdrop-blur-xl ring-1 ring-emerald-100/60 sm:p-8">
 
-                {/* CAMPAIGN FUNDING PROGRESS — ABOVE MAIN FORM */}
+                {/* Responsive campaign progress and title */}
                 <div className="mb-8 border-b border-gray-200 pb-7">
-                    <p className="text-base font-bold leading-snug text-gray-900">{campaign.title}</p>
-                    <div className="mt-4 flex items-center gap-5 rounded-2xl border border-white/70 bg-white/50 px-4 py-4 shadow-inner backdrop-blur-sm">
-                      <div className="relative h-[112px] w-[112px] shrink-0" role="img" aria-label={`Campaign funded ${progress.toFixed(1)} percent`}>
-                        <svg className="h-full w-full -rotate-90" viewBox={`0 0 ${progressSize} ${progressSize}`} aria-hidden="true">
-                          <circle cx={progressSize / 2} cy={progressSize / 2} r={progressRadius} fill="none" stroke="#e5e7eb" strokeWidth={progressStroke} />
-                          <circle cx={progressSize / 2} cy={progressSize / 2} r={progressRadius} fill="none" stroke="#01A14B" strokeWidth={progressStroke} strokeLinecap="round" strokeDasharray={progressCircumference} strokeDashoffset={progressOffset} />
-                        </svg>
-                        <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-gray-800">{progress.toFixed(0)}%</span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-600">of the fundraising goal reached</p>
+                  <div className="flex items-center gap-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-[0_12px_36px_rgba(1,161,75,0.10)] sm:gap-6 sm:p-6">
+                    <div className="relative h-24 w-24 shrink-0 sm:h-36 sm:w-36" role="img" aria-label={`Campaign funded ${progress.toFixed(1)} percent`}>
+                      <div className="absolute inset-2 rounded-full bg-emerald-300/20 blur-xl" />
+                      <svg className="relative h-full w-full -rotate-90 drop-shadow-[0_0_8px_rgba(1,161,75,0.3)]" viewBox={`0 0 ${progressSize} ${progressSize}`} aria-hidden="true">
+                        <defs><linearGradient id="hiilbox-progress-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#00d4aa" /><stop offset="100%" stopColor="#01A14B" /></linearGradient></defs>
+                        <circle cx={progressSize / 2} cy={progressSize / 2} r={progressRadius} fill="none" stroke="#d9f3e7" strokeWidth={progressStroke} />
+                        <circle cx={progressSize / 2} cy={progressSize / 2} r={progressRadius} fill="none" stroke="url(#hiilbox-progress-gradient)" strokeWidth={progressStroke} strokeLinecap="round" strokeDasharray={progressCircumference} strokeDashoffset={progressOffset} className="transition-all duration-700 ease-out" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-2xl font-black tracking-tight text-emerald-800 sm:text-3xl">{progress.toFixed(0)}%</span>
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-extrabold leading-tight tracking-tight text-gray-900 sm:text-2xl lg:text-3xl">{campaign.title}</p>
+                      <p className="mt-2 text-xs font-semibold text-emerald-700 sm:text-sm">Fundraising goal reached</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* AMOUNT — GoFundMe-inspired large amount entry */}
@@ -745,13 +734,13 @@ const total =
                         onChange={(e) => setShowSuggestedAmounts(e.target.checked)}
                         className="h-4 w-4 accent-[#01A14B]"
                       />
-                      Show suggested amounts
+                      Suggested amounts
                     </label>}
                   </div>
 
                   {showSuggestedAmounts && campaign.suggestedAmounts.length > 0 && (
                     <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" aria-label="Suggested donation amounts">
-                      {campaign.suggestedAmounts.map((value) => {
+                      {[...campaign.suggestedAmounts].sort((a, b) => a - b).map((value) => {
                         const selected = donationAmount === value;
                         return (
                           <button
@@ -766,7 +755,7 @@ const total =
                                 : "border-white/90 bg-white/60 text-gray-900 shadow-sm backdrop-blur-sm hover:border-[#01A14B] hover:bg-emerald-50/70"
                             } disabled:cursor-not-allowed disabled:opacity-60`}
                           >
-                            {currency === "USD" ? "$" : `${currency} `}{value}
+                            {currency === "SOS" ? "SLSH" : currency} {value}
                             {value === campaign.recommendedAmount && (
                               <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#01A14B] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white sm:text-[10px]">
                                 ♥ Suggested
@@ -778,21 +767,18 @@ const total =
                     </div>
                   )}
 
-                  <div className="mt-7 overflow-hidden rounded-[22px] border-2 border-white/80 bg-white/60 backdrop-blur-sm transition-colors focus-within:border-[#01A14B] focus-within:ring-4 focus-within:ring-emerald-100">
+                  <div className="mt-7 overflow-hidden rounded-[22px] border-2 border-gray-300 bg-white shadow-sm transition-colors focus-within:border-[#017a3a] focus-within:ring-4 focus-within:ring-emerald-100">
                     <div className="flex min-h-[126px] items-center gap-3 px-5 py-5 sm:min-h-[150px] sm:px-7">
                       <div className="flex shrink-0 flex-col items-start gap-1">
-                        <span className="text-3xl font-extrabold leading-none text-gray-900 sm:text-4xl" aria-hidden="true">
-                          {currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency}
-                        </span>
                         <Select value={currency} onValueChange={setCurrency} disabled={loading}>
-                          <SelectTrigger className="h-8 w-[105px] border-0 bg-transparent px-0 text-sm font-bold text-gray-700 shadow-none focus:ring-0" aria-label="Donation currency">
-                            <SelectValue placeholder="Currency" />
+<SelectTrigger className="h-12 w-[110px] border-0 bg-transparent px-0 text-2xl font-bold text-gray-900 shadow-none focus:ring-0" style={{ fontSize: "26px", fontWeight: 700 }} aria-label="Donation currency">
+                              <SelectValue placeholder="Currency" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
                               <SelectLabel>Currencies</SelectLabel>
                               {currencies.map((item) => (
-                                <SelectItem key={item.code} value={item.code}>{item.code}</SelectItem>
+                                <SelectItem key={item.code} value={item.code} disabled={item.rate <= 0}>{item.code === "SOS" ? "SLSH" : item.code}{item.rate <= 0 ? " (unavailable)" : ""}</SelectItem>
                               ))}
                             </SelectGroup>
                           </SelectContent>
@@ -810,68 +796,25 @@ const total =
                         disabled={loading}
                         required
                         placeholder="0.00"
-                        className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-right text-5xl font-extrabold tracking-tight text-gray-900 outline-none placeholder:text-gray-300 focus:ring-0 disabled:opacity-60 sm:text-7xl [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      />
+                        style={{ fontSize: "72px", fontWeight: 800 }}
+className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-right text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 outline-none placeholder:text-gray-500 focus:ring-0 disabled:opacity-60 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"                      />
                     </div>
                   </div>
 
-                  {/* TIP — modern interactive support slider */}
-                  <div className="mt-8 overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-[#f3fff8] via-white to-[#f0f8ff] p-5 shadow-[0_8px_28px_rgba(1,161,75,0.06)] sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
+                  {/* Optional tip: editable dollar amount, defaults to 10% */}
+                  <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 sm:p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e2f8eb] text-[#01A14B]">
-                            <Icon icon="solar:heart-bold-duotone" height={20} />
-                          </span>
-                          <p className="text-base font-bold text-gray-900">Support HiilBox</p>
-                        </div>
-                        <p className="mt-3 max-w-md text-sm leading-6 text-gray-500">
-                          Your optional tip helps HiilBox stay running and connect more people with important causes.
-                        </p>
+                        <label htmlFor="hiilbox_tip" className="block text-base font-bold text-gray-900">HiilBox tip</label>
+                        <p className="mt-1 text-sm text-gray-500">Suggested 10% of your donation. You can change it or enter 0.</p>
                       </div>
-                      <div className="shrink-0 rounded-2xl border border-[#bceacc] bg-white px-4 py-2 text-center shadow-sm">
-                        <span className="block text-2xl font-extrabold tracking-tight text-[#01A14B]">{tipPercent}%</span>
-                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">Your tip</span>
+                      <div className="w-full rounded-xl border border-gray-300 bg-white px-5 py-4 text-2xl font-bold focus:border-green-500 focus:outline-none">
+<span className="text-base font-semibold text-gray-500">{currency === "SOS" ? "SLSH" : currency}</span>                        <input id="hiilbox_tip" type="number" min="0" step="0.01" inputMode="decimal"
+                          value={manualTip === null ? tipAmount.toFixed(2) : manualTip}
+                          onChange={(e) => setManualTip(e.target.value)}
+                          disabled={loading} aria-label="HiilBox tip amount"
+                          className="w-28 border-0 bg-transparent text-right text-lg font-bold text-gray-900 outline-none focus:ring-0" />
                       </div>
-                    </div>
-
-                    <div className="mt-7 rounded-2xl border border-white/90 bg-white/80 px-4 pb-4 pt-5 shadow-[0_5px_20px_rgba(15,23,42,0.04)]">
-                      <input
-                        aria-label="HiilBox support percentage"
-                        type="range"
-                        min="0"
-                        max="20"
-                        step="1"
-                        value={tipPercent}
-                        onChange={(e) => setTipPercent(Number(e.target.value))}
-                        disabled={loading}
-                        style={{
-                          background: `linear-gradient(to right, #01A14B 0%, #12d993 ${tipPercent * 5}%, #e5eaf0 ${tipPercent * 5}%, #e5eaf0 100%)`,
-                        }}
-                        className="block h-3 w-full cursor-pointer appearance-none rounded-full outline-none transition-shadow focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-slider-thumb]:h-7 [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[5px] [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#01A14B] [&::-webkit-slider-thumb]:shadow-[0_2px_12px_rgba(1,161,75,0.45)] [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[5px] [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#01A14B] [&::-moz-range-thumb]:shadow-[0_2px_12px_rgba(1,161,75,0.45)]"
-                      />
-                      <div className="mt-4 flex justify-between text-xs font-semibold text-gray-400">
-                        <span>0%</span><span>5%</span><span className="text-[#01A14B]">10%</span><span>15%</span><span>20%</span>
-                      </div>
-                      <div className="mt-5 flex flex-wrap gap-2">
-                        {[0, 5, 10, 15, 20].map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            disabled={loading}
-                            onClick={() => setTipPercent(value)}
-                            aria-pressed={tipPercent === value}
-                            className={`rounded-full border px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 ${tipPercent === value ? "border-[#01A14B] bg-[#01A14B] text-white shadow-[0_4px_12px_rgba(1,161,75,0.2)]" : "border-white/80 bg-white/60 text-gray-600 hover:border-emerald-300 hover:bg-emerald-50"}`}
-                          >
-                            {value}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex items-center justify-between border-t border-emerald-100 pt-4">
-                      <span className="text-sm font-medium text-gray-500">Optional HiilBox support</span>
-                      <span className="text-lg font-extrabold text-gray-900">{currency} {tipAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </section>
@@ -989,7 +932,7 @@ const total =
                       {[
                         { key: "mobile", label: "Mobile Payment", description: "ZAAD, EVC, SAHAL, eDahab and Premier Wallet", available: walletGatewayOptions.some((item) => Boolean(item.gateway)), icon: "solar:smartphone-2-linear" },
                         { key: "card", label: "Credit / Debit Card", description: "Secure card payment through your enabled gateway", available: Boolean(cardGateway), icon: "solar:card-linear" },
-                        { key: "bank", label: "Bank Transfer", description: "Pay using your enabled bank transfer gateway", available: Boolean(bankGateway), icon: "solar:buildings-2-linear" },
+                        { key: "bank", label: "Bank Transfer and Cash Payment", description: "Offline payment via WooCommerce bank transfer or cash", available: Boolean(bankGateway), icon: "solar:buildings-2-linear" },
                       ].map((option, index) => {
                         const selected = option.key === "mobile" ? paymentGroup === "somali-wallets" : option.key === "card" ? Boolean(cardGateway && paymentMethod === cardGateway.id) : Boolean(bankGateway && paymentMethod === bankGateway.id);
                         return (
@@ -1051,14 +994,14 @@ const total =
                     {paymentGroup === "other" && cardGateway && paymentMethod === cardGateway.id && (
                       <div className="mt-5 rounded-2xl border border-white/80 bg-white/45 p-5 backdrop-blur-sm">
                         <p className="text-sm font-semibold text-gray-900">Secure card checkout</p>
-                        <p className="mt-2 text-sm text-gray-600">After you continue, your enabled card gateway must provide a secure hosted payment page for card number, expiry date and CVV. HiilBox does not collect or store card details here.</p>
+                        <p className="mt-2 text-sm text-gray-600">Continue to the secure card payment page provided by your WooCommerce card gateway. Card details are entered with the payment provider, never on HiilBox. If no payment page opens, the gateway integration needs to be enabled on WordPress.</p>
                       </div>
                     )}
 
                     {paymentGroup === "other" && bankGateway && paymentMethod === bankGateway.id && (
                       <div className="mt-5 rounded-2xl border border-white/80 bg-white/45 p-5 backdrop-blur-sm">
                         <p className="text-sm font-semibold text-gray-900">Bank transfer details</p>
-                        <p className="mt-2 text-sm text-gray-600">Continue to the bank gateway for its verified beneficiary details and transfer instructions. Do not send funds until the gateway provides confirmed instructions.</p>
+                        <p className="mt-2 text-sm text-gray-600">Place an offline WooCommerce order. Follow the bank transfer or cash payment instructions supplied by HiilBox. Your donation remains pending until payment is verified.</p>
                         {bankGateway.requires_account && (
                           <div className="mt-4">
                             <label htmlFor="bank_account_reference" className="block text-sm font-semibold text-gray-900">Bank account / payment reference</label>
@@ -1073,9 +1016,9 @@ const total =
 
               {/* RIGHT SUMMARY */}
               <aside className="lg:sticky lg:top-6">
-                <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white/75 shadow-[0_18px_65px_rgba(13,70,51,0.11)] backdrop-blur-xl ring-1 ring-emerald-100/60">
+                <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_18px_65px_rgba(13,70,51,0.11)] backdrop-blur-xl ring-1 ring-emerald-100/60">
 
-                  <div className="border-b border-white/70 bg-white/25 px-6 py-5">
+                  <div className="border-b border-white/70 bg-white px-6 py-5">
                     <h2 className="text-lg font-bold text-dark dark:text-white">
                       Donation summary
                     </h2>
@@ -1096,7 +1039,7 @@ const total =
 
 <div className="flex items-center justify-between text-sm">
   <span className="text-gray-500">
-    HiilBox support ({tipPercent}%)
+    HiilBox tip
   </span>
 
   <span className="font-semibold text-gray-900">
@@ -1104,37 +1047,7 @@ const total =
   </span>
 </div>
 
-{selectedRates && (
-  <>
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-gray-500">
-        Gateway fee ({gatewayRate}%)
-      </span>
 
-      <span className="font-semibold text-gray-900">
-        {currency}{" "}
-        {gatewayFee.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 4,
-        })}
-      </span>
-    </div>
-
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-gray-500">
-        Platform fee ({platformRate}%)
-      </span>
-
-      <span className="font-semibold text-gray-900">
-        {currency}{" "}
-        {platformFee.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 4,
-        })}
-      </span>
-    </div>
-  </>
-)}
 
                     </div>
 
@@ -1145,7 +1058,7 @@ const total =
                           Total
                         </span>
 
-                        <span className="text-2xl font-bold text-primary">
+                        <span className="text-3xl font-extrabold text-primary sm:text-4xl">
                           {currency} {total.toFixed(2)}
                         </span>
 

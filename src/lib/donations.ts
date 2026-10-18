@@ -40,7 +40,7 @@ export interface CheckoutResult {
   transaction_id: string | null;
   payment_method: string;
   status: string;
-  payment_status: "pending" | "paid" | "failed" | "refunded" | "cancelled";
+  payment_status: "pending" | "on-hold" | "paid" | "failed" | "refunded" | "cancelled";
   user_id: number | null;
   donation_id: number | null;
   redirect_url?: string | null;
@@ -57,9 +57,10 @@ export interface Donation {
   created_at?: string | null;
 }
 async function json<T>(response: Response): Promise<T> {
-  const data = await response.json().catch(() => null);
+  const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.message ?? data?.error ?? data?.code ?? "Checkout request failed.");
+    const error = data && typeof data === "object" ? data as Record<string, unknown> : {};
+    throw new Error(String(error.message ?? error.error ?? error.code ?? "Checkout request failed."));
   }
   return data as T;
 }
@@ -74,14 +75,15 @@ export async function getCheckoutCurrencies(): Promise<CheckoutCurrency[]> {
 export async function getCheckoutGateways(): Promise<CheckoutGateway[]> {
   const response = await fetch("/api/checkout/gateways", { cache: "no-store" });
   const data = await json<unknown>(response);
-  const raw = Array.isArray(data) ? data : (data as { gateways?: unknown[] })?.gateways ?? [];
+  const raw: unknown[] = Array.isArray(data) ? data : (data && typeof data === "object" && "gateways" in data && Array.isArray(data.gateways) ? data.gateways : []);
   return raw
-    .map((gateway: any) => ({
+    .filter((gateway): gateway is Record<string, unknown> => gateway !== null && typeof gateway === "object" && !Array.isArray(gateway))
+    .map((gateway) => ({
       id: String(gateway.id ?? ""),
       title: String(gateway.title ?? gateway.method_title ?? gateway.id ?? "Payment"),
       description: gateway.description ? String(gateway.description) : undefined,
       enabled: gateway.enabled !== false,
-      requires_account: gateway.requires_account ?? ["zes_pay", "edahab_pay", "premier_wallet_pay"].includes(String(gateway.id ?? "")),
+      requires_account: typeof gateway.requires_account === "boolean" ? gateway.requires_account : ["zes_pay", "edahab_pay", "premier_wallet_pay"].includes(String(gateway.id ?? "")),
     }))
     .filter((gateway) => gateway.id && gateway.enabled !== false);
 }
@@ -94,6 +96,43 @@ export async function processCheckout(input: CheckoutInput): Promise<CheckoutRes
     body: JSON.stringify(input),
   });
   const order = await json<{ id: number; order_key: string }>(orderResponse);
+
+  // Shalo/Sifalo card payments use WooCommerce's order-pay page, where the
+  // installed gateway plugin securely initiates a fresh hosted checkout session.
+  // Do not reuse an existing Sifalo token or mark this order as paid.
+  if (/shalo|sifalo|card_pay/i.test(input.payment_method)) {
+    if (!order.order_key || !Number.isSafeInteger(order.id)) {
+      throw new Error("WooCommerce did not return a valid order payment reference.");
+    }
+    return {
+      success: true,
+      order_id: order.id,
+      order_key: order.order_key,
+      transaction_id: null,
+      payment_method: input.payment_method,
+      status: "pending",
+      payment_status: "pending",
+      user_id: input.user_id ?? null,
+      donation_id: null,
+      redirect: `/api/checkout/card-redirect?order_id=${encodeURIComponent(String(order.id))}&key=${encodeURIComponent(order.order_key)}`,
+    };
+  }
+
+  // WooCommerce offline gateways create an on-hold order, not an immediate charge.
+  if (["bacs", "cod"].includes(input.payment_method)) {
+    return {
+      success: true,
+      order_id: order.id,
+      order_key: order.order_key,
+      transaction_id: null,
+      payment_method: input.payment_method,
+      status: "on-hold",
+      payment_status: "on-hold",
+      user_id: input.user_id ?? null,
+      donation_id: null,
+      redirect: null,
+    };
+  }
 
   // Payment is delegated to the registered WooCommerce gateway. Next.js never calls Sifalo.
   const paymentResponse = await fetch("/api/checkout/pay", {

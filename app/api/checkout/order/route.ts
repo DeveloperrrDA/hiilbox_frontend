@@ -33,7 +33,8 @@ export async function POST(request: NextRequest) {
     }
 
     // The donor-entered amount is the FULL charge, including the tip and fees.
-    const usdTotal = originalCurrency === "USD" ? originalAmount : originalAmount / selectedCurrency.rate;
+    const originalTotal = originalAmount + originalTip;
+    const usdTotal = originalCurrency === "USD" ? originalTotal : originalTotal / selectedCurrency.rate;
     const usdTip = originalCurrency === "USD" ? originalTip : originalTip / selectedCurrency.rate;
     if (!Number.isFinite(usdTotal) || !Number.isFinite(usdTip)) {
       return NextResponse.json({ message: "Unable to convert donation to USD." }, { status: 400 });
@@ -50,12 +51,13 @@ export async function POST(request: NextRequest) {
       headers: gfcmHeaders(token),
       cache: "no-store",
     });
-    if (!ratesResponse.ok) {
+    if (!ratesResponse.ok && !["bacs", "cod"].includes(paymentMethod)) {
       return NextResponse.json({ message: "Could not verify current processing fees. Please try again." }, { status: 503 });
     }
-    const ratesPayload = (await ratesResponse.json()) as RateResponse;
-    const rate = ratesPayload?.data?.[paymentMethod];
-    if (ratesPayload?.success !== true || !rate) {
+    const ratesPayload = ratesResponse.ok ? (await ratesResponse.json()) as RateResponse : null;
+    const offline = ["bacs", "cod"].includes(paymentMethod);
+    const rate = offline ? { gateway: 0, platform: 0 } : ratesPayload?.data?.[paymentMethod];
+    if ((!offline && ratesPayload?.success !== true) || !rate) {
       return NextResponse.json({ message: "Processing fees are not configured for this payment method." }, { status: 400 });
     }
     const gatewayRate = Number(rate.gateway);
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
       customer_id: Number(body.user_id || 0),
       payment_method: paymentMethod,
       set_paid: false,
+      ...( ["bacs", "cod"].includes(paymentMethod) ? { status: "on-hold" } : {} ),
       currency: "USD",
       billing: {
         first_name: String(body.first_name || ""),
