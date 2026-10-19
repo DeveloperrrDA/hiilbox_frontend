@@ -12,6 +12,7 @@ import PurchaseTemp from "@/app/components/front-pages/homepage/PurchaseTemp";
 import CampaignGrid from "@/app/components/front-pages/CampaignGrid";
 import CampaignGridFeatured from "@/app/components/front-pages/CampaignGridFeatured";
 import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
+import CenteredCTA from "@/app/components/front-pages/CenteredCTA";
 import HomeLayout from "@/app/frontend-pages/layout";
 import type { Metadata } from "next";
 
@@ -27,7 +28,7 @@ export default function Home() {
       <CampaignGridFeatured />
       <MakeADifferenceCTA />
       <CampaignGrid />
-      <PurchaseTemp />
+      <CenteredCTA />
     </HomeLayout>
   );
 }
