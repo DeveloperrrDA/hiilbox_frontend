@@ -11,6 +11,7 @@ import { PaymentOptions } from "@/app/components/front-pages/homepage/Payments";
 import PurchaseTemp from "@/app/components/front-pages/homepage/PurchaseTemp";
 import CampaignGrid from "@/app/components/front-pages/CampaignGrid";
 import CampaignGridFeatured from "@/app/components/front-pages/CampaignGridFeatured";
+import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
 import HomeLayout from "@/app/frontend-pages/layout";
 import type { Metadata } from "next";
 
@@ -24,7 +25,7 @@ export default function Home() {
       <MainBanner />
       <Highlights />
       <CampaignGridFeatured />
-      <OurClients />
+      <MakeADifferenceCTA />
       <CampaignGrid />
       <PurchaseTemp />
     </HomeLayout>

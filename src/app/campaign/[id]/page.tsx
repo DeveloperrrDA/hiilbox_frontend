@@ -262,7 +262,7 @@ export default async function CampaignPage({
 
           {/* ================= DONATION SIDEBAR ================= */}
 
-          <aside>
+         <aside>
             <div className="sticky top-28">
               <div className="relative overflow-hidden rounded-[24px] border border-[#dfe5df] bg-white p-6 shadow-[0_16px_40px_rgba(17,28,45,0.08)] sm:p-7">
                 <p className="mb-6 text-xs font-bold uppercase tracking-[0.16em] text-[#01A14B]">
@@ -291,7 +291,8 @@ export default async function CampaignPage({
                     </div>
                   </div>
 
-                  <div className="min-w-0">
+                  {/* Added flex-1 to allow proper wrapping and prevent overflow */}
+                  <div className="min-w-0 flex-1">
                     <p className="text-[30px] font-extrabold leading-none tracking-tight text-[#111c2d]">
                       ${campaign.raised_amount.toLocaleString()} raised
                     </p>
@@ -299,8 +300,8 @@ export default async function CampaignPage({
                       of ${campaign.goal.toLocaleString()}
                     </p>
                    <p className="mt-1 text-sm text-[#667085]">
-  {recentDonations.length.toLocaleString()} donations
-</p>
+                      {recentDonations.length.toLocaleString()} donations
+                    </p>
                   </div>
                 </div>
 

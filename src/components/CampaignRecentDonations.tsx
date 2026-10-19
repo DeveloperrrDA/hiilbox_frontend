@@ -22,8 +22,6 @@ export default function CampaignRecentDonations({
 }) {
   // Load initial donations
   const [donations, setDonations] = useState<Donation[]>(initialDonations);
-  // Keep track of total simulated donations to update the header count
-  const [simulatedCount, setSimulatedCount] = useState(0);
 
   useEffect(() => {
     if (initialDonations.length === 0) return;
@@ -45,9 +43,6 @@ export default function CampaignRecentDonations({
         const updatedList = [newDonation, ...prev];
         return updatedList.slice(0, 50);
       });
-
-      // Increment our fake total count
-      setSimulatedCount((prev) => prev + 1);
     }, 5000); // 5000 milliseconds = 5 seconds
 
     // Clean up the interval if the user leaves the page
@@ -76,7 +71,7 @@ export default function CampaignRecentDonations({
           <Icon icon="tabler:trending-up" className="text-2xl" />
         </div>
         <p className="text-base font-bold text-[#7e22ce]">
-          {(totalCount + simulatedCount).toLocaleString()} recent donations
+          {totalCount.toLocaleString()} recent donations
         </p>
       </div>
 
@@ -111,9 +106,9 @@ export default function CampaignRecentDonations({
                   )}
                 </div>
 
-                {/* Details */}
-                <div className="flex flex-col">
-                  <p className="text-[15px] font-semibold text-[#111c2d]">
+                {/* Details (min-w-0 and flex-1 added to prevent layout blowouts) */}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <p className="truncate text-[15px] font-semibold text-[#111c2d]">
                     {name}
                   </p>
                   <div className="mt-0.5 flex items-center text-sm text-[#5a6a85]">
@@ -121,8 +116,8 @@ export default function CampaignRecentDonations({
                       {(!donation.currency || donation.currency === "USD") ? "$" : `${donation.currency} `}
                       {Number(donation.amount || 0).toLocaleString()}
                     </span>
-                    <span className="mx-2 text-[#dfe5eb]">•</span>
-                    <span>{formatTime(donation.created_at, donation.is_new_simulation)}</span>
+                    <span className="mx-2 shrink-0 text-[#dfe5eb]">•</span>
+                    <span className="truncate">{formatTime(donation.created_at, donation.is_new_simulation)}</span>
                   </div>
                 </div>
               </div>
