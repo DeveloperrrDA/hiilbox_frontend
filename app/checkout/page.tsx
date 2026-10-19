@@ -80,7 +80,6 @@ function CheckoutContent() {
   // Keep checkout completely empty initially.
   const [amount, setAmount] = useState("");
   const [manualTip, setManualTip] = useState<string | null>(null);
-  const [showSuggestedAmounts, setShowSuggestedAmounts] = useState(true);
   const [currency, setCurrency] = useState("USD");
   const [currencies, setCurrencies] = useState<CheckoutCurrency[]>([
     { code: "USD", name: "US Dollar", rate: 1 },
@@ -98,7 +97,7 @@ function CheckoutContent() {
     useState("");
 
   const [paymentGroup, setPaymentGroup] = useState<
-    "somali-wallets" | "ethiopia-wallets" | "east-africa-wallets" | "other" | ""
+    "somali-wallets" | "ethiopia-wallets" | "east-africa-wallets" | "other" | "card" | "bank" | ""
   >("");
 
   const [isAnonymous, setIsAnonymous] =
@@ -488,7 +487,7 @@ const total = donationAmount + tipAmount;
     }
 
     const selectedGateway = gateways.find((gateway) => gateway.id === paymentMethod);
-    if (selectedGateway?.requires_account && !walletNumber.trim()) {
+    if (selectedGateway?.requires_account && !["bacs", "cod"].includes(paymentMethod) && !walletNumber.trim()) {
       return "Please enter the wallet/account number for this payment method.";
     }
 
@@ -693,19 +692,22 @@ const total = donationAmount + tipAmount;
             Back
           </Button>
 
-        
+          <header className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight text-dark dark:text-white">Make a donation</h1>
+            <p className="mt-2 text-sm text-gray-500">Support this campaign with a secure donation.</p>
+          </header>
 
           <form onSubmit={handleSubmit}>
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
 
               {/* LEFT */}
-              <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_18px_65px_rgba(13,70,51,0.10)] backdrop-blur-xl ring-1 ring-emerald-100/60 sm:p-8">
+              <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white p-4 sm:p-6">
 
                 {/* Responsive campaign progress and title */}
-                <div className="mb-8 border-b border-gray-200 pb-7">
-                  <div className="flex items-center gap-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-[0_12px_36px_rgba(1,161,75,0.10)] sm:gap-6 sm:p-6">
-                    <div className="relative h-24 w-24 shrink-0 sm:h-36 sm:w-36" role="img" aria-label={`Campaign funded ${progress.toFixed(1)} percent`}>
-                      <div className="absolute inset-2 rounded-full bg-emerald-300/20 blur-xl" />
+                <div className="mb-5 border-b border-gray-200 pb-4">
+                  <div className="flex items-center gap-3 bg-white py-2 sm:gap-5">
+                    <div className="relative h-20 w-20 shrink-0 sm:h-28 sm:w-28" role="img" aria-label={`Campaign funded ${progress.toFixed(1)} percent`}>
+                      <div className="absolute inset-2 rounded-full" />
                       <svg className="relative h-full w-full -rotate-90 drop-shadow-[0_0_8px_rgba(1,161,75,0.3)]" viewBox={`0 0 ${progressSize} ${progressSize}`} aria-hidden="true">
                         <defs><linearGradient id="hiilbox-progress-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#00d4aa" /><stop offset="100%" stopColor="#01A14B" /></linearGradient></defs>
                         <circle cx={progressSize / 2} cy={progressSize / 2} r={progressRadius} fill="none" stroke="#d9f3e7" strokeWidth={progressStroke} />
@@ -727,19 +729,11 @@ const total = donationAmount + tipAmount;
                       <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Enter your donation</h2>
                       <p className="mt-1 text-sm text-gray-500">Choose an amount or enter your own.</p>
                     </div>
-                    {campaign.suggestedAmounts.length > 0 && <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600 sm:text-sm">
-                      <input
-                        type="checkbox"
-                        checked={showSuggestedAmounts}
-                        onChange={(e) => setShowSuggestedAmounts(e.target.checked)}
-                        className="h-4 w-4 accent-[#01A14B]"
-                      />
-                      Suggested amounts
-                    </label>}
+
                   </div>
 
-                  {showSuggestedAmounts && campaign.suggestedAmounts.length > 0 && (
-                    <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" aria-label="Suggested donation amounts">
+                  {campaign.suggestedAmounts.length > 0 && (
+                    <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" aria-label="Suggested donation amounts">
                       {[...campaign.suggestedAmounts].sort((a, b) => a - b).map((value) => {
                         const selected = donationAmount === value;
                         return (
@@ -749,7 +743,7 @@ const total = donationAmount + tipAmount;
                             disabled={loading}
                             onClick={() => setAmount(String(value))}
                             aria-pressed={selected}
-                            className={`relative min-h-[66px] rounded-2xl border-2 px-2 py-3 text-center text-lg font-extrabold transition-all sm:min-h-[76px] sm:text-xl ${
+                            className={`relative min-h-[48px] rounded-xl border px-2 py-2 text-center text-sm font-bold transition-all sm:min-h-[54px] sm:text-base ${
                               selected
                                 ? "border-[#01A14B] bg-emerald-50 text-[#017a3a] shadow-[0_5px_18px_rgba(1,161,75,0.12)]"
                                 : "border-white/90 bg-white/60 text-gray-900 shadow-sm backdrop-blur-sm hover:border-[#01A14B] hover:bg-emerald-50/70"
@@ -767,12 +761,12 @@ const total = donationAmount + tipAmount;
                     </div>
                   )}
 
-                  <div className="mt-7 overflow-hidden rounded-[22px] border-2 border-gray-300 bg-white shadow-sm transition-colors focus-within:border-[#017a3a] focus-within:ring-4 focus-within:ring-emerald-100">
-                    <div className="flex min-h-[126px] items-center gap-3 px-5 py-5 sm:min-h-[150px] sm:px-7">
+                  <div className="mt-5 overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-[#017a3a] focus-within:ring-4 focus-within:ring-emerald-100">
+                    <div className="flex h-[88px] items-center gap-3 px-5 py-3">
                       <div className="flex shrink-0 flex-col items-start gap-1">
                         <Select value={currency} onValueChange={setCurrency} disabled={loading}>
-<SelectTrigger className="h-12 w-[110px] border-0 bg-transparent px-0 text-2xl font-bold text-gray-900 shadow-none focus:ring-0" style={{ fontSize: "26px", fontWeight: 700 }} aria-label="Donation currency">
-                              <SelectValue placeholder="Currency" />
+                          <SelectTrigger className="h-10 w-[100px] border-0 bg-transparent px-0 text-xl font-semibold text-gray-900 shadow-none focus:ring-0" aria-label="Donation currency">
+                            <SelectValue placeholder="Currency" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
@@ -796,24 +790,25 @@ const total = donationAmount + tipAmount;
                         disabled={loading}
                         required
                         placeholder="0.00"
-                        style={{ fontSize: "72px", fontWeight: 800 }}
-className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-right text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 outline-none placeholder:text-gray-500 focus:ring-0 disabled:opacity-60 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"                      />
+                        className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-right text-[clamp(1.75rem,4vw,2.25rem)] leading-none font-extrabold tracking-tight text-gray-900 outline-none placeholder:text-gray-300 focus:ring-0 disabled:opacity-60 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
                     </div>
                   </div>
 
                   {/* Optional tip: editable dollar amount, defaults to 10% */}
-                  <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-5 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+                    <div className="flex flex-col gap-3">
                       <div>
                         <label htmlFor="hiilbox_tip" className="block text-base font-bold text-gray-900">HiilBox tip</label>
                         <p className="mt-1 text-sm text-gray-500">Suggested 10% of your donation. You can change it or enter 0.</p>
                       </div>
-                      <div className="w-full rounded-xl border border-gray-300 bg-white px-5 py-4 text-2xl font-bold focus:border-green-500 focus:outline-none">
-<span className="text-base font-semibold text-gray-500">{currency === "SOS" ? "SLSH" : currency}</span>                        <input id="hiilbox_tip" type="number" min="0" step="0.01" inputMode="decimal"
+                      <div className="flex h-[88px] w-full items-center gap-4 rounded-lg border border-gray-300 bg-white px-5 py-3">
+                        <span className="text-xl font-semibold text-gray-900">{currency === "SOS" ? "SLSH" : currency}</span>
+                        <input id="hiilbox_tip" type="number" min="0" step="0.01" inputMode="decimal"
                           value={manualTip === null ? tipAmount.toFixed(2) : manualTip}
                           onChange={(e) => setManualTip(e.target.value)}
                           disabled={loading} aria-label="HiilBox tip amount"
-                          className="w-28 border-0 bg-transparent text-right text-lg font-bold text-gray-900 outline-none focus:ring-0" />
+                          className="min-w-0 flex-1 border-0 bg-transparent text-right text-[clamp(1.75rem,4vw,2.25rem)] font-semibold text-gray-900 outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
                       </div>
                     </div>
                   </div>
@@ -934,10 +929,10 @@ className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-ri
                         { key: "card", label: "Credit / Debit Card", description: "Secure card payment through your enabled gateway", available: Boolean(cardGateway), icon: "solar:card-linear" },
                         { key: "bank", label: "Bank Transfer and Cash Payment", description: "Offline payment via WooCommerce bank transfer or cash", available: Boolean(bankGateway), icon: "solar:buildings-2-linear" },
                       ].map((option, index) => {
-                        const selected = option.key === "mobile" ? paymentGroup === "somali-wallets" : option.key === "card" ? Boolean(cardGateway && paymentMethod === cardGateway.id) : Boolean(bankGateway && paymentMethod === bankGateway.id);
+                        const selected = option.key === "mobile" ? paymentGroup === "somali-wallets" : option.key === "card" ? paymentGroup === "card" : paymentGroup === "bank";
                         return (
+                          <div key={option.key}>
                           <button
-                            key={option.key}
                             type="button"
                             disabled={loading || loadingGateways || !option.available}
                             onClick={() => {
@@ -947,7 +942,7 @@ className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-ri
                                 setPaymentGroup("somali-wallets");
                                 setPaymentMethod("");
                               } else {
-                                setPaymentGroup("other");
+                                setPaymentGroup(option.key === "card" ? "card" : "bank");
                                 setPaymentMethod(option.key === "card" ? cardGateway?.id || "" : bankGateway?.id || "");
                               }
                             }}
@@ -962,52 +957,34 @@ className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-ri
                               <span className="mt-1 block text-xs text-gray-500">{option.available ? option.description : "Not currently enabled"}</span>
                             </span>
                           </button>
+                          {option.key === "mobile" && paymentGroup === "somali-wallets" && (
+                            <div className="border-t border-gray-200 bg-white px-4 py-4 sm:px-6">
+                              <label htmlFor="wallet_number" className="block text-sm font-semibold text-gray-900">Mobile money phone number</label>
+                              <p className="mt-1 text-xs text-gray-500">Enter your number to select the supported mobile money provider.</p>
+                              <Input id="wallet_number" name="wallet_number" type="tel" value={walletNumber}
+                                onChange={(e) => { setWalletNumber(e.target.value); if (error) setError(""); }}
+                                disabled={loading} placeholder="063XXXXXXX" autoComplete="tel" inputMode="tel"
+                                className="ui-form-control mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-[#01A14B]" />
+                              {!detectedMobileProvider && walletNumber.trim() && <p className="mt-2 text-xs text-gray-500">Enter a supported mobile prefix to identify your provider.</p>}
+                            </div>
+                          )}
+                          </div>
                         );
                       })}
                     </div>
 
-                    {paymentGroup === "somali-wallets" && (
-                      <div className="mt-5 rounded-2xl border border-white/80 bg-white/45 p-5 backdrop-blur-sm">
-                        <label htmlFor="wallet_number" className="block text-sm font-semibold text-gray-900">Mobile money phone number</label>
-                        <p className="mt-1 text-xs text-gray-500">Enter your number to automatically select the supported mobile money provider.</p>
-                        <Input
-                          id="wallet_number"
-                          name="wallet_number"
-                          type="tel"
-                          value={walletNumber}
-                          onChange={(e) => { setWalletNumber(e.target.value); if (error) setError(""); }}
-                          disabled={loading}
-                          placeholder="063XXXXXXX"
-                          autoComplete="tel"
-                          inputMode="tel"
-                          className="ui-form-control mt-3 w-full rounded-xl border border-white/80 bg-white/65 px-4 py-3 shadow-sm backdrop-blur-sm focus:border-[#01A14B]"
-                        />
-                        {detectedMobileProvider && (
-                          <p className={`mt-3 text-sm ${detectedMobileGateway ? "text-[#018d42]" : "text-amber-700"}`}>
-                            {detectedMobileGateway ? `Detected: ${detectedMobileProvider.name}` : `${detectedMobileProvider.name} — payment unavailable`}
-                          </p>
-                        )}
-                        {!detectedMobileProvider && walletNumber.trim() && <p className="mt-3 text-xs text-gray-500">Enter a supported mobile prefix to identify your provider.</p>}
-                      </div>
-                    )}
-
-                    {paymentGroup === "other" && cardGateway && paymentMethod === cardGateway.id && (
+                    {paymentGroup === "card" && cardGateway && paymentMethod === cardGateway.id && (
                       <div className="mt-5 rounded-2xl border border-white/80 bg-white/45 p-5 backdrop-blur-sm">
                         <p className="text-sm font-semibold text-gray-900">Secure card checkout</p>
                         <p className="mt-2 text-sm text-gray-600">Continue to the secure card payment page provided by your WooCommerce card gateway. Card details are entered with the payment provider, never on HiilBox. If no payment page opens, the gateway integration needs to be enabled on WordPress.</p>
                       </div>
                     )}
 
-                    {paymentGroup === "other" && bankGateway && paymentMethod === bankGateway.id && (
+                    {paymentGroup === "bank" && bankGateway && paymentMethod === bankGateway.id && (
                       <div className="mt-5 rounded-2xl border border-white/80 bg-white/45 p-5 backdrop-blur-sm">
                         <p className="text-sm font-semibold text-gray-900">Bank transfer details</p>
                         <p className="mt-2 text-sm text-gray-600">Place an offline WooCommerce order. Follow the bank transfer or cash payment instructions supplied by HiilBox. Your donation remains pending until payment is verified.</p>
-                        {bankGateway.requires_account && (
-                          <div className="mt-4">
-                            <label htmlFor="bank_account_reference" className="block text-sm font-semibold text-gray-900">Bank account / payment reference</label>
-                            <Input id="bank_account_reference" name="bank_account_reference" type="text" value={walletNumber} onChange={(e) => setWalletNumber(e.target.value)} disabled={loading} required placeholder="Enter the account or reference requested by your bank gateway" className="ui-form-control mt-2 w-full rounded-xl border border-white/80 bg-white/65 px-4 py-3 shadow-sm backdrop-blur-sm focus:border-[#01A14B]" />
-                          </div>
-                        )}
+
                       </div>
                     )}
                   </div>
@@ -1016,7 +993,7 @@ className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-ri
 
               {/* RIGHT SUMMARY */}
               <aside className="lg:sticky lg:top-6">
-                <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_18px_65px_rgba(13,70,51,0.11)] backdrop-blur-xl ring-1 ring-emerald-100/60">
+                <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white">
 
                   <div className="border-b border-white/70 bg-white px-6 py-5">
                     <h2 className="text-lg font-bold text-dark dark:text-white">
@@ -1097,6 +1074,7 @@ className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent text-ri
                         !paymentMethod ||
                         Boolean(
                           gateways.find((gateway) => gateway.id === paymentMethod)?.requires_account &&
+                          !["bacs", "cod"].includes(paymentMethod) &&
                           !walletNumber.trim()
                         )
                       }
