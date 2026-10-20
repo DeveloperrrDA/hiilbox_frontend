@@ -55,10 +55,10 @@ export default function CampaignRecentDonations({
   return (
     <div className="mt-8">
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3e8ff] text-[#7e22ce]">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E6F6ED] text-[#01A14B]">
           <Icon icon="tabler:trending-up" className="text-2xl" />
         </div>
-        <p className="text-base font-bold text-[#7e22ce]">
+        <p className="text-base font-bold text-[#01A14B]">
           {totalCount.toLocaleString()} recent donations
         </p>
       </div>
@@ -99,14 +99,14 @@ export default function CampaignRecentDonations({
         <button
           type="button"
           onClick={() => setPopupMode("newest")}
-          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#7e22ce]"
+          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#01A14B]"
         >
           See All
         </button>
         <button
           type="button"
           onClick={() => setPopupMode("top")}
-          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#7e22ce]"
+          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#01A14B]"
         >
           See Top
         </button>
@@ -144,7 +144,7 @@ export default function CampaignRecentDonations({
                   onClick={() => setPopupMode(mode)}
                   className={`rounded-lg px-5 py-2 text-sm font-semibold ${
                     popupMode === mode
-                      ? "bg-[#7e22ce] text-white"
+                      ? "bg-[#01A14B] text-white"
                       : "border border-[#e0e6eb] bg-white text-[#111c2d]"
                   }`}
                 >
@@ -159,7 +159,7 @@ export default function CampaignRecentDonations({
               ) : (
                 popupDonations.map((donation) => (
                   <div key={donation.id} className="flex items-center gap-3 border-b border-[#f0f2f4] py-3 last:border-0">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3e8ff] font-bold text-[#7e22ce]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E6F6ED] font-bold text-[#01A14B]">
                       {donation.is_anonymous ? (
                         <Icon icon="solar:hand-heart-linear" className="text-xl" />
                       ) : (
