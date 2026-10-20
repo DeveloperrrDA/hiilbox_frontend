@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import HeroRecentDonations from "@/app/components/front-pages/HeroRecentDonations";
+import HeroRecentDonationsLoader from "@/app/components/front-pages/HeroRecentDonationsLoader";
 
 
 const MainBanner = () => {
@@ -163,7 +163,7 @@ const MainBanner = () => {
 
             {/* Recent Donations Ticker directly below the cards */}
             <div className="relative z-20 w-full pl-4 pr-4 lg:pr-0">
-              <HeroRecentDonations donations={[]} />
+              <HeroRecentDonationsLoader />
             </div>
 
           </div>

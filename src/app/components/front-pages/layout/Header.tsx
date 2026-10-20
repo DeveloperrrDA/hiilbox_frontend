@@ -62,9 +62,7 @@ const FrontHeader = () => {
             <Link href="/create-campaign" className={navClass}>Fundraise</Link>
           </div>
           <div>
-            <Link href="/">
-              <FullLogo />
-            </Link>
+           <FullLogo />
           </div>
           {/* =========================================
               RIGHT NAVIGATION & AUTHENTICATION
@@ -115,7 +113,7 @@ const FrontHeader = () => {
               </div>
 
              <Link href="/campaigns" className={navClass}>Campaigns</Link>
-<Link href="/blog" className={navClass}>Blog</Link>
+
             </nav>
 
             {/* AUTH BUTTONS */}

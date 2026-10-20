@@ -148,9 +148,20 @@ const CampaignTabs = ({
                         </span>
                         
                         {/* Green "NEW" Badge */}
-                        <span className="rounded bg-[#dcfce7] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-green-700 uppercase">
-                          New
-                        </span>
+                       {(() => {
+  const createdTime = new Date(update.created_at).getTime();
+
+  const isNew =
+    Number.isFinite(createdTime) &&
+    createdTime <= Date.now() &&
+    Date.now() - createdTime < 7 * 24 * 60 * 60 * 1000;
+
+  return isNew ? (
+    <span className="rounded bg-[#dcfce7] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-green-700 uppercase">
+      New
+    </span>
+  ) : null;
+})()}
                       </div>
                       <div className="text-sm text-[#5a6a85]">
                         {update.created_by_name} <span className="mx-1">•</span> {update.created_by_role}

@@ -58,11 +58,11 @@ export const Footer = () => {
     },
   ];
   const navLinks3 = [
-    {
-      key: "link1",
-      title: "About Us",
-      link: "/forms/form-layouts",
-    },
+   {
+  key: "link2",
+  title: "Blog",
+  link: "/blog",
+},
     {
       key: "link2",
       title: "Articles & News",

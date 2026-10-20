@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import CampaignCard from "@/components/CampaignCard";
+import CampaignCard from "@/app/components/front-pages/CampaignCard";
+
 import ThemeShell from "@/components/theme/ThemeShell";
 import { getCampaigns, type CampaignsResponse } from "@/lib/campaigns";
 
@@ -122,7 +123,7 @@ const selectedSort =
 
   return (
     <ThemeShell>
-      <main className="min-h-[70vh] bg-[#f8fafd]">
+      <main className="min-h-[70vh] bg-white">
         <section className="border-b border-[#e6ebf0] bg-white">
           <div className="container-1218 py-12 text-center sm:py-16">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#01A14B]">
@@ -132,7 +133,7 @@ const selectedSort =
               Explore campaigns
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-[#5a6a85]">
-              Discover verified fundraisers and support the causes that matter to you.
+              Discover fundraisers and support the causes that matter to you.
             </p>
 
             <form action="/campaigns" method="get" className="mx-auto mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
@@ -158,29 +159,7 @@ const selectedSort =
         </section>
 
         <section className="container-1218 py-10 sm:py-14">
-          <div className="mb-8 flex flex-wrap gap-2">
-  {campaignCategories.map((item) => {
-    const active = category === item.slug;
-
-    return (
-      <Link
-        key={item.slug || "all"}
-        href={campaignHref({
-          search,
-          category: item.slug,
-          sort,
-        })}
-        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-          active
-            ? "border-[#01A14B] bg-[#01A14B] text-white"
-            : "border-[#dfe5eb] bg-white text-[#5a6a85] hover:border-[#01A14B] hover:text-[#01A14B]"
-        }`}
-      >
-        {item.label}
-      </Link>
-    );
-  })}
-</div>
+         
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold text-[#111c2d]">
@@ -193,11 +172,10 @@ const selectedSort =
               )}
             </div>
 
-           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-  <form
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">  <form
     action="/campaigns"
     method="get"
-    className="flex items-center gap-2"
+   className="flex flex-wrap items-center gap-3"
   >
     {search && (
       <input
@@ -254,19 +232,14 @@ const selectedSort =
     </select>
 
     <button
-      type="submit"
-      className="min-h-11 rounded-xl bg-[#111c2d] px-4 text-sm font-bold text-white transition hover:bg-[#01A14B]"
-    >
-      Apply
-    </button>
+  type="submit"
+  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#01A14B] px-5 text-sm font-bold text-[#01A14B] transition hover:bg-[#01A14B] hover:text-white"
+>
+  Apply
+</button>
   </form>
 
-  <Link
-    href="/create-campaign"
-    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#01A14B] px-5 text-sm font-bold text-[#01A14B] transition hover:bg-[#01A14B] hover:text-white"
-  >
-    Start a fundraiser
-  </Link>
+  
 </div>
           </div>
 
@@ -292,7 +265,7 @@ const selectedSort =
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-x-7 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 sm:gap-y-10 lg:grid-cols-3">
                 {campaigns.map((campaign) => (
                   <CampaignCard key={campaign.id} campaign={campaign} />
                 ))}
