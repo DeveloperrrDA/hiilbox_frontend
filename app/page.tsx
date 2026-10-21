@@ -13,8 +13,6 @@ import { PaymentOptions } from "@/app/components/front-pages/homepage/Payments";
 import PurchaseTemp from "@/app/components/front-pages/homepage/PurchaseTemp";
 import CampaignGrid from "@/app/components/front-pages/CampaignGrid";
 import CampaignGridFeatured from "@/app/components/front-pages/CampaignGridFeatured";
-import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
-import CenteredCTA from "@/app/components/front-pages/CenteredCTA";
 import HomeLayout from "@/app/frontend-pages/layout";
 import type { Metadata } from "next";
 
