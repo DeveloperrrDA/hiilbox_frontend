@@ -92,7 +92,7 @@ useEffect(() => {
         return;
       }
 
-      setSuccess("Your donor account has been created successfully.");
+      setSuccess("Your donor account has been  created successfully.");
       router.push("/dashboard");
 
       setForm({
