@@ -4,7 +4,8 @@ import { FormEvent,useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { register } from "@/lib/auth";
-
+import ThemeShell from "@/components/theme/ThemeShell";
+import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
 export default function SignupPage() {
 const router = useRouter();
 
@@ -115,17 +116,19 @@ useEffect(() => {
   }
 
   return (
+  <ThemeShell>
     <main className="min-h-screen bg-[#F6FAF7] px-4 py-8 sm:px-6 lg:py-12">
       <div className="mx-auto w-full max-w-2xl">
 
         {/* Logo / Header */}
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center">
-            <span className="text-3xl font-extrabold tracking-tight text-[#18A558]">
-              Hiil
-              <span className="text-[#16324F]">box</span>
-            </span>
-          </Link>
+         <Link
+  href="/"
+  className="inline-flex items-center justify-center"
+  aria-label="HiilBox homepage"
+>
+  <FullLogo />
+</Link>
 
           <h1 className="mt-7 text-3xl font-bold tracking-tight text-[#16324F] sm:text-4xl">
             Create your account
@@ -279,7 +282,7 @@ useEffect(() => {
                   }
                   required
                   autoComplete="given-name"
-                  placeholder="Enter your first name"
+                  placeholder="Enter your first name and Middle name"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-[#16324F] outline-none transition placeholder:text-gray-400 focus:border-[#18A558] focus:bg-white focus:ring-4 focus:ring-[#18A558]/10"
                 />
               </div>
@@ -434,7 +437,8 @@ useEffect(() => {
           By creating an account, you&apos;re joining Hiilbox&apos;s
           crowdfunding community.
         </p>
-      </div>
+           </div>
     </main>
+  </ThemeShell>
   );
 }
