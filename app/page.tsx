@@ -3,6 +3,8 @@ import ContactBar from "@/app/components/front-pages/homepage/ContactBar";
 import { FAQ } from "@/app/components/front-pages/homepage/FAQ";
 import FeatureTabs from "@/app/components/front-pages/homepage/FeatureTabs";
 import { Highlights } from "@/app/components/front-pages/homepage/Highlights";
+import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
+import CenteredCTA from "@/app/components/front-pages/CenteredCTA";
 import MainBanner from "@/app/components/front-pages/homepage/MainBanner";
 import OurClients from "@/app/components/front-pages/homepage/OurClients";
 import OurTeam from "@/app/components/front-pages/homepage/OurTeam";
@@ -22,13 +24,15 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <HomeLayout>
-      <MainBanner />
-      <Highlights />
-      <CampaignGridFeatured />
-      <MakeADifferenceCTA />
-      <CampaignGrid />
-      <CenteredCTA />
-    </HomeLayout>
+   <HomeLayout>
+  <MainBanner />
+  <Highlights />
+  <CampaignGridFeatured />
+  <MakeADifferenceCTA />
+  <OurClients />
+  <CampaignGrid />
+  <CenteredCTA />
+  <PurchaseTemp />
+</HomeLayout>
   );
 }

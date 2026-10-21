@@ -58,11 +58,11 @@ export const Footer = () => {
     },
   ];
   const navLinks3 = [
-    {
-      key: "link1",
-      title: "About Us",
-      link: "/forms/form-layouts",
-    },
+   {
+  key: "link2",
+  title: "Blog",
+  link: "/blog",
+},
     {
       key: "link2",
       title: "Articles & News",
@@ -223,7 +223,7 @@ export const Footer = () => {
                 className="text-dark dark:text-white text-primary-ld"
                 href="#"
               >
-                ABS
+                ABS Printing & Software Solutions
               </Link>{" "}
             </p>
           </div>

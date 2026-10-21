@@ -357,10 +357,65 @@ export default function AboutPage() {
             </div>
           </div>
         </section>
-        
-        <div className="py-10 md:py-20">
-        <MakeADifferenceCTA />
-        </div>
+
+        {/* =========================================
+            TRUST & SECURITY
+        ========================================= */}
+        <section className="w-full px-6 py-12">
+          <div className="container-1218">
+            <div className="relative flex flex-col items-center justify-between gap-12 overflow-hidden rounded-4xl bg-[#003D1B] p-10 md:flex-row md:p-16">
+              <div className="relative z-10 md:w-1/2">
+                <span className="mb-4 block text-sm font-bold uppercase tracking-wider text-lightprimary">Trust & Security</span>
+                <h2 className="mb-6 text-3xl font-black text-white md:text-4xl">Transparency & Accountability</h2>
+                <p className="text-lg leading-relaxed text-gray-300">
+                  We continuously work to strengthen our platform, improve user confidence, and ensure that contributions reach their intended purpose responsibly and efficiently.
+                </p>
+              </div>
+              
+              <div className="relative z-10 rounded-3xl border border-gray-700 bg-[#0F1F17] p-8 md:w-1/2">
+                <ul className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                  {[
+                    "Verified Campaigns", "Multi-Currency Support", "Identity Verification (KYC)",
+                    "Transparent Reporting", "Secure Payment", "Donor Protection",
+                    "Real-Time Tracking", "24/7 Support"
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center space-x-3 text-white">
+                      <Icon icon="solar:check-circle-bold" className="text-xl text-primary" />
+                      <span className="text-sm font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================
+            IMPACT GOAL CTA
+        ========================================= */}
+        <section className="relative w-full overflow-hidden bg-white py-24 px-6 dark:bg-darkgray">
+          <div className="container-1218 relative z-10 text-center">
+            <div className="mx-auto max-w-4xl">
+              <div className="mx-auto mb-8 flex h-20 w-20 rotate-12 transform items-center justify-center rounded-3xl bg-[#E6F4EB] dark:bg-[#01A14B]/10">
+                <Icon icon="solar:stars-bold" className="text-4xl -rotate-12 transform text-[#01A14B]" />
+              </div>
+              <h2 className="mb-6 text-4xl font-black text-[#0F1F17] dark:text-white md:text-5xl">Our Impact Goal</h2>
+              <p className="mb-12 text-xl leading-relaxed text-[#687280] dark:text-gray-300">
+                To create a future where financial support can reach anyone who needs it, regardless of where they live. We aim to unlock opportunities, accelerate social impact, and build a culture of giving that transforms lives.
+              </p>
+              
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                <Link href="/create-campaign" className="rounded-full bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-[#006B30] dark:shadow-none">
+                  Start your Campaign
+                </Link>
+                <Link href="/campaigns" className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 text-lg font-bold text-[#0F1F17] transition hover:border-primary hover:text-primary dark:border-gray-700 dark:bg-dark dark:text-white dark:hover:border-[#01A14B] dark:hover:text-[#01A14B]">
+                  Explore Causes
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </main>
     </ThemeShell>
   );

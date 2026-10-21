@@ -13,6 +13,8 @@ interface Donation {
   is_new_simulation?: boolean;
 }
 
+type PopupMode = "newest" | "top" | null;
+
 export default function CampaignRecentDonations({
   initialDonations,
   totalCount,
@@ -20,104 +22,69 @@ export default function CampaignRecentDonations({
   initialDonations: Donation[];
   totalCount: number;
 }) {
-  // Load initial donations
-  const [donations, setDonations] = useState<Donation[]>(initialDonations);
+  const [popupMode, setPopupMode] = useState<PopupMode>(null);
+  const donations = initialDonations;
 
-  useEffect(() => {
-    if (initialDonations.length === 0) return;
-
-    // Use setInterval to run this code in a continuous loop every 5 seconds
-    const interval = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * initialDonations.length);
-      const clonedDonation = { ...initialDonations[randomIndex] };
-
-      const newDonation: Donation = {
-        ...clonedDonation,
-        id: `simulated-${Date.now()}`,
-        is_new_simulation: true,
-      };
-
-      setDonations((prev) => {
-        // Add new donation to the top, but cap the list at 50 items 
-        // to prevent the browser from lagging if left open for a long time
-        const updatedList = [newDonation, ...prev];
-        return updatedList.slice(0, 50);
-      });
-    }, 5000); // 5000 milliseconds = 5 seconds
-
-    // Clean up the interval if the user leaves the page
-    return () => clearInterval(interval);
-  }, [initialDonations]);
-
-  const formatTime = (dateString?: string | null, isNew?: boolean) => {
-    if (isNew) return "Recent donation";
-    if (!dateString) return "Recent donation";
-
-    const diffMs = Date.now() - new Date(dateString).getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+  const formatTime = (dateString?: string | null, isNew?: boolean): string => {
+    if (isNew || !dateString) return "Recent donation";
+    const timestamp = new Date(dateString).getTime();
+    if (!Number.isFinite(timestamp)) return "Recent donation";
+    const diffMins = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
-
     if (diffMins < 60) return `${Math.max(1, diffMins)} mins`;
     if (diffHours < 24) return `${diffHours} hrs`;
     return `${diffDays} days`;
   };
 
+  const formatAmount = (donation: Donation): string => {
+    const prefix = !donation.currency || donation.currency === "USD" ? "$" : `${donation.currency} `;
+    return `${prefix}${Number(donation.amount || 0).toLocaleString()}`;
+  };
+
+  const donorName = (donation: Donation): string =>
+    donation.is_anonymous ? "Anonymous" : String(donation.donor_name || "Anonymous").trim() || "Anonymous";
+
+  const popupDonations = [...donations].sort((a, b) => {
+    if (popupMode === "top") return Number(b.amount) - Number(a.amount);
+    const aTime = new Date(a.created_at || 0).getTime() || 0;
+    const bTime = new Date(b.created_at || 0).getTime() || 0;
+    return bTime - aTime;
+  });
+
   return (
     <div className="mt-8">
-      {/* Header */}
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3e8ff] text-[#7e22ce]">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E6F6ED] text-[#01A14B]">
           <Icon icon="tabler:trending-up" className="text-2xl" />
         </div>
-        <p className="text-base font-bold text-[#7e22ce]">
+        <p className="text-base font-bold text-[#01A14B]">
           {totalCount.toLocaleString()} recent donations
         </p>
       </div>
 
-      {/* List Container - Fixed height (approx 5 items) with scrollbar */}
-      <div className="flex flex-col max-h-[380px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 hover:scrollbar-thumb-gray-300">
+      <div className="flex max-h-[380px] flex-col overflow-y-auto pr-2">
         {donations.length > 0 ? (
           donations.map((donation) => {
-            const isAnon = donation.is_anonymous;
-            const name = isAnon
-              ? "Anonymous"
-              : String(donation.donor_name || "Anonymous").trim();
-            const initial = name.charAt(0).toUpperCase();
-
-            // The animation class added to simulated donations
-            const animationClass = donation.is_new_simulation
-              ? "animate-[slideDownFade_0.5s_ease-out_forwards]"
-              : "";
-
+            const name = donorName(donation);
             return (
               <div
                 key={donation.id}
-                className={`flex items-center gap-4 py-3.5 ${animationClass}`}
+                className={`flex items-center gap-4 py-3.5 ${donation.is_new_simulation ? "animate-[slideDownFade_0.5s_ease-out_forwards]" : ""}`}
               >
-                {/* Avatar */}
                 <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#f3f5f7] text-lg font-bold text-[#111c2d]">
-                  {isAnon ? (
-                    // Anonymous uses the heart icon
+                  {donation.is_anonymous ? (
                     <Icon icon="solar:hand-heart-linear" className="text-[22px]" />
                   ) : (
-                    // Named donors use their first letter
-                    initial
+                    name.charAt(0).toUpperCase()
                   )}
                 </div>
-
-                {/* Details (min-w-0 and flex-1 added to prevent layout blowouts) */}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-[15px] font-semibold text-[#111c2d]">
-                    {name}
-                  </p>
-                  <div className="mt-0.5 flex items-center text-sm text-[#5a6a85]">
-                    <span className="font-bold text-[#111c2d]">
-                      {(!donation.currency || donation.currency === "USD") ? "$" : `${donation.currency} `}
-                      {Number(donation.amount || 0).toLocaleString()}
-                    </span>
-                    <span className="mx-2 shrink-0 text-[#dfe5eb]">•</span>
-                    <span className="truncate">{formatTime(donation.created_at, donation.is_new_simulation)}</span>
+                <div className="min-w-0 flex flex-col">
+                  <p className="truncate text-[15px] font-semibold text-[#111c2d]">{name}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center text-sm text-[#5a6a85]">
+                    <span className="font-bold text-[#111c2d]">{formatAmount(donation)}</span>
+                    <span className="mx-2 text-[#dfe5eb]">•</span>
+                    <span>{formatTime(donation.created_at, donation.is_new_simulation)}</span>
                   </div>
                 </div>
               </div>
@@ -128,13 +95,97 @@ export default function CampaignRecentDonations({
         )}
       </div>
 
-      {/* Inline Keyframes for the slide-down animation */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <div className="mb-4 mt-4 flex gap-3">
+        <button
+          type="button"
+          onClick={() => setPopupMode("newest")}
+          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#01A14B]"
+        >
+          See All
+        </button>
+        <button
+          type="button"
+          onClick={() => setPopupMode("top")}
+          className="rounded-lg border border-[#e0e6eb] bg-white px-4 py-2 text-sm font-semibold text-[#111c2d] hover:border-[#01A14B]"
+        >
+          See Top
+        </button>
+      </div>
+
+      {popupMode !== null && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-transparent p-4"
+          onClick={() => setPopupMode(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Donations"
+            className="flex max-h-[85vh] w-full max-w-[452px] flex-col overflow-hidden rounded-2xl border border-[#e0e6eb] bg-white p-6 shadow-[0_12px_48px_rgba(17,28,45,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between border-b border-[#e0e6eb] pb-4">
+              <h2 className="text-2xl font-bold text-[#111c2d]">Donations</h2>
+              <button
+                type="button"
+                aria-label="Close donations"
+                onClick={() => setPopupMode(null)}
+                className="rounded-full p-2 text-[#5a6a85] hover:bg-gray-100"
+              >
+                <Icon icon="tabler:x" className="text-xl" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex gap-3">
+              {(["newest", "top"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPopupMode(mode)}
+                  className={`rounded-lg px-5 py-2 text-sm font-semibold ${
+                    popupMode === mode
+                      ? "bg-[#01A14B] text-white"
+                      : "border border-[#e0e6eb] bg-white text-[#111c2d]"
+                  }`}
+                >
+                  {mode === "newest" ? "Newest" : "Top"}
+                </button>
+              ))}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {popupDonations.length === 0 ? (
+                <p className="py-6 text-sm text-gray-500">No donations yet.</p>
+              ) : (
+                popupDonations.map((donation) => (
+                  <div key={donation.id} className="flex items-center gap-3 border-b border-[#f0f2f4] py-3 last:border-0">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E6F6ED] font-bold text-[#01A14B]">
+                      {donation.is_anonymous ? (
+                        <Icon icon="solar:hand-heart-linear" className="text-xl" />
+                      ) : (
+                        donorName(donation).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-[#111c2d]">{donorName(donation)}</p>
+                      <p className="mt-1 text-sm text-[#5a6a85]">
+                        {formatAmount(donation)} · {formatTime(donation.created_at, donation.is_new_simulation)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
         @keyframes slideDownFade {
           from { opacity: 0; transform: translateY(-20px); background-color: #f0fdf4; }
           to { opacity: 1; transform: translateY(0); background-color: transparent; }
         }
-      `}} />
+      `}</style>
     </div>
   );
 }
