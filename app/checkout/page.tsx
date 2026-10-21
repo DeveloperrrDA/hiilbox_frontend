@@ -97,11 +97,12 @@ function CheckoutContent() {
     useState("");
 
   const [paymentGroup, setPaymentGroup] = useState<
-    "somali-wallets" | "ethiopia-wallets" | "east-africa-wallets" | "other" | "card" | "bank" | ""
-  >("");
+  "somali-wallets" | "ethiopia-wallets" | "east-africa-wallets" | "other" | "card" | "bank" | "premier" | ""
+>("");
 
   const [isAnonymous, setIsAnonymous] =
     useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
  const [gateways, setGateways] =
   useState<CheckoutGateway[]>([]);
@@ -209,7 +210,13 @@ const [loadingGateways, setLoadingGateways] =
       .then((available) => {
         if (cancelled || !available.length) return;
         // Preserve the working SOS gateway/rate; only its customer-facing label is SLSH.
-        setCurrencies(available);
+        setCurrencies(
+  available.map((item) =>
+    item.code === "SOS"
+      ? { ...item, rate: 12000 }
+      : item
+  )
+);
         setCurrency((current) =>
           available.some((item) => item.code === current) ? current : "USD"
         );
@@ -330,22 +337,19 @@ useEffect(() => {
     });
 
   const walletGatewayOptions = [
-    {
-      key: "zes",
-      label: "ZAAD, EVC, SAHAL, CASHPLUS, JEEB",
-      gateway: gatewayById("zes_pay"),
-    },
-    {
-      key: "edahab",
-      label: "eDahab",
-      gateway: gatewayById("edahab_pay"),
-    },
-    {
-      key: "premier",
-      label: "Premier Wallet",
-      gateway: gatewayById("premier_wallet_pay"),
-    },
-  ];
+  {
+    key: "zes",
+    label: "ZAAD, EVC, SAHAL, CASHPLUS, JEEB",
+    gateway: gatewayById("zes_pay"),
+  },
+  {
+    key: "edahab",
+    label: "eDahab",
+    gateway: gatewayById("edahab_pay"),
+  },
+];
+
+const premierGateway = gatewayById("premier_wallet_pay");
 
   // Resolve Somali mobile-money provider from the donor's phone prefix.
   const normalizedWalletNumber = walletNumber.replace(/\D/g, "");
@@ -481,6 +485,9 @@ const total = donationAmount + tipAmount;
 
     if (!email.trim()) {
       return "Please enter your email address.";
+      if (!acceptedTerms) {
+  return "Please accept the Terms & Conditions before donating.";
+}
     }
     if (!paymentMethod) {
       return "Please select a payment method.";
@@ -692,10 +699,7 @@ const total = donationAmount + tipAmount;
             Back
           </Button>
 
-          <header className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight text-dark dark:text-white">Make a donation</h1>
-            <p className="mt-2 text-sm text-gray-500">Support this campaign with a secure donation.</p>
-          </header>
+         
 
           <form onSubmit={handleSubmit}>
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -717,7 +721,15 @@ const total = donationAmount + tipAmount;
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-extrabold leading-tight tracking-tight text-gray-900 sm:text-2xl lg:text-3xl">{campaign.title}</p>
-                      <p className="mt-2 text-xs font-semibold text-emerald-700 sm:text-sm">Fundraising goal reached</p>
+                     <p className="mt-2 text-xs font-semibold text-emerald-700 sm:text-sm">
+  ${campaign.raised_amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} raised of ${campaign.goal.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} goal
+</p>
                     </div>
                   </div>
                 </div>
@@ -735,13 +747,14 @@ const total = donationAmount + tipAmount;
                   {campaign.suggestedAmounts.length > 0 && (
                     <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" aria-label="Suggested donation amounts">
                       {[...campaign.suggestedAmounts].sort((a, b) => a - b).map((value) => {
-                        const selected = donationAmount === value;
+  const convertedValue = currency === "SOS" ? value * 12000 : value;
+                        const selected = donationAmount === convertedValue;
                         return (
                           <button
                             key={value}
                             type="button"
                             disabled={loading}
-                            onClick={() => setAmount(String(value))}
+                            onClick={() => setAmount(String(convertedValue))}
                             aria-pressed={selected}
                             className={`relative min-h-[48px] rounded-xl border px-2 py-2 text-center text-sm font-bold transition-all sm:min-h-[54px] sm:text-base ${
                               selected
@@ -749,7 +762,7 @@ const total = donationAmount + tipAmount;
                                 : "border-white/90 bg-white/60 text-gray-900 shadow-sm backdrop-blur-sm hover:border-[#01A14B] hover:bg-emerald-50/70"
                             } disabled:cursor-not-allowed disabled:opacity-60`}
                           >
-                            {currency === "SOS" ? "SLSH" : currency} {value}
+                            {currency === "SOS" ? "SLSH" : currency} {convertedValue.toLocaleString("en-US")}
                             {value === campaign.recommendedAmount && (
                               <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#01A14B] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white sm:text-[10px]">
                                 ♥ Suggested
@@ -925,27 +938,63 @@ const total = donationAmount + tipAmount;
                     <h3 className="mb-4 text-base font-bold text-dark dark:text-white">Payment method</h3>
                     <div className="overflow-hidden rounded-2xl border border-white/80 bg-white/55 backdrop-blur-sm">
                       {[
-                        { key: "mobile", label: "Mobile Payment", description: "ZAAD, EVC, SAHAL, eDahab and Premier Wallet", available: walletGatewayOptions.some((item) => Boolean(item.gateway)), icon: "solar:smartphone-2-linear" },
-                        { key: "card", label: "Credit / Debit Card", description: "Secure card payment through your enabled gateway", available: Boolean(cardGateway), icon: "solar:card-linear" },
-                        { key: "bank", label: "Bank Transfer and Cash Payment", description: "Offline payment via WooCommerce bank transfer or cash", available: Boolean(bankGateway), icon: "solar:buildings-2-linear" },
-                      ].map((option, index) => {
-                        const selected = option.key === "mobile" ? paymentGroup === "somali-wallets" : option.key === "card" ? paymentGroup === "card" : paymentGroup === "bank";
+  {
+    key: "mobile",
+    label: "Mobile Payment",
+    description: "ZAAD, EVC, SAHAL and eDahab",
+    available: walletGatewayOptions.some((item) => Boolean(item.gateway)),
+    icon: "solar:smartphone-2-linear",
+  },
+  {
+    key: "premier",
+    label: "Premier Bank",
+    description: "Pay securely using Premier Bank",
+    available: Boolean(premierGateway),
+    icon: "solar:buildings-2-linear",
+  },
+  {
+    key: "card",
+    label: "Credit / Debit Card",
+    description: "Secure card payment through your enabled gateway",
+    available: Boolean(cardGateway),
+    icon: "solar:card-linear",
+  },
+  {
+    key: "bank",
+    label: "Bank Transfer and Cash Payment",
+    description: "Offline payment via bank transfer or cash",
+    available: Boolean(bankGateway),
+    icon: "solar:buildings-2-linear",
+  },
+].map((option, index) => {
+                        const selected =
+  option.key === "mobile"
+    ? paymentGroup === "somali-wallets"
+    : paymentGroup === option.key;
                         return (
                           <div key={option.key}>
                           <button
                             type="button"
                             disabled={loading || loadingGateways || !option.available}
                             onClick={() => {
-                              setWalletNumber("");
-                              setError("");
-                              if (option.key === "mobile") {
-                                setPaymentGroup("somali-wallets");
-                                setPaymentMethod("");
-                              } else {
-                                setPaymentGroup(option.key === "card" ? "card" : "bank");
-                                setPaymentMethod(option.key === "card" ? cardGateway?.id || "" : bankGateway?.id || "");
-                              }
-                            }}
+  setWalletNumber("");
+  setError("");
+
+  if (option.key === "mobile") {
+    setPaymentGroup("somali-wallets");
+    setPaymentMethod("");
+  } else if (option.key === "premier") {
+    setPaymentGroup("premier");
+    setPaymentMethod(premierGateway?.id || "");
+  } else {
+    setPaymentGroup(option.key === "card" ? "card" : "bank");
+    setPaymentMethod(
+      option.key === "card"
+        ? cardGateway?.id || ""
+        : bankGateway?.id || ""
+    );
+  }
+}}
                             className={`flex w-full items-center gap-4 px-5 py-5 text-left transition sm:px-6 ${index > 0 ? "border-t border-white/70" : ""} ${selected ? "bg-[#f0faf4]" : "hover:bg-gray-50"} disabled:cursor-not-allowed disabled:opacity-50`}
                           >
                             <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${selected ? "border-[#01A14B]" : "border-gray-400"}`}>
@@ -965,12 +1014,35 @@ const total = donationAmount + tipAmount;
                                 onChange={(e) => { setWalletNumber(e.target.value); if (error) setError(""); }}
                                 disabled={loading} placeholder="063XXXXXXX" autoComplete="tel" inputMode="tel"
                                 className="ui-form-control mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-[#01A14B]" />
-                              {!detectedMobileProvider && walletNumber.trim() && <p className="mt-2 text-xs text-gray-500">Enter a supported mobile prefix to identify your provider.</p>}
-                            </div>
-                          )}
-                          </div>
-                        );
-                      })}
+                             {!detectedMobileProvider && walletNumber.trim() && <p className="mt-2 text-xs text-gray-500">Enter a supported mobile prefix to identify your provider.</p>}
+</div>
+)}
+
+{/* PREMIER BANK ACCOUNT NUMBER */}
+{option.key === "premier" &&
+  paymentGroup === "premier" &&
+  premierGateway?.requires_account && (
+    <div className="border-t border-gray-200 bg-white px-4 py-4 sm:px-6">
+      
+      <Input
+        id="premier_account"
+        name="premier_account"
+        type="text"
+        value={walletNumber}
+        onChange={(e) => {
+          setWalletNumber(e.target.value);
+          if (error) setError("");
+        }}
+        disabled={loading}
+        placeholder="Enter your Premier Bank wallet/account number"
+        className="ui-form-control mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-[#01A14B]"
+      />
+    </div>
+  )}
+
+</div>
+);
+})}
                     </div>
 
                     {paymentGroup === "card" && cardGateway && paymentMethod === cardGateway.id && (
@@ -1010,7 +1082,7 @@ const total = donationAmount + tipAmount;
                         </span>
 
                         <span className="font-semibold text-gray-900">
-                          {currency} {donationAmount.toFixed(2)}
+                         {currency === "SOS" ? "SLSH" : currency} {donationAmount.toFixed(2)}
                         </span>
                       </div>
 
@@ -1020,7 +1092,7 @@ const total = donationAmount + tipAmount;
   </span>
 
   <span className="font-semibold text-gray-900">
-    {currency} {tipAmount.toFixed(2)}
+    {currency === "SOS" ? "SLSH" : currency} {tipAmount.toFixed(2)}
   </span>
 </div>
 
@@ -1036,7 +1108,7 @@ const total = donationAmount + tipAmount;
                         </span>
 
                         <span className="text-3xl font-extrabold text-primary sm:text-4xl">
-                          {currency} {total.toFixed(2)}
+                          {currency === "SOS" ? "SLSH" : currency} {total.toFixed(2)}
                         </span>
 
                       </div>
@@ -1055,6 +1127,34 @@ const total = donationAmount + tipAmount;
                         <span className="mt-1 block text-xs leading-5 text-darklink">Your name will not be shown publicly with this donation.</span>
                       </span>
                     </label>
+                    {/* TERMS & CONDITIONS */}
+<label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-[#01A14B]">
+  <input
+    type="checkbox"
+    checked={acceptedTerms}
+    onChange={(e) => {
+      setAcceptedTerms(e.target.checked);
+      if (error) setError("");
+    }}
+    disabled={loading}
+    required
+    className="mt-0.5 h-4 w-4 shrink-0 accent-[#01A14B]"
+  />
+
+  <span className="text-sm leading-5 text-gray-700">
+    I have read and agree to the{" "}
+    <a
+      href="/terms-and-conditions"
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="font-semibold text-[#01A14B] underline hover:text-[#017a3a]"
+    >
+      Terms & Conditions
+    </a>
+    .
+  </span>
+</label>
 
                     {error && (
                       <div
@@ -1089,7 +1189,7 @@ const total = donationAmount + tipAmount;
                       ) : (
                         <>
                           <Icon icon="solar:hand-money-bold-duotone" />
-                          Donate {currency} {total.toFixed(2)}
+                          Donate {currency === "SOS" ? "SLSH" : currency} {total.toFixed(2)}
                         </>
                       )}
                     </Button>
