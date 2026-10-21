@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import CampaignCategorySlider from "./CampaignCategorySlider";
 
-import CampaignCarousel from "./CampaignCarousel";
+
 import CampaignCard from "@/app/components/front-pages/CampaignCard";
 
 import ThemeShell from "@/components/theme/ThemeShell";
@@ -37,13 +37,6 @@ interface CampaignsPageProps {
 
 
 
-function positiveInteger(value: string | undefined, fallback: number) {
-
-  const parsed = Number(value);
-
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-
-}
 
 
 
@@ -125,7 +118,7 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
 
   const params = await searchParams;
 
-  const page = positiveInteger(params.page, 1);
+  
 
  const search = (params.search || "").trim();
 
@@ -133,7 +126,7 @@ const category = (params.category || "").trim();
 
 const sort = (params.sort || "created_desc").trim();
 
-const perPage = 12;
+const perPage = 100;
 
 
 
@@ -203,47 +196,40 @@ const selectedSort =
 
 
 
-  let response: CampaignsResponse | null = null;
+ let campaigns: CampaignsResponse["data"] = [];
+let errorMessage = "";
 
-  let errorMessage = "";
+try {
+  let currentPage = 1;
+  let totalPagesToFetch = 1;
 
+  do {
+    const response = await getCampaigns({
+      page: currentPage,
+      per_page: perPage,
+      search: search || undefined,
+      category_slug: category || undefined,
+      status: "published",
+      orderby: selectedSort.orderby,
+      order: selectedSort.order,
+    });
 
+    campaigns.push(...response.data);
 
-  try {
+    totalPagesToFetch = Math.ceil(
+      response.pagination.total / perPage
+    );
 
-   response = await getCampaigns({
+    currentPage++;
+  } while (currentPage <= totalPagesToFetch);
+} catch (error) {
+  errorMessage =
+    error instanceof Error
+      ? error.message
+      : "Unable to load campaigns.";
+}
 
-  page,
-
-  per_page: perPage,
-
-  search: search || undefined,
-
-  category_slug: category || undefined,
-
-  status: "published",
-
-  orderby: selectedSort.orderby,
-
-  order: selectedSort.order,
-
-});
-
-  } catch (error) {
-
-    errorMessage = error instanceof Error ? error.message : "Unable to load campaigns.";
-
-  }
-
-
-
-  const campaigns = response?.data ?? [];
-
-  const total = response?.pagination.total ?? 0;
-
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-
-  const safePage = Math.min(page, totalPages);
+const total = campaigns.length;
 
 
 
@@ -253,10 +239,12 @@ const selectedSort =
 
       <main className="min-h-[70vh] bg-white">
 
-        <section className="border-b border-[#e6ebf0] bg-white">
+        <section className="bg-white">
 
-          <div className="container-1218 py-12 text-center sm:py-16">
-
+<div
+  className="container-1218 text-center"
+  style={{ paddingTop: "70px", paddingBottom: "48px" }}
+>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#01A14B]">
 
               Make an impact
@@ -321,8 +309,10 @@ const selectedSort =
 
 
 
-        <section className="container-1218 py-10 sm:py-14">
-
+<section
+  className="container-1218"
+  style={{ paddingTop: "50px", paddingBottom: "56px" }}
+>
           <CampaignCategorySlider
 
             items={campaignCategories.map((item) => ({
@@ -547,100 +537,17 @@ const selectedSort =
 
             <>
 
-              <CampaignCarousel>
+             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
   {campaigns.map((campaign) => (
-    <CampaignCard key={campaign.id} campaign={campaign} />
+    <CampaignCard
+      key={campaign.id}
+      campaign={campaign}
+    />
   ))}
-</CampaignCarousel>
+</div>
 
 
-
-              {totalPages > 1 && (
-
-                <nav className="mt-12 flex items-center justify-center gap-3" aria-label="Campaign pagination">
-
-                  {safePage > 1 ? (
-
-                    <Link
-
-                    href={campaignHref({
-
-  page: safePage - 1,
-
-  search,
-
-  category,
-
-  sort,
-
-})}
-
-                      className="rounded-lg border border-[#dfe5eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111c2d] transition hover:border-[#01A14B] hover:text-[#01A14B]"
-
-                    >
-
-                      Previous
-
-                    </Link>
-
-                  ) : (
-
-                    <span className="cursor-not-allowed rounded-lg border border-[#e9edf1] bg-[#f3f5f7] px-4 py-2.5 text-sm font-semibold text-[#a2acb8]">
-
-                      Previous
-
-                    </span>
-
-                  )}
-
-
-
-                  <span className="px-2 text-sm text-[#6c7a90]">
-
-                    Page <strong className="text-[#111c2d]">{safePage}</strong> of {totalPages}
-
-                  </span>
-
-
-
-                  {safePage < totalPages ? (
-
-                    <Link
-
-                      href={campaignHref({
-
-  page: safePage + 1,
-
-  search,
-
-  category,
-
-  sort,
-
-})}
-
-                      className="rounded-lg border border-[#dfe5eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111c2d] transition hover:border-[#01A14B] hover:text-[#01A14B]"
-
-                    >
-
-                      Next
-
-                    </Link>
-
-                  ) : (
-
-                    <span className="cursor-not-allowed rounded-lg border border-[#e9edf1] bg-[#f3f5f7] px-4 py-2.5 text-sm font-semibold text-[#a2acb8]">
-
-                      Next
-
-                    </span>
-
-                  )}
-
-                </nav>
-
-              )}
-
+              
             </>
 
           )}

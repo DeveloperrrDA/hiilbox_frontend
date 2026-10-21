@@ -2,12 +2,16 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { register } from "@/lib/auth";
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [userType, setUserType] = useState<"donor" | "fundraiser">("donor");
+const router = useRouter();
+const searchParams = useSearchParams();
+
+const [userType, setUserType] = useState<"donor" | "fundraiser">(
+  searchParams.get("type") === "fundraiser" ? "fundraiser" : "donor"
+);
 
   const [form, setForm] = useState({
     first_name: "",
