@@ -443,27 +443,30 @@ try {
               </div>
               {/* ======================================================= */}
 
-              {/* Fundraiser */}
+              <div className="mt-10 md:mt-0flex flex-wrap items-center sm:justify-between"> 
+                {/* Fundraiser */}
+              
+                <div className="flex basis-full md:basis-1/2 flex-wrap items-center gap-3">
+                  <div className=" flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
+                    {fundraiserInitial}
+                  </div>
 
-            <div className="flex items-center gap-3">
-              <div className="mt-10 flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
-                {fundraiserInitial}
+                  <div>
+                    <p className="text-xs text-gray-400">
+                      Fundraiser
+                    </p>
+
+                    <p className="text-sm font-semibold text-[#111c2d]">
+                      {fundraiserName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Share */}
+                <div className="flex basis-full md:basis-1/2">
+                  <ShareCampaign title={campaign.title} />
+                </div>
               </div>
-
-              <div>
-                <p className="text-xs text-gray-400">
-                  Fundraiser
-                </p>
-
-                <p className="text-sm font-semibold text-[#111c2d]">
-                  {fundraiserName}
-                </p>
-              </div>
-            </div>
-
-            {/* Share */}
-              <ShareCampaign title={campaign.title} />
-
             <div className="py-10">
               <CampaignTabs activeTab={activeTab} campaign={campaign} campaignUpdates={extractedUpdates} />
             </div>

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ const FrontHeader = () => {
   {/* LEFT NAVIGATION */}
   <div className="hidden xl:flex items-center gap-8">
     <Link href="/campaigns" className={navClass}>
+        <Icon icon="tabler:search" className="mr-2 inline-flex text-xl" />
       Search Campaigns
     </Link>
 
@@ -53,11 +55,11 @@ const FrontHeader = () => {
 <div className="group relative py-4 -my-4">
   <button
     type="button"
-    className={`${navClass} flex items-center gap-1`}
+    className={`${navClass} font-bold flex items-center gap-1`}
   >
-    About
+    <span className="font-bold">About</span>
     <svg
-      className="h-4 w-4 opacity-70"
+      className="h-4 w-4 font-bold opacity-70"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -133,7 +135,7 @@ const FrontHeader = () => {
   <div className="ml-auto hidden xl:flex items-center gap-3">
     <Button
       asChild
-      className="bg-[#01A14B] font-bold text-white hover:bg-[#018d42]"
+      className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors"
     >
       <Link href="/signup?type=fundraiser">
         Start a HiilBox
@@ -156,7 +158,7 @@ const FrontHeader = () => {
         </Button>
       </>
     ) : (
-      <Button asChild className="font-bold">
+      <Button asChild className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors">
         <Link href="/login">Login</Link>
       </Button>
     )}

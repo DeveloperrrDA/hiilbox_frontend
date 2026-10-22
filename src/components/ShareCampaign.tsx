@@ -56,8 +56,8 @@ export default function ShareCampaign({ title, variant = "default" }: ShareCampa
   }
 
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
-      <p className="text-base font-semibold text-gray-900">Share this campaign</p>
+    <div className="mt-5 md:mt-0 flex flex-wrap items-center justify-between gap-4">
+      <p className="text-base font-semibold text-gray-900">Share</p>
       <div className="flex items-center gap-3">
         <button type="button" onClick={shareFacebook} aria-label="Share on Facebook" className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-100 bg-white text-sm font-bold text-gray-700  transition hover:bg-gray-50">f</button>
         <button type="button" onClick={shareX} aria-label="Share on X" className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-100 bg-white text-sm font-bold text-gray-700  transition hover:bg-gray-50">𝕏</button>
