@@ -42,9 +42,8 @@ async function proxy(
   // We still call requireUser() above so this proxy remains admin/authenticated-only.
 const needsSystemToken =
   (
-    method === "GET" &&
-    /^(campaigns|users|donations)(?:\/|$)/.test(backendPath)
-  ) ||
+method === "GET" &&
+/^(campaigns|donations)(?:\/|$)/.test(backendPath)  ) ||
   (
     method === "POST" &&
     /^campaign\/\d+\/(?:update-status|update-secondary-status|delete|restore)$/.test(

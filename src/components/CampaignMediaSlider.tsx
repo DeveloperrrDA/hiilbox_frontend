@@ -72,7 +72,6 @@ export default function CampaignMediaSlider({ video, images, title, fallbackImag
   };
 
   return (
-    // Added w-full, min-w-0, and max-w-full to prevent Flexbox blowouts on mobile
     <div className="mb-10 w-full min-w-0 max-w-full">
       {/* Main Viewer */}
       <div className="group relative w-full aspect-[16/9] overflow-hidden rounded-[16px] bg-black">

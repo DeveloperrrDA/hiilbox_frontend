@@ -1,0 +1,303 @@
+﻿diff --git a/src/app/campaign/[id]/page.tsx b/src/app/campaign/[id]/page.tsx
+index fc789ec..94df185 100644
+--- a/src/app/campaign/[id]/page.tsx
++++ b/src/app/campaign/[id]/page.tsx
+@@ -262,7 +262,7 @@ export default async function CampaignPage({
+ 
+           {/* ================= DONATION SIDEBAR ================= */}
+ 
+-          <aside>
++         <aside>
+             <div className="sticky top-28">
+               <div className="relative overflow-hidden rounded-[24px] border border-[#dfe5df] bg-white p-6 shadow-[0_16px_40px_rgba(17,28,45,0.08)] sm:p-7">
+                 <p className="mb-6 text-xs font-bold uppercase tracking-[0.16em] text-[#01A14B]">
+@@ -291,7 +291,8 @@ export default async function CampaignPage({
+                     </div>
+                   </div>
+ 
+-                  <div className="min-w-0">
++                  {/* Added flex-1 to allow proper wrapping and prevent overflow */}
++                  <div className="min-w-0 flex-1">
+                     <p className="text-[30px] font-extrabold leading-none tracking-tight text-[#111c2d]">
+                       ${campaign.raised_amount.toLocaleString()} raised
+                     </p>
+@@ -299,8 +300,8 @@ export default async function CampaignPage({
+                       of ${campaign.goal.toLocaleString()}
+                     </p>
+                    <p className="mt-1 text-sm text-[#667085]">
+-  {recentDonations.length.toLocaleString()} donations
+-</p>
++                      {recentDonations.length.toLocaleString()} donations
++                    </p>
+                   </div>
+                 </div>
+ 
+diff --git a/src/components/CampaignMediaSlider.tsx b/src/components/CampaignMediaSlider.tsx
+index 19f477d..0e471f3 100644
+--- a/src/components/CampaignMediaSlider.tsx
++++ b/src/components/CampaignMediaSlider.tsx
+@@ -3,6 +3,7 @@
+ import { useState } from "react";
+ import { Icon } from "@iconify/react";
+ import { getYouTubeId } from "@/lib/youtube";
++
+ interface MediaItem {
+   type: "video" | "image";
+   url: string;
+@@ -18,9 +19,9 @@ export default function CampaignMediaSlider({ video, images, title, fallbackImag
+   if (getYouTubeId(video?.url)) {
+     const youtubeId = getYouTubeId(video?.url);
+ 
+-const embedUrl = youtubeId
+-  ? `https://www.youtube-nocookie.com/embed/${youtubeId}`
+-  : "";
++    const embedUrl = youtubeId
++      ? `https://www.youtube-nocookie.com/embed/${youtubeId}`
++      : "";
+ 
+     mediaList.push({
+       type: "video",
+@@ -53,7 +54,7 @@ const embedUrl = youtubeId
+   // Edge case: No media at all
+   if (mediaList.length === 0) {
+     return (
+-      <div className="relative mb-10 flex aspect-[16/9] items-center justify-center overflow-hidden rounded-[16px] bg-gray-100 text-sm text-gray-400">
++      <div className="relative mb-10 flex aspect-[16/9] w-full min-w-0 max-w-full items-center justify-center overflow-hidden rounded-[16px] bg-gray-100 text-sm text-gray-400">
+         No media available
+       </div>
+     );
+@@ -71,7 +72,8 @@ const embedUrl = youtubeId
+   };
+ 
+   return (
+-    <div className="mb-10">
++    // Added w-full, min-w-0, and max-w-full to prevent Flexbox blowouts on mobile
++    <div className="mb-10 w-full min-w-0 max-w-full">
+       {/* Main Viewer */}
+       <div className="group relative w-full aspect-[16/9] overflow-hidden rounded-[16px] bg-black">
+         {activeMedia.type === "video" ? (
+@@ -92,16 +94,17 @@ const embedUrl = youtubeId
+         {/* Navigation Arrows (Only show if multiple items exist) */}
+         {mediaList.length > 1 && (
+           <>
++            {/* Fixed typo and made arrows permanently visible on mobile (opacity-100), fade on desktop (md:opacity-0) */}
+             <button
+               onClick={handlePrev}
+-              className="absolute left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100hover:bg-[#01A14B]"
++              className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-100 backdrop-blur-sm transition-all hover:bg-[#01A14B] md:left-4 md:opacity-0 md:group-hover:opacity-100"
+               aria-label="Previous media"
+             >
+               <Icon icon="solar:alt-arrow-left-line-duotone" className="text-2xl" />
+             </button>
+             <button
+               onClick={handleNext}
+-              className="absolute right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 hover:bg-[#01A14B]"
++              className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-100 backdrop-blur-sm transition-all hover:bg-[#01A14B] md:right-4 md:opacity-0 md:group-hover:opacity-100"
+               aria-label="Next media"
+             >
+               <Icon icon="solar:alt-arrow-right-line-duotone" className="text-2xl" />
+@@ -112,7 +115,7 @@ const embedUrl = youtubeId
+ 
+       {/* Thumbnail Slider */}
+       {mediaList.length > 1 && (
+-        <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
++        <div className="mt-4 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
+           {mediaList.map((item, idx) => (
+             <button
+               key={idx}
+@@ -140,4 +143,4 @@ const embedUrl = youtubeId
+       )}
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/src/components/CampaignRecentDonations.tsx b/src/components/CampaignRecentDonations.tsx
+index 707940f..4b95ace 100644
+--- a/src/components/CampaignRecentDonations.tsx
++++ b/src/components/CampaignRecentDonations.tsx
+@@ -22,8 +22,6 @@ export default function CampaignRecentDonations({
+ }) {
+   // Load initial donations
+   const [donations, setDonations] = useState<Donation[]>(initialDonations);
+-  // Keep track of total simulated donations to update the header count
+-  const [simulatedCount, setSimulatedCount] = useState(0);
+ 
+   useEffect(() => {
+     if (initialDonations.length === 0) return;
+@@ -45,9 +43,6 @@ export default function CampaignRecentDonations({
+         const updatedList = [newDonation, ...prev];
+         return updatedList.slice(0, 50);
+       });
+-
+-      // Increment our fake total count
+-      setSimulatedCount((prev) => prev + 1);
+     }, 5000); // 5000 milliseconds = 5 seconds
+ 
+     // Clean up the interval if the user leaves the page
+@@ -76,7 +71,7 @@ export default function CampaignRecentDonations({
+           <Icon icon="tabler:trending-up" className="text-2xl" />
+         </div>
+         <p className="text-base font-bold text-[#7e22ce]">
+-          {(totalCount + simulatedCount).toLocaleString()} recent donations
++          {totalCount.toLocaleString()} recent donations
+         </p>
+       </div>
+ 
+@@ -111,9 +106,9 @@ export default function CampaignRecentDonations({
+                   )}
+                 </div>
+ 
+-                {/* Details */}
+-                <div className="flex flex-col">
+-                  <p className="text-[15px] font-semibold text-[#111c2d]">
++                {/* Details (min-w-0 and flex-1 added to prevent layout blowouts) */}
++                <div className="flex min-w-0 flex-1 flex-col">
++                  <p className="truncate text-[15px] font-semibold text-[#111c2d]">
+                     {name}
+                   </p>
+                   <div className="mt-0.5 flex items-center text-sm text-[#5a6a85]">
+@@ -121,8 +116,8 @@ export default function CampaignRecentDonations({
+                       {(!donation.currency || donation.currency === "USD") ? "$" : `${donation.currency} `}
+                       {Number(donation.amount || 0).toLocaleString()}
+                     </span>
+-                    <span className="mx-2 text-[#dfe5eb]">ΓÇó</span>
+-                    <span>{formatTime(donation.created_at, donation.is_new_simulation)}</span>
++                    <span className="mx-2 shrink-0 text-[#dfe5eb]">ΓÇó</span>
++                    <span className="truncate">{formatTime(donation.created_at, donation.is_new_simulation)}</span>
+                   </div>
+                 </div>
+               </div>
+diff --git a/src/components/MobileStickyCTA.tsx b/src/components/MobileStickyCTA.tsx
+new file mode 100644
+index 0000000..de0dbba
+--- /dev/null
++++ b/src/components/MobileStickyCTA.tsx
+@@ -0,0 +1,126 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import Link from "next/link";
++import { Icon } from "@iconify/react";
++
++interface MobileStickyCTAProps {
++  campaignId: string | number;
++  title: string;
++  progress: number;
++  raisedAmount: number;
++  goalAmount: number;
++  lastDonationName?: string;
++  lastDonationAmount?: number;
++  currency?: string;
++}
++
++export default function MobileStickyCTA({
++  campaignId,
++  title,
++  progress,
++  raisedAmount,
++  goalAmount,
++  lastDonationName,
++  lastDonationAmount,
++  currency = "USD",
++}: MobileStickyCTAProps) {
++  const [isVisible, setIsVisible] = useState(false);
++
++  useEffect(() => {
++    const target = document.getElementById("mobile-donate-section");
++    if (!target) return;
++
++    const observer = new IntersectionObserver(
++      ([entry]) => {
++        // Show if the mobile donate section is scrolled out of view upwards
++        if (!entry.isIntersecting && entry.boundingClientRect.y < 0) {
++          setIsVisible(true);
++        } else {
++          setIsVisible(false);
++        }
++      },
++      { threshold: 0 }
++    );
++
++    observer.observe(target);
++    return () => observer.disconnect();
++  }, []);
++
++  if (!isVisible) return null;
++
++  // SVG Progress Math
++  const size = 52;
++  const strokeWidth = 5;
++  const radius = (size - strokeWidth) / 2;
++  const circumference = radius * 2 * Math.PI;
++  const strokeDashoffset = circumference - (Math.min(100, progress) / 100) * circumference;
++
++  // Format large numbers (e.g., 650000 -> 650K)
++  const formatCompact = (num: number) => {
++    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
++    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
++    return num.toLocaleString();
++  };
++
++  return (
++    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-4 rounded-t-[24px] border-t border-gray-200 bg-white p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-full duration-300 lg:hidden pb-safe">
++      
++      {/* TOP ROW: Stats & Latest Donation */}
++      <div className="flex items-center gap-4">
++        {/* Progress Circle */}
++        <div className="relative flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
++          <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
++            <circle className="text-gray-100 dark:text-gray-800" stroke="currentColor" fill="transparent" strokeWidth={strokeWidth} cx={size / 2} cy={size / 2} r={radius} />
++            <circle 
++              className="text-[#52b946]" 
++              stroke="currentColor" 
++              fill="transparent" 
++              strokeWidth={strokeWidth} 
++              strokeLinecap="round" 
++              strokeDasharray={circumference} 
++              strokeDashoffset={strokeDashoffset} 
++              cx={size / 2} 
++              cy={size / 2} 
++              r={radius} 
++            />
++          </svg>
++          <span className="absolute text-[11px] font-extrabold text-[#111c2d] dark:text-white">
++            {progress}%
++          </span>
++        </div>
++
++        {/* Text Details */}
++        <div className="min-w-0 flex-1">
++          <p className="truncate text-[17px] font-extrabold text-[#111c2d]">
++            ${raisedAmount.toLocaleString()} raised <span className="font-normal text-[#5a6a85]">of <span className="underline decoration-1 underline-offset-2">${formatCompact(goalAmount)}{currency}</span></span>
++          </p>
++          {lastDonationName && lastDonationAmount ? (
++            <p className="mt-0.5 flex items-center text-[13px] text-[#5a6a85]">
++              <span className="truncate">{lastDonationName} donated ${lastDonationAmount.toLocaleString()}</span>
++              <Icon icon="solar:alt-arrow-right-outline" className="ml-0.5 shrink-0" />
++            </p>
++          ) : (
++            <p className="mt-0.5 text-[13px] text-[#5a6a85]">Be the first to donate</p>
++          )}
++        </div>
++      </div>
++
++      {/* BOTTOM ROW: Action Buttons */}
++      <div className="flex flex-row gap-3">
++        <Link
++          href={`/checkout?campaign=${campaignId}&title=${encodeURIComponent(title)}`}
++          className="flex-1 rounded-full bg-primary py-3.5 text-center text-[15px] font-extrabold text-white transition-colors hover:bg-primary"
++        >
++          Donate
++        </Link>
++        <Link
++          href="#"
++          className="flex-1 rounded-full bg-lightprimary py-3.5 text-center text-[15px] font-extrabold text-primary transition-colors hover:bg-primary hover:text-white"
++        >
++          Share
++        </Link>
++      </div>
++    </div>
++  );
++}
+\ No newline at end of file

@@ -26,27 +26,35 @@ export default function MobileStickyCTA({
   currency = "USD",
 }: MobileStickyCTAProps) {
   const [isVisible, setIsVisible] = useState(false);
+useEffect(() => {
+  const target = document.getElementById("mobile-donate-section");
 
-  useEffect(() => {
-    const target = document.getElementById("mobile-donate-section");
-    if (!target) return;
+  if (!target) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Show if the mobile donate section is scrolled out of view upwards
-        if (!entry.isIntersecting && entry.boundingClientRect.y < 0) {
-          setIsVisible(true);
-        } else {
-          setIsVisible(false);
-        }
-      },
-      { threshold: 0 }
-    );
+  let sectionVisible = false;
 
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, []);
+  const updateVisibility = () => {
+    setIsVisible(window.scrollY > 150 && !sectionVisible);
+  };
 
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      sectionVisible = entry.isIntersecting;
+      updateVisibility();
+    },
+    { threshold: 0 }
+  );
+
+  observer.observe(target);
+
+  window.addEventListener("scroll", updateVisibility, { passive: true });
+  updateVisibility();
+
+  return () => {
+    observer.disconnect();
+    window.removeEventListener("scroll", updateVisibility);
+  };
+}, []);
   if (!isVisible) return null;
 
   // SVG Progress Math

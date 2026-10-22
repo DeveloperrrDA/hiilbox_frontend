@@ -49,9 +49,79 @@ const FrontHeader = () => {
       Search Campaigns
     </Link>
 
-    <Link href="/about" className={navClass}>
-      About Us
-    </Link>
+{/* ABOUT MEGA MENU — RESTORED */}
+<div className="group relative py-4 -my-4">
+  <button
+    type="button"
+    className={`${navClass} flex items-center gap-1`}
+  >
+    About
+    <svg
+      className="h-4 w-4 opacity-70"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 9l-7 7-7-7"
+      />
+    </svg>
+  </button>
+
+  {/* Original dropdown card */}
+  <div className="absolute right-0 top-[100%] pt-6 invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-hover:translate-y-1 z-50">
+    <div className="w-[520px] rounded-2xl bg-white dark:bg-darkgray p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-gray-100 dark:border-gray-800">
+
+      {/* Card header */}
+      <div className="flex items-center gap-3 mb-6">
+        <svg
+          className="h-5 w-5 text-gray-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span className="text-lg font-medium text-dark dark:text-white">
+          How it works, pricing, and more
+        </span>
+      </div>
+
+      {/* Original two-column links */}
+      <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+        {[
+          ["How Hiilbox works", "/how-it-works"],
+          ["About Hiilbox", "/about"],
+          ["Hiilbox Giving Guarantee", "/guarantee"],
+          ["Newsroom", "/newsroom"],
+          ["Supported countries", "/countries"],
+          ["Careers", "/careers"],
+          ["Pricing", "/pricing"],
+          ["Hiilbox.org", "/foundation"],
+          ["Help Center", "/help"],
+          ["Hiilbox Partnerships", "/partnerships"],
+        ].map(([label, href]) => (
+          <Link
+            key={href}
+            href={href}
+            className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors"
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
+
   </div>
 
   {/* CENTERED LOGO */}
