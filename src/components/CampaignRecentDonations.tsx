@@ -79,12 +79,14 @@ export default function CampaignRecentDonations({
                     name.charAt(0).toUpperCase()
                   )}
                 </div>
-                <div className="min-w-0 flex flex-col">
+               <div className="flex min-w-0 flex-1 flex-col">
                   <p className="truncate text-[15px] font-semibold text-[#111c2d]">{name}</p>
                   <div className="mt-0.5 flex flex-wrap items-center text-sm text-[#5a6a85]">
                     <span className="font-bold text-[#111c2d]">{formatAmount(donation)}</span>
-                    <span className="mx-2 text-[#dfe5eb]">•</span>
-                    <span>{formatTime(donation.created_at, donation.is_new_simulation)}</span>
+                    <span className="mx-2 shrink-0 text-[#dfe5eb]">•</span>
+                   <span className="truncate">
+  {formatTime(donation.created_at, donation.is_new_simulation)}
+</span>
                   </div>
                 </div>
               </div>

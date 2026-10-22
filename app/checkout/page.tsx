@@ -714,10 +714,22 @@ const total = donationAmount + tipAmount;
                 </div>
                 <div>
                   <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2 leading-tight">{campaign.title}</h1>
-                  <p className="text-sm font-medium text-primary">
-                    ${campaign.raised_amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} raised 
-                    <span className="text-gray-500 font-normal"> of ${campaign.goal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} goal</span>
-                  </p>
+                 <p className="text-sm font-medium text-primary">
+  {currency === "SOS" ? "SLSH" : "$"}{" "}
+  {(campaign.raised_amount * (currency === "SOS" ? selectedRate : 1))
+    .toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} raised{" "}
+  <span className="text-gray-500 font-normal">
+    {" "}of {currency === "SOS" ? "SLSH" : "$"}{" "}
+    {(campaign.goal * (currency === "SOS" ? selectedRate : 1))
+      .toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} goal
+  </span>
+</p>
                 </div>
               </div>
 
@@ -764,7 +776,35 @@ const total = donationAmount + tipAmount;
 
                 <div className="border border-gray-200 rounded-xl flex items-stretch h-24 sm:h-32 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all bg-white overflow-hidden">
                   <div className="flex items-center gap-2 cursor-pointer text-gray-700 font-medium text-lg border-r border-gray-200 px-6">
-                    <Select value={currency} onValueChange={setCurrency} disabled={loading}>
+                    <Select
+  value={currency}
+  onValueChange={(nextCurrency) => {
+    if (nextCurrency === currency) return;
+
+    const currentRate =
+      currencies.find((item) => item.code === currency)?.rate || 1;
+
+    const nextRate =
+      currencies.find((item) => item.code === nextCurrency)?.rate || 1;
+
+    const conversionFactor = nextRate / currentRate;
+
+    setAmount((current) =>
+      current === ""
+        ? ""
+        : String(Number((Number(current) * conversionFactor).toFixed(2)))
+    );
+
+    setManualTip((current) =>
+      current === null || current === ""
+        ? current
+        : String(Number((Number(current) * conversionFactor).toFixed(2)))
+    );
+
+    setCurrency(nextCurrency);
+  }}
+  disabled={loading}
+>
                       <SelectTrigger className="border-0 bg-transparent px-0 text-lg font-medium text-gray-700 shadow-none focus:ring-0">
                         <SelectValue placeholder="Currency" />
                       </SelectTrigger>

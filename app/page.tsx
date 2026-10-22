@@ -27,10 +27,8 @@ export default function Home() {
   <Highlights />
   <CampaignGridFeatured />
   <MakeADifferenceCTA />
-  <OurClients />
   <CampaignGrid />
   <CenteredCTA />
-  <PurchaseTemp />
 </HomeLayout>
   );
 }

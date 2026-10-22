@@ -14,6 +14,7 @@ import ThemeShell from "@/components/theme/ThemeShell";
 import CampaignComments from "@/components/CampaignComments";
 import CampaignMediaSlider from "@/components/CampaignMediaSlider";
 import CampaignRecentDonations from "@/components/CampaignRecentDonations";
+import MobileStickyCTA from "@/components/MobileStickyCTA";
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
@@ -436,7 +437,7 @@ try {
 
           {/* ================= DONATION SIDEBAR ================= */}
 
-          <aside>
+          <aside id="mobile-donate-section" className="min-w-0">
             <div className="sticky top-28">
               <div className="rounded-[16px] bg-white p-6 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb]">
 
@@ -629,7 +630,19 @@ try {
           </div>
         </section>
       )}
-
+<MobileStickyCTA
+  campaignId={campaign.id}
+  title={campaign.title}
+  progress={progress}
+  raisedAmount={campaign.raised_amount}
+  goalAmount={campaign.goal}
+  lastDonationName={
+    recentDonations[0]?.is_anonymous
+      ? "Anonymous"
+      : recentDonations[0]?.donor_name || "Anonymous"
+  }
+  lastDonationAmount={Number(recentDonations[0]?.amount || 0)}
+/>
     </main>
     </ThemeShell>
   );

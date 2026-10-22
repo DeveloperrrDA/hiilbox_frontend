@@ -53,7 +53,7 @@ const embedUrl = youtubeId
   // Edge case: No media at all
   if (mediaList.length === 0) {
     return (
-      <div className="relative mb-10 flex aspect-[16/9] items-center justify-center overflow-hidden rounded-[16px] bg-gray-100 text-sm text-gray-400">
+      <div className="relative mb-10 flex aspect-[16/9] w-full min-w-0 max-w-full items-center justify-center overflow-hidden rounded-[16px] bg-gray-100 text-sm text-gray-400">
         No media available
       </div>
     );
@@ -71,7 +71,7 @@ const embedUrl = youtubeId
   };
 
   return (
-    <div className="mb-10">
+    <div className="mb-10 w-full min-w-0 max-w-full">
       {/* Main Viewer */}
       <div className="group relative w-full aspect-[16/9] overflow-hidden rounded-[16px] bg-black">
         {activeMedia.type === "video" ? (
@@ -94,14 +94,14 @@ const embedUrl = youtubeId
           <>
             <button
               onClick={handlePrev}
-              className="absolute left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100hover:bg-[#01A14B]"
+              className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-100 backdrop-blur-sm transition-all hover:bg-[#01A14B] md:left-4 md:opacity-0 md:group-hover:opacity-100"
               aria-label="Previous media"
             >
               <Icon icon="solar:alt-arrow-left-line-duotone" className="text-2xl" />
             </button>
             <button
               onClick={handleNext}
-              className="absolute right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 hover:bg-[#01A14B]"
+              className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-100 backdrop-blur-sm transition-all hover:bg-[#01A14B] md:right-4 md:opacity-0 md:group-hover:opacity-100"
               aria-label="Next media"
             >
               <Icon icon="solar:alt-arrow-right-line-duotone" className="text-2xl" />
@@ -112,7 +112,7 @@ const embedUrl = youtubeId
 
       {/* Thumbnail Slider */}
       {mediaList.length > 1 && (
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="mt-4 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {mediaList.map((item, idx) => (
             <button
               key={idx}
