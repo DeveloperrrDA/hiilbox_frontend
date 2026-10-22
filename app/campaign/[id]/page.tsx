@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import {
   getCampaign,
+  getCampaigns,
   getCampaignRecentDonations,
   getCampaignUpdates
 } from "@/lib/campaigns";
@@ -275,6 +276,43 @@ try {
  const campaign = response.data;
 const extractedUpdates = campaignUpdatesResponse.data;
 
+// Related campaigns are optional: failure must never break the main page.
+let relatedCampaigns: Awaited<ReturnType<typeof getCampaigns>>["data"] = [];
+
+try {
+  const relatedResponse = await getCampaigns({
+    page: 1,
+    per_page: 24,
+    status: "launched-and-beyond",
+  });
+
+  const eligible = relatedResponse.data.filter(
+    (item) =>
+      item.id !== campaign.id &&
+      item.id > 0 &&
+      !item.is_hidden &&
+      !item.is_paused &&
+      !item.is_ended
+  );
+
+  // Prefer the same category, then other eligible campaigns.
+  relatedCampaigns = eligible
+    .sort((a, b) => {
+      const aMatch =
+        Boolean(campaign.category) &&
+        a.category === campaign.category ? 1 : 0;
+
+      const bMatch =
+        Boolean(campaign.category) &&
+        b.category === campaign.category ? 1 : 0;
+
+      return bMatch - aMatch;
+    })
+    .slice(0, 4);
+} catch (error) {
+  console.error("Unable to load related campaigns:", error);
+}
+
   const progress =
     campaign.goal > 0
       ? Math.min(
@@ -528,31 +566,105 @@ const extractedUpdates = campaignUpdatesResponse.data;
                 )}
               </div>
             </div>
-          </aside>
+                    </aside>
         </div>
       </div>
-      {/* =======================================================
-            Get Last Donation Details for the Sticky Bar 
-        ======================================================= */}
-        {(() => {
-          const lastDonation = recentDonations.length > 0 ? recentDonations[0] : null;
-          const lastDonationName = lastDonation 
-            ? (lastDonation.is_anonymous ? "Anonymous" : lastDonation.donor_name || "Supporter") 
-            : undefined;
-          const lastDonationAmount = lastDonation ? Number(lastDonation.amount) : undefined;
 
-          return (
-            <MobileStickyCTA 
-              campaignId={campaign.id} 
-              title={campaign.title} 
-              progress={progress}
-              raisedAmount={campaign.raised_amount}
-              goalAmount={campaign.goal}
-              lastDonationName={lastDonationName}
-              lastDonationAmount={lastDonationAmount}
-            />
-          );
-        })()}
+      {/* ================= RELATED CAMPAIGNS ================= */}
+      {relatedCampaigns.length > 0 && (
+        <section className="border-t border-[#e0e6eb] bg-white py-12 md:py-16">
+          <div className="mx-auto max-w-[1218px] px-6">
+
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-[#111c2d] dark:text-white">
+                  Related Campaigns
+                </h2>
+                <p className="mt-2 text-sm text-[#5a6a85]">
+                  Discover more causes you can support.
+                </p>
+              </div>
+
+              <Link
+                href="/campaigns"
+                className="text-sm font-semibold text-[#01A14B] hover:underline"
+              >
+                View all campaigns →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {relatedCampaigns.map((item) => {
+                const goal = Math.max(0, Number(item.goal) || 0);
+                const raised = Math.max(0, Number(item.raised_amount) || 0);
+
+                const percentage =
+                  goal > 0
+                    ? Math.min(100, Math.round((raised / goal) * 100))
+                    : 0;
+
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/campaigns/${item.id}`}
+                    className="group overflow-hidden rounded-[16px] border border-[#e0e6eb] bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(17,28,45,0.1)]"
+                  >
+                    <div className="aspect-[4/3] overflow-hidden bg-[#f8fafd]">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.title}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-[#5a6a85]">
+                          Campaign image unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5">
+                      {item.category && (
+                        <p className="mb-2 text-xs font-semibold text-[#01A14B]">
+                          {item.category}
+                        </p>
+                      )}
+
+                      <h3 className="mb-4 line-clamp-2 min-h-[48px] text-base font-bold leading-6 text-[#111c2d] transition-colors group-hover:text-[#01A14B]">
+                        {item.title}
+                      </h3>
+
+                      <div className="mb-2 h-2 overflow-hidden rounded-full bg-[#e6f6ed]">
+                        <div
+                          className="h-full rounded-full bg-[#01A14B]"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 text-xs text-[#5a6a85]">
+                        <span>
+                          <strong className="text-[#111c2d]">
+                            ${raised.toLocaleString()}
+                          </strong>{" "}
+                          raised
+                        </span>
+                        <span>{percentage}%</span>
+                      </div>
+
+                      <p className="mt-2 text-xs text-[#5a6a85]">
+                        Goal: ${goal.toLocaleString()}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+          </div>
+        </section>
+      )}
+
     </main>
     </ThemeShell>
   );
