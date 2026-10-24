@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
 import ThemeShell from "@/components/theme/ThemeShell";
 
 const faqs = {
@@ -505,8 +506,85 @@ export default function HowItWorksPage() {
                   <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
                     <div className="w-[12%]">#169</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$1.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Community Health</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
                   </div>
+                  <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                    <div className="w-[12%]">#168</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$10.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Support Local Causes</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
+                  </div>
+                  <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                    <div className="w-[12%]">#167</div><div className="w-[18%] font-bold text-[#01A14B] dark:text-[#8BD3A8]">$100.00</div><div className="w-[35%] truncate pr-1 text-[#0F1F17] dark:text-gray-300">Medical Support</div><div className="w-[15%]">9/26/2026</div><div className="w-[20%] text-right"><span className="inline-block rounded border border-white/50 bg-[#E6F4EB]/80 px-1.5 py-0.5 text-[7px] font-bold text-[#01A14B] shadow-sm backdrop-blur-sm dark:border-[#01A14B]/20 dark:bg-[#01A14B]/10 dark:text-[#8BD3A8]">Completed</span></div>
+                  </div>
                 </div>
               </div>
+            </div>
+
+            {/* Manage Donors */}
+            <div className="flex flex-col rounded-[2rem] border border-white/60 bg-lightprimary dark:bg-primary/30 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
+              <div className="">
+                <div className="absolute right-[15%] top-10 z-0 hidden h-16 w-16 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
+                    <pattern id="dots-hero-1" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2.5"></circle></pattern>
+                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dots-hero-1)"></rect>
+                  </svg>
+                </div>
+                <div className="mb-3 flex items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white text-[#01A14B] shadow-sm backdrop-blur-md dark:border-[#01A14B]/30 dark:bg-[#01A14B]/20 dark:text-[#8BD3A8]">
+                    <Icon icon="solar:users-group-two-rounded-bold" className="text-xl" />
+                  </div>
+                  <h3 className="text-lg font-bold tracking-tight text-[#01A14B] dark:text-[#8BD3A8]">Manage Your Donors</h3>
+                </div>
+                <p className="mb-6 pr-2 text-base leading-relaxed text-[#687280] dark:text-gray-400">
+                  See the list of your donors, their total contributions, and latest donations in one place.
+                </p>
+                
+                <div className="mt-auto rounded-xl border border-white/60 bg-white p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-dark/80">
+                  <div className="mb-3 text-xs font-bold text-[#0F1F17] dark:text-white">Donors</div>
+                  <div className="mb-3 flex gap-2">
+                    <div className="flex w-full max-w-[120px] cursor-pointer items-center justify-between rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">All Campaigns <Icon icon="solar:alt-arrow-down-bold" /></div>
+                    <div className="ml-auto flex w-full max-w-[100px] items-center gap-1 rounded border border-gray-200 bg-white/50 px-2 py-1 text-[8px] text-gray-400 dark:border-gray-700 dark:bg-gray-800/50"><Icon icon="solar:magnifer-bold" /> Search...</div>
+                  </div>
+                  
+                  <div className="w-full">
+                    <div className="mb-1.5 flex border-b border-gray-100 pb-1.5 text-[7px] font-bold text-gray-400 dark:border-gray-800">
+                      <div className="w-[35%]">Donor Details</div><div className="w-[20%] text-center">Donations</div><div className="w-[20%]">Total Given</div><div className="w-[25%] text-right">Latest Donation</div>
+                    </div>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">TU</div>
+                        <span className="truncate text-[8px]">Test User2</span>
+                      </div>
+                      <div className="w-[20%] text-center">2</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$6.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    </div>
+                    <div className="flex items-center border-b border-gray-50 py-1.5 text-[8px] text-gray-600 dark:border-gray-800/50 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">SA</div>
+                        <span className="truncate text-[8px]">Saeed Abdilahi</span>
+                      </div>
+                      <div className="w-[20%] text-center">1</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
+                      <div className="w-[25%] text-right text-[7px]">06/11/2026</div>
+                    </div>
+                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">RA</div>
+                        <span className="truncate text-[8px]">Ridwan Ahmed</span>
+                      </div>
+                      <div className="w-[20%] text-center">3</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$102.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/01/2026</div>
+                    </div>
+                    <div className="flex items-center py-1.5 text-[8px] text-gray-600 dark:text-gray-400">
+                      <div className="flex w-[35%] items-center gap-1.5">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 dark:bg-gray-800">AA</div>
+                        <span className="truncate text-[8px]">Abdilahi Abdirisaq</span>
+                      </div>
+                      <div className="w-[20%] text-center">5</div>
+                      <div className="w-[20%] font-medium text-[#01A14B] dark:text-[#8BD3A8]">$50.00</div>
+                      <div className="w-[25%] text-right text-[7px]">09/26/2026</div>
+                    </div>
+                  </div>
+                </div>
+               </div> 
             </div>
 
             {/* Withdraw Funds */}
@@ -636,59 +714,7 @@ export default function HowItWorksPage() {
           </div>
         </section>
 
-        {/* =========================================
-            MAKE A DIFFERENCE CTA
-        ========================================= */}
-        <section className="mt-24 flex w-full flex-col items-center justify-between gap-16 py-16 lg:flex-row relative z-10">
-          <div className="relative z-10 flex w-full flex-col items-start lg:w-1/2">
-            <div className="flex items-center justify-center"> 
-              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
-                MAKE A DIFFERENCE TODAY
-              </div>
-            </div>
-
-            <h2 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
-              Start Your Campaign<br/>
-              <span className="text-[#01A14B]">and Make a Real Impact</span>
-            </h2>
-            
-            <p className="mb-10 max-w-lg text-lg leading-relaxed text-[#687280] dark:text-gray-300">
-              Whether you're supporting a family, a community project, or a life-changing initiative, HiilBox gives you the tools to raise funds easily, securely, and transparently.
-            </p>
-
-            <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:w-auto">
-              <Link href="/create-campaign" className="group inline-flex w-full items-center justify-center space-x-2 rounded-full bg-[#01A14B] px-8 py-4 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(1,161,75,0.6)] transition hover:bg-[#006B30] dark:shadow-none sm:w-auto">
-                <Icon icon="solar:add-circle-bold" className="text-lg" />
-                <span>Start Your Campaign</span>
-                <Icon icon="solar:arrow-right-bold" className="ml-2 transform transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link href="/campaigns" className="group inline-flex w-full items-center justify-center space-x-2 rounded-full border-2 border-[#01A14B] bg-transparent px-8 py-4 text-[15px] font-bold text-[#0F1F17] transition hover:bg-white/50 dark:border-gray-700 dark:text-white dark:hover:border-[#01A14B] dark:hover:bg-white/5 dark:hover:text-[#01A14B] sm:w-auto">
-                <Icon icon="solar:magnifer-bold" className="text-lg" />
-                <span>Explore Campaigns</span>
-                <Icon icon="solar:arrow-right-bold" className="ml-2 transform transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-
-          <div className="relative z-10 mt-10 flex w-full justify-center lg:mt-0 lg:w-1/2 lg:justify-end">
-            <div className="absolute inset-0 z-0 scale-105 rotate-3 transform rounded-[4rem] bg-[#E6F4EB] blur-sm dark:bg-[#01A14B]/10"></div>
-            <div className="absolute inset-0 z-0 scale-95 -rotate-2 transform rounded-[3rem] bg-[#01A14B]/20"></div>
-            
-            <div className="absolute -left-4 -top-8 z-20 text-[#01A14B] dark:text-[#8BD3A8]">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
-            </div>
-            <div className="absolute -bottom-4 right-10 z-20 text-[#01A14B] dark:text-[#8BD3A8]">
-              <svg width="60" height="60" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4"><path d="M10,50 Q30,10 50,50 T90,50"/></svg>
-            </div>
-            
-            <div className="relative z-10 w-full max-w-[450px] -rotate-2 transform rounded-3xl border border-white/60 bg-white/40 p-3 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] backdrop-blur-xl transition-transform duration-500 hover:rotate-0 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
-              <img src="https://hiilbox.com/about/fundraising_campaigns_in_action.png" alt="Make a Real Impact" className="h-auto w-full rounded-2xl object-cover" />
-              <div className="absolute -right-4 -top-4 flex h-12 w-12 rotate-12 transform items-center justify-center rounded-xl border border-yellow-200/50 bg-[#FFF9C4]/80 shadow-md backdrop-blur-md dark:border-yellow-700/50 dark:bg-yellow-900/50">
-                <Icon icon="solar:heart-bold" className="text-xl text-yellow-600 dark:text-yellow-400" />
-              </div>
-            </div>
-          </div>
-        </section>
+        <MakeADifferenceCTA />
 
         {/* =========================================
             FAQ SECTION

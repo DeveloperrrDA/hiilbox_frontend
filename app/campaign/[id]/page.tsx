@@ -436,27 +436,30 @@ try {
 />            
           
   
-            {/* Fundraiser */}
+           {/* Fundraiser and Share */}
+<div className="mt-10 flex flex-wrap items-center gap-y-5 md:mt-0 sm:justify-between">
+  {/* Fundraiser */}
+  <div className="flex basis-full flex-wrap items-center gap-3 md:basis-1/2">
+    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
+      {fundraiserInitial}
+    </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
-                {fundraiserInitial}
-              </div>
+    <div>
+      <p className="text-xs text-gray-400">
+        Fundraiser
+      </p>
 
-              <div>
-                <p className="text-xs text-gray-400">
-                  Fundraiser
-                </p>
+      <p className="text-sm font-semibold text-[#111c2d]">
+        {fundraiserName}
+      </p>
+    </div>
+  </div>
 
-                <p className="text-sm font-semibold text-[#111c2d]">
-                  {fundraiserName}
-                </p>
-              </div>
-            </div>
-
-            {/* Share */}
-              <ShareCampaign title={campaign.title} />
-
+  {/* Share */}
+  <div className="flex basis-full md:basis-1/2 md:justify-end">
+    <ShareCampaign title={campaign.title} />
+  </div>
+</div>
             <div className="mx-auto max-w-[1218px] px-6 py-10">
               <CampaignTabs activeTab={activeTab} campaign={campaign} campaignUpdates={extractedUpdates} />
             </div>

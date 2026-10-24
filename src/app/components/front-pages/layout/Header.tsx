@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
 import Link from "next/link";
-
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
@@ -11,6 +12,18 @@ import { useHiilboxAuth } from "@/hooks/useHiilboxAuth";
 
 const FrontHeader = () => {
   const [isSticky, setIsSticky] = useState(false);
+  const router = useRouter();
+const [searchQuery, setSearchQuery] = useState("");
+
+const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+
+  const query = searchQuery.trim();
+
+  if (!query) return;
+
+  router.push(`/campaigns?search=${encodeURIComponent(query)}`);
+};
   const { loggedIn, logout } = useHiilboxAuth();
 
   useEffect(() => {
@@ -45,19 +58,79 @@ const FrontHeader = () => {
 
   {/* LEFT NAVIGATION */}
   <div className="hidden xl:flex items-center gap-8">
-    <Link href="/campaigns" className={navClass}>
-      Search Campaigns
-    </Link>
+   {/* SEARCH CAMPAIGNS HOVER MENU */}
+<div className="group relative py-4 -my-4">
+  <Link
+    href="/campaigns"
+    className={`${navClass} inline-flex items-center gap-2`}
+  >
+    <Icon icon="tabler:search" className="text-xl" />
+    Search Campaigns
+  </Link>
+
+  {/* Hover search field */}
+  <div
+    className="
+      invisible absolute left-0 top-full z-50 w-[340px]
+      pt-4 opacity-0 translate-y-1
+      transition-all duration-200
+      group-hover:visible group-hover:opacity-100
+      group-hover:translate-y-0
+      group-focus-within:visible group-focus-within:opacity-100
+      group-focus-within:translate-y-0
+    "
+  >
+    <form
+      onSubmit={handleSearch}
+      role="search"
+      className="
+        flex items-center gap-2 rounded-xl
+        border border-gray-200 bg-white p-3
+        shadow-xl dark:border-gray-700 dark:bg-darkgray
+      "
+    >
+      <Icon
+        icon="tabler:search"
+        className="text-xl text-gray-400"
+      />
+
+      <input
+        type="search"
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search campaigns..."
+        aria-label="Search campaigns"
+        className="
+          min-w-0 flex-1 bg-transparent
+          text-sm text-gray-900 outline-none
+          placeholder:text-gray-400 dark:text-white
+        "
+      />
+
+      <button
+        type="submit"
+        className="
+          rounded-lg bg-[#01A14B]
+          px-4 py-2 text-sm font-semibold
+          text-white transition-colors
+          hover:bg-[#018d42]
+        "
+      >
+        Search
+      </button>
+    </form>
+  </div>
+</div>
 
 {/* ABOUT MEGA MENU — RESTORED */}
 <div className="group relative py-4 -my-4">
   <button
     type="button"
-    className={`${navClass} flex items-center gap-1`}
+    className={`${navClass} font-bold flex items-center gap-1`}
   >
-    About
+    <span className="font-bold">About</span>
     <svg
-      className="h-4 w-4 opacity-70"
+      className="h-4 w-4 font-bold opacity-70"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -133,7 +206,7 @@ const FrontHeader = () => {
   <div className="ml-auto hidden xl:flex items-center gap-3">
     <Button
       asChild
-      className="bg-[#01A14B] font-bold text-white hover:bg-[#018d42]"
+      className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors"
     >
       <Link href="/signup?type=fundraiser">
         Start a HiilBox
@@ -156,7 +229,7 @@ const FrontHeader = () => {
         </Button>
       </>
     ) : (
-      <Button asChild className="font-bold">
+      <Button asChild className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors">
         <Link href="/login">Login</Link>
       </Button>
     )}

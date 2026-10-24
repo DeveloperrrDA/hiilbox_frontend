@@ -16,7 +16,7 @@ export default function AboutPage() {
             HERO SECTION
         ========================================= */}
         <section className="relative w-full overflow-hidden bg-white py-16 dark:bg-darkgray md:py-24">
-          <div className="absolute right-0 top-0 z-0 h-full w-[85%] rounded-l-[4rem] bg-[#E6F4EB] dark:bg-[#003D1B]/30 md:w-[60%] md:rounded-l-[8rem]"></div>
+          <div className="absolute right-0 top-0 z-0 h-full w-[85%] rounded-l-[4rem] bg-[#E6F4EB] dark:bg-[#003D1B]/30 md:w-[54%] md:rounded-l-[8rem]"></div>
           
           <div className="absolute right-[15%] top-10 z-0 hidden h-32 w-32 text-[#8BD3A8]/50 dark:text-[#8BD3A8]/20 md:block">
             <svg width="100%" height="100%" viewBox="0 0 100 100" fill="currentColor">
@@ -46,7 +46,7 @@ export default function AboutPage() {
               </p>
               
               <div className="flex w-full flex-col gap-4 sm:flex-col sm:w-auto">
-                <Link href="/create-campaign" className="group inline-flex items-center justify-center space-x-2 rounded-full bg-[#01A14B] px-8 py-4 text-lg font-bold text-white shadow-lg shadow-[#01A14B]/30 transition hover:bg-[#006B30] dark:shadow-none">
+                <Link href="/signup?type=fundraiser" className="group inline-flex items-center justify-center space-x-2 rounded-full bg-[#01A14B] px-8 py-4 text-lg font-bold text-white shadow-lg shadow-[#01A14B]/30 transition hover:bg-[#006B30] dark:shadow-none">
                   <span>Start Your Campaign</span>
                   <Icon icon="solar:arrow-right-bold" className="transform transition-transform group-hover:translate-x-1" />
                 </Link>
@@ -58,7 +58,7 @@ export default function AboutPage() {
             </div>
             
             <div className="relative z-10 mt-8 flex w-full justify-center lg:mt-0 lg:w-[55%] lg:justify-end">
-              <img src="https://hiilbox.com/about/fundraising_campaigns_in_action.png" alt="Fundraising Campaigns in Action" className="h-auto w-full max-w-[700px] object-contain drop-shadow-2xl transition-transform duration-500 hover:-translate-y-2" />
+              <img src="https://hiilbox.com/about/Fundraising_Campaigns_in_Action_Hiilbox.webp" alt="Fundraising Campaigns in Action" className="h-auto w-full max-w-[700px] object-contain drop-shadow-2xl transition-transform duration-500 hover:-translate-y-2" />
             </div>
           </div>
         </section>
@@ -404,7 +404,7 @@ export default function AboutPage() {
               </p>
               
               <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Link href="/create-campaign" className="rounded-full bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-[#006B30] dark:shadow-none">
+                <Link href="/signup?type=fundraiser" className="rounded-full bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-[#006B30] dark:shadow-none">
                   Start your Campaign
                 </Link>
                 <Link href="/campaigns" className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 text-lg font-bold text-[#0F1F17] transition hover:border-primary hover:text-primary dark:border-gray-700 dark:bg-dark dark:text-white dark:hover:border-[#01A14B] dark:hover:text-[#01A14B]">

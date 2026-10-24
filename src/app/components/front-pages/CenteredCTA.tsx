@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 
 export default function CenteredCTA() {
   return (
-    <section className="py-10 md:py-16 lg:py-20 relative z-10 w-full overflow-hidden bg-[#01A14B]/20 dark:bg-[#01A14B]/5">
+    <section className="py-10 md:py-16 lg:py-20 relative z-10 container-1218 rounded-lg overflow-hidden bg-[#01A14B]/20 dark:bg-[#01A14B]/5">
       
       {/* =========================================
           BACKGROUND GRAPHICS (Full Width)
@@ -82,7 +82,7 @@ export default function CenteredCTA() {
 
           {/* Action Button */}
           <Link
-            href="/create-campaign"
+            href="/signup"
             className="group mt-8 inline-flex items-center justify-center gap-2 rounded-lg bg-[#01A14B] px-8 py-3.5 text-[15px] font-bold text-white transition-all hover:bg-[#006B30] hover:shadow-lg hover:shadow-[#01A14B]/20"
           >
             <span>Create Your HiilBox Account</span>

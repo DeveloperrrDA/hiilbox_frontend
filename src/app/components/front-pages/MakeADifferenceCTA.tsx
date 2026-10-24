@@ -21,7 +21,7 @@ export default function MakeADifferenceCTA() {
         </p>
 
         <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:w-auto">
-          <Link href="/create-campaign" className="group inline-flex w-full items-center justify-center space-x-2 rounded-full bg-[#01A14B] px-8 py-4 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(1,161,75,0.6)] transition hover:bg-[#006B30] dark:shadow-none sm:w-auto">
+          <Link href="/signup?type=fundraiser" className="group inline-flex w-full items-center justify-center space-x-2 rounded-full bg-[#01A14B] px-8 py-4 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(1,161,75,0.6)] transition hover:bg-[#006B30] dark:shadow-none sm:w-auto">
             <Icon icon="solar:add-circle-bold" className="text-lg" />
             <span>Start Your Campaign</span>
             <Icon icon="solar:arrow-right-bold" className="ml-2 transform transition-transform group-hover:translate-x-1" />
