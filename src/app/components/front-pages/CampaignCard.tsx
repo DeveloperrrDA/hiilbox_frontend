@@ -52,8 +52,10 @@ export default function CampaignCard({
             VERIFIED BADGE (Hidden on mobile to save space)
         ================================================== */}
         <div className="hidden sm:flex absolute left-3 top-3 items-center gap-1.5 rounded-full bg-lightgray/70 px-2.5 py-1.5 text-sm font-bold text-gray-800">
-          {campaign.number_of_contributions}
-          <span>Donations</span>
+         {campaign.number_of_contributions >= 0
+  ? campaign.number_of_contributions
+  : "—"}
+<span>Donations</span>
         </div>
       </div>
 

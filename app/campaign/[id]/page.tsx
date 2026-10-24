@@ -226,34 +226,61 @@ export default async function CampaignPage({
   const activeTab = resolvedSearchParams.tab || "story";
 
   const campaignId = Number(id);
-  const [response, recentDonations] = await Promise.all([
-  getCampaign(campaignId),
-  getCampaignRecentDonations(campaignId),
-]);
+ const timed = async <T,>(
+  name: string,
+  request: Promise<T>
+): Promise<T> => {
+  const start = performance.now();
 
-let campaignUpdatesResponse: Awaited<
-  ReturnType<typeof getCampaignUpdates>
-> = {
-  success: true,
-  data: [],
-  pagination: {
-    page: 1,
-    per_page: 10,
-  },
+  try {
+    return await request;
+  } finally {
+    console.log(
+      `[CAMPAIGN PERFORMANCE] ${name}: ${Math.round(
+        performance.now() - start
+      )}ms`
+    );
+  }
 };
+const [response, updatesResult, relatedResult] =
+  await Promise.all([
+    timed(
+      "Campaign Details",
+      getCampaign(campaignId)
+    ),
 
-try {
-  campaignUpdatesResponse = await getCampaignUpdates({
-    page: 1,
-    per_page: 10,
-    campaign_id: campaignId,
-  });
-} catch (error) {
-  console.error(
-    `Unable to load updates for campaign ${campaignId}:`,
-    error
-  );
-}
+    
+    timed(
+      "Campaign Updates",
+      getCampaignUpdates({
+        page: 1,
+        per_page: 10,
+        campaign_id: campaignId,
+      }).catch(() => null)
+    ),
+
+    timed(
+      "Related Campaigns",
+      getCampaigns({
+        page: 1,
+        per_page: 24,
+        status: "launched-and-beyond",
+      }).catch(() => null)
+    ),
+  ]);
+  const recentDonations: Awaited<
+  ReturnType<typeof getCampaignRecentDonations>
+> = [];
+// Use the updates already fetched by Promise.all
+const campaignUpdatesResponse =
+  updatesResult ?? {
+    success: true,
+    data: [],
+    pagination: {
+      page: 1,
+      per_page: 10,
+    },
+  };
 
 
   if (!response.success || !response.data) {
@@ -286,15 +313,15 @@ try {
  const campaign = response.data;
 const extractedUpdates = campaignUpdatesResponse.data;
 
-// Related campaigns are optional: failure must never break the main page.
+// Related campaigns are optional
 let relatedCampaigns: Awaited<ReturnType<typeof getCampaigns>>["data"] = [];
 
 try {
-  const relatedResponse = await getCampaigns({
-    page: 1,
-    per_page: 24,
-    status: "launched-and-beyond",
-  });
+  const relatedResponse = relatedResult;
+
+  if (!relatedResponse?.success || !Array.isArray(relatedResponse.data)) {
+    throw new Error("Related campaigns unavailable");
+  }
 
   const eligible = relatedResponse.data.filter(
     (item) =>
@@ -520,6 +547,7 @@ try {
 
             {/* Recent Donations */}
 <CampaignRecentDonations
+  campaignId={campaignId}
   initialDonations={recentDonations}
   totalCount={recentDonations.length}
 />
@@ -572,7 +600,7 @@ try {
                 return (
                   <Link
                     key={item.id}
-                    href={`/campaigns/${item.id}`}
+                    href={`/campaign/${item.id}`}
                     className="group overflow-hidden rounded-[16px] border border-[#e0e6eb] bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(17,28,45,0.1)]"
                   >
                     <div className="aspect-[4/3] overflow-hidden bg-[#f8fafd]">

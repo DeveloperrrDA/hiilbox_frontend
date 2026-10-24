@@ -6,7 +6,13 @@ const WORDPRESS_API = (
 ).replace(/\/$/, "");
 
 const GROWFUND_API_KEY = process.env.GROWFUND_CLIENT_API_KEY;
+// Cache public campaign details for 10 minutes
+const campaignDetailsCache = new Map<
+  number,
+  { data: unknown; expiresAt: number }
+>();
 
+const DETAILS_CACHE_TTL = 10 * 60 * 1000;
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,7 +27,17 @@ export async function GET(
         { status: 400 }
       );
     }
+// Check whether this campaign is already cached
+const cachedCampaign = campaignDetailsCache.get(campaignId);
 
+if (cachedCampaign && Date.now() < cachedCampaign.expiresAt) {
+  return NextResponse.json(cachedCampaign.data, {
+    headers: {
+      "Cache-Control": "private, no-store",
+      "X-Hiilbox-Cache": "HIT",
+    },
+  });
+}
     if (!GROWFUND_API_KEY) {
       return NextResponse.json(
         { success: false, message: "GROWFUND_CLIENT_API_KEY is not configured" },
@@ -65,7 +81,21 @@ export async function GET(
       message: "Invalid campaign response from WordPress.",
     }));
 
-    return NextResponse.json(data, { status: response.status });
+    // Save successful campaign details in memory
+if (response.ok && data?.success !== false) {
+  campaignDetailsCache.set(campaignId, {
+    data,
+    expiresAt: Date.now() + DETAILS_CACHE_TTL,
+  });
+}
+
+return NextResponse.json(data, {
+  status: response.status,
+  headers: {
+    "Cache-Control": "private, no-store",
+    "X-Hiilbox-Cache": "MISS",
+  },
+});
   } catch (error) {
     return NextResponse.json(
       {

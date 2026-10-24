@@ -25,9 +25,19 @@ const response = await getCampaigns({
 })
         if (!cancelled) {
   if (response.success) {
+setCampaigns(
+  response.data.map((campaign) => ({
+    ...campaign,
+    number_of_contributions: -1,
+  }))
+);
+setIsLoading(false);
     const campaignsWithCompletedCounts =
       await Promise.all(
+        
         response.data.map(async (campaign) => {
+      
+
           try {
             const donationResponse = await fetch(
               `/api/campaigns/${campaign.id}/donations`,

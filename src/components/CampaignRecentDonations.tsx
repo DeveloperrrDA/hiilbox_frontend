@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 
 interface Donation {
@@ -15,15 +15,56 @@ interface Donation {
 
 type PopupMode = "newest" | "top" | null;
 
+
 export default function CampaignRecentDonations({
+  campaignId,
   initialDonations,
   totalCount,
 }: {
+  campaignId: number;
   initialDonations: Donation[];
   totalCount: number;
 }) {
   const [popupMode, setPopupMode] = useState<PopupMode>(null);
-  const donations = initialDonations;
+  const [donations, setDonations] = useState<Donation[]>(initialDonations);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadDonations() {
+      setLoading(true);
+
+      try {
+        const response = await fetch(
+          `/api/campaigns/${campaignId}/donations`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("Unable to load donations");
+        }
+
+        const result = await response.json();
+
+        if (result.success && Array.isArray(result.data)) {
+          setDonations(result.data);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Unable to load donations:", error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadDonations();
+
+    return () => controller.abort();
+  }, [campaignId]);
 
   const formatTime = (dateString?: string | null, isNew?: boolean): string => {
     if (isNew || !dateString) return "Recent donation";
@@ -59,7 +100,7 @@ export default function CampaignRecentDonations({
           <Icon icon="tabler:trending-up" className="text-2xl" />
         </div>
         <p className="text-base font-bold text-[#01A14B]">
-          {totalCount.toLocaleString()} recent donations
+          {loading ? "Loading donations..." : `${donations.length.toLocaleString()} recent donations`}
         </p>
       </div>
 
@@ -92,9 +133,11 @@ export default function CampaignRecentDonations({
               </div>
             );
           })
-        ) : (
-          <p className="py-4 text-sm text-gray-400">No donations yet.</p>
-        )}
+       ) : (
+  <p className="py-4 text-sm text-gray-400">
+    {loading ? "Loading donations..." : "No donations yet."}
+  </p>
+)}
       </div>
 
       <div className="mb-4 mt-4 flex gap-3">
