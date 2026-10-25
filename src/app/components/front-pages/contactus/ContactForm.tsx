@@ -25,17 +25,28 @@ const ContactForm = () => {
                 Reach Out Today
               </h5>
               <p className="text-base text-white leading-7">
-                Have questions or need assistance? We're just a message away.
+                We are ready to assist donors, fundraisers, and partners at every step of their journey.
               </p>
 
               <Separator className="my-5 bg-white/10" />
 
               <h5 className="text-lg font-bold text-white pb-4">
-                Our Location
+                Let's Talk
               </h5>
               <p className="text-base text-white leading-7">
-                Visit us in person or find our contact details to connect with
-                us directly.
+                +252 61 4448509<br/>
+                +252 61 4448509<br/>
+                +252 61 4448509
+              </p>
+
+              <Separator className="my-5 bg-white/10" />
+
+              <h5 className="text-lg font-bold text-white pb-4">
+                Email Support
+              </h5>
+              <p className="text-base text-white leading-7">
+                support@hiilbox.com<br/>
+                info@hiilbox.com
               </p>
             </div>
           </div>
