@@ -7,7 +7,7 @@ import Link from "next/link";
 import CampaignCategorySlider from "./CampaignCategorySlider";
 
 
-import CampaignCard from "@/app/components/front-pages/CampaignCard";
+import CampaignCards from "./CampaignCards";
 
 import ThemeShell from "@/components/theme/ThemeShell";
 
@@ -537,14 +537,7 @@ const total = campaigns.length;
 
             <>
 
-             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-  {campaigns.map((campaign) => (
-    <CampaignCard
-      key={campaign.id}
-      campaign={campaign}
-    />
-  ))}
-</div>
+            <CampaignCards campaigns={campaigns} />
 
 
               

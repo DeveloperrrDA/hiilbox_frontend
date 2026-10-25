@@ -51,11 +51,11 @@ const MainBanner = () => {
             {/* Social Proof */}
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:items-start">
               <div className="flex -space-x-3">
-                <img src="https://randomuser.me/api/portraits/men/32.jpg" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-dark" alt="Supporter" />
-                <img src="https://randomuser.me/api/portraits/women/44.jpg" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-dark" alt="Supporter" />
-                <img src="https://randomuser.me/api/portraits/men/46.jpg" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-dark" alt="Supporter" />
-                <img src="https://randomuser.me/api/portraits/women/68.jpg" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-dark" alt="Supporter" />
-                <img src="https://randomuser.me/api/portraits/men/90.jpg" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-dark" alt="Supporter" />
+               <img src="https://hiilbox.com/about/U_Letter_Hiilbox.webp" className="h-10 w-10 rounded-full border-2 border-white bg-lightprimary object-cover shadow-sm dark:border-dark" alt="Supporter" />
+<img src="https://hiilbox.com/about/T_Letter_Hiilbox.webp" className="h-10 w-10 rounded-full border-2 border-white bg-lightprimary object-cover shadow-sm dark:border-dark" alt="Supporter" />
+<img src="https://hiilbox.com/about/A_Letter_Hiilbox.webp" className="h-10 w-10 rounded-full border-2 border-white bg-lightprimary object-cover shadow-sm dark:border-dark" alt="Supporter" />
+<img src="https://hiilbox.com/about/M_Letter_Hiilbox.webp" className="h-10 w-10 rounded-full border-2 border-white bg-lightprimary object-cover shadow-sm dark:border-dark" alt="Supporter" />
+<img src="https://hiilbox.com/about/S_Letter_Hiilbox.webp" className="h-10 w-10 rounded-full border-2 border-white bg-lightprimary object-cover shadow-sm dark:border-dark" alt="Supporter" />
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-lightprimary text-xs font-bold text-primary shadow-sm dark:border-dark dark:bg-primary/20">
                   10K+
                 </div>
