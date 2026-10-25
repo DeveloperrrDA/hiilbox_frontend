@@ -276,8 +276,8 @@ const campaignUpdatesResponse =
   if (!response.success || !response.data) {
     return (
       <ThemeShell>
-      <main className="min-h-[60vh] bg-[#f8fafd]">
-        <div className="mx-auto max-w-[1218px] px-6 py-10">
+      <main className="min-h-[60vh] bg-[#f8fafd] dark:bg-darkgray">
+        <div className="mx-auto max-w-[1218px] px-6 py-10 dark:bg-darkgray">
           <Link
             href="/campaigns"
             className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B]"
@@ -386,13 +386,13 @@ try {
 
   return (
     <ThemeShell>
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-white dark:bg-darkgray">
       {/* ================= TOP ================= */}
 
-      <div className="bg-white"><div className="mx-auto max-w-[1218px] px-6 py-4">
+      <div className="bg-white dark:bg-darkgray"><div className="mx-auto max-w-[1218px] px-6 py-4">
         <Link
           href="/campaigns"
-          className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B]"
+          className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B] dark:text-white"
         >
           ← Back to campaigns
         </Link>
@@ -415,7 +415,7 @@ try {
 
           <div className="min-w-0">
             {/* Title */}
-            <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] sm:text-2xl">
+            <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] dark:text-white sm:text-2xl">
               {campaign.title}
             </h1>
 <CampaignMediaSlider
@@ -439,14 +439,14 @@ try {
         Fundraiser
       </p>
 
-      <p className="text-sm font-semibold text-[#111c2d]">
+      <p className="text-sm font-semibold text-[#111c2d] dark:text-white">
         {fundraiserName}
       </p>
     </div>
   </div>
 
   {/* Share */}
-  <div className="flex basis-full md:basis-1/2 md:justify-end">
+  <div className="flex basis-full md:basis-1/2 md:justify-end dark:text-white">
     <ShareCampaign title={campaign.title} />
   </div>
 </div>
@@ -457,9 +457,9 @@ try {
 
           {/* ================= DONATION SIDEBAR ================= */}
 
-          <aside id="mobile-donate-section" className="min-w-0">
-            <div className="sticky top-28">
-              <div className="rounded-[16px] bg-white p-6 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb]">
+          <aside id="mobile-donate-section" className="min-w-0 bg-white dark:bg-darkgray">
+            <div className="sticky top-28 dark:bg-darkgray">
+              <div className="rounded-[16px]  p-6 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb]">
 
                 {/* Raised */}
                 <div className="hidden lg:block">
@@ -506,14 +506,14 @@ try {
 
                     {/* FIXED: Removed basis-2/3. Added min-w-0 and flex-1 so it wraps text instead of blowing out screen width */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-xl/6 font-bold tracking-tight text-[#111c2d]">
+                      <p className="text-xl/6 font-bold tracking-tight text-[#111c2d] dark:text-white">
                         ${campaign.raised_amount.toLocaleString()} raised of 
                       </p>
 
-                      <p className="mt-1 text-2xl/6 text-[#5a6a85]">
+                      <p className="mt-1 text-2xl/6 text-[#5a6a85] dark:text-gray-300">
                         ${campaign.goal.toLocaleString()}USD
                       </p>
-                      <p className="mt-1 text-sm/4 text-[#5a6a85]">
+                      <p className="mt-1 text-sm/4 text-[#5a6a85] dark:text-gray-300">
                         {recentDonations.length.toLocaleString()} Donations
                       </p>
                     </div>
@@ -534,7 +534,7 @@ try {
 
                 <Link
                   href={`#`}
-                  className="mt-3 block w-full rounded-full bg-[#01A14B] px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#018d42]"
+                  className="mt-3 block w-full rounded-full bg-lightprimary px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-primary"
                 >
                   Share
                 </Link>
@@ -553,14 +553,14 @@ try {
                   </p>
                 )}
               </div>
-            </div>
+            </div></div>
                     </aside>
         </div>
       </div>
 
       {/* ================= RELATED CAMPAIGNS ================= */}
       {relatedCampaigns.length > 0 && (
-        <section className="border-t border-[#e0e6eb] bg-white py-12 md:py-16">
+        <section className="border-t border-[#e0e6eb] bg-white py-12 md:py-16 dark:bg-dark">
           <div className="mx-auto max-w-[1218px] px-6">
 
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">

@@ -48,7 +48,7 @@ export default function CenteredCTA() {
           CONTENT (Constrained Width)
       ========================================= */}
       <div className="container-1218 mx-auto relative z-10 flex w-full flex-col items-center justify-center px-6 py-16 text-center md:py-20 lg:py-24">
-        <div className="flex max-w-2xl flex-col items-center">
+        <div className="py-10 flex max-w-2xl flex-col items-center">
           
           {/* Eyebrow */}
           <div className="mb-4 flex items-center justify-center gap-2">
@@ -64,7 +64,7 @@ export default function CenteredCTA() {
             >
               <path d="M12 4 L11 8 M5 9 L8 11 M3 15 L7 14" />
             </svg>
-            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#01A14B] dark:text-[#8BD3A8]">
+            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
               Together we create real change
             </span>
           </div>

@@ -11,16 +11,16 @@ export default function GetStartedPage() {
       <div className="fixed left-0 top-0 -z-10 h-[600px] w-[600px] -translate-x-1/3 -translate-y-1/3 rounded-full bg-[#01A14B] opacity-10 blur-[120px] pointer-events-none dark:opacity-20"></div>
       <div className="fixed bottom-0 right-0 -z-10 h-[600px] w-[600px] translate-x-1/3 translate-y-1/3 rounded-full bg-[#8BD3A8] opacity-20 blur-[120px] pointer-events-none dark:opacity-10"></div>
 
-      <main className="mx-auto max-w-[1218px] px-6 pb-24 pt-16 md:px-8 relative z-10">
+      <main className="mx-auto max-w-full px-6 pb-24 pt-16 md:px-8 relative z-10 dark:bg-darkgray">
         
         {/* =========================================
             HEADER SECTION
         ========================================= */}
-        <div className="mb-16 text-center">
+        <div className="mb-16 container-1218 text-center dark:bg-darkgray">
           
 
           <div className="flex items-center justify-center"> 
-            <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+            <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
               GET STARTED
             </div>
           </div>
@@ -42,7 +42,7 @@ export default function GetStartedPage() {
         {/* =========================================
             3-COLUMN GRID SECTION
         ========================================= */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 container-1218 gap-6 md:grid-cols-2 lg:grid-cols-3">
           
           {/* Card 1: Check Your Eligibility */}
           <div className="group flex flex-col rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10">
@@ -316,12 +316,12 @@ export default function GetStartedPage() {
         {/* =========================================
             BOTTOM CTA (New Design)
         ========================================= */}
-        <section className="mt-24 flex w-full flex-col items-center justify-between gap-12 rounded-[2.5rem] border border-white/60 bg-white/40 p-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] lg:flex-row lg:p-16">
+        <section className="mt-24 flex container-1218 flex-col items-center justify-between gap-12 rounded-[2.5rem] border border-white/60 bg-white/40 p-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] lg:flex-row lg:p-16">
           
           {/* LEFT COLUMN: Text & Buttons */}
-          <div className="flex w-full flex-col items-start lg:w-1/2">
+          <div className="flex w-full flex-col items-start lg:w-1/2 p-10">
             <div className="flex items-center justify-center"> 
-                <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+                <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
                 READY TO GET STARTED?
                 </div>
             </div>
@@ -333,7 +333,7 @@ export default function GetStartedPage() {
               Prepare your documents and take the first step toward turning your cause into meaningful impact.
             </p>
             
-            <Link href="/create-campaign" className="group mb-6 inline-flex w-full items-center justify-center space-x-2 rounded-xl bg-primary px-8 py-4 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(1,161,75,0.6)] transition hover:bg-[#006B30] dark:shadow-none sm:w-auto">
+            <Link href="/signup?type=fundraiser" className="group mb-6 inline-flex w-full items-center justify-center space-x-2 rounded-xl bg-primary px-8 py-4 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(1,161,75,0.6)] transition hover:bg-[#006B30] dark:shadow-none sm:w-auto">
               <span>Create Your HiilBox Account</span>
               <Icon icon="solar:arrow-right-line-duotone" className="text-lg transform transition-transform group-hover:translate-x-1" />
             </Link>
@@ -342,7 +342,7 @@ export default function GetStartedPage() {
           </div>
 
           {/* RIGHT COLUMN: Illustration Graphic */}
-          <div className="relative mt-10 flex w-full justify-center lg:mt-0 lg:w-1/2 lg:justify-end">
+          <div className="relative mt-10 flex w-full justify-center lg:mt-0 lg:w-1/2 lg:justify-end p-10">
             
             {/* Background Light Green Blob */}
             <div className="absolute right-0 top-1/2 -translate-y-1/2 h-72 w-96 rounded-full bg-[#E6F4EB] opacity-90 blur-3xl dark:bg-[#01A14B]/20"></div>

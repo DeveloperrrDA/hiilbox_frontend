@@ -6,7 +6,7 @@ export default function MakeADifferenceCTA() {
     <section className="mt-24 flex container-1218 flex-col items-center justify-between gap-16 py-16 lg:flex-row relative z-10">
       <div className="relative z-10 flex w-full flex-col items-start lg:w-1/2">
         <div className="flex items-center justify-center">
-          <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+          <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary dark:primary/20">
             MAKE A DIFFERENCE TODAY
           </div>
         </div>
