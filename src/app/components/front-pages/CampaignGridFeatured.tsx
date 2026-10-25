@@ -31,16 +31,28 @@ export default function CampaignGridFeatured() {
 
         if (!cancelled) {
           if (response.success) {
-            const campaignsWithCompletedCounts = await Promise.all(
-              response.data.map(async (campaign) => {
-                try {
-                  const donationResponse = await fetch(
-                    `/api/campaigns/${campaign.id}/donations`,
-                    {
-                      method: "GET",
-                      cache: "no-store",
-                    }
-                  );
+          // STEP 1: Show campaigns immediately
+setCampaigns(
+  response.data.map((campaign) => ({
+    ...campaign,
+    number_of_contributions: -1,
+  }))
+);
+setIsLoading(false);
+
+// STEP 2: Fetch donation counts in the background
+const campaignsWithCompletedCounts = await Promise.all(
+  response.data.map(async (campaign) => {
+    try {
+      const donationResponse = await fetch(
+        `/api/campaigns/${campaign.id}/donations`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      // Keep your existing donation processing code here.
 
                   const donationData = await donationResponse.json();
 

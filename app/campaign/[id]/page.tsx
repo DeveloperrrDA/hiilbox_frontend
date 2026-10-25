@@ -216,34 +216,61 @@ export default async function CampaignPage({
   const activeTab = resolvedSearchParams.tab || "story";
 
   const campaignId = Number(id);
-  const [response, recentDonations] = await Promise.all([
-  getCampaign(campaignId),
-  getCampaignRecentDonations(campaignId),
-]);
+ const timed = async <T,>(
+  name: string,
+  request: Promise<T>
+): Promise<T> => {
+  const start = performance.now();
 
-let campaignUpdatesResponse: Awaited<
-  ReturnType<typeof getCampaignUpdates>
-> = {
-  success: true,
-  data: [],
-  pagination: {
-    page: 1,
-    per_page: 10,
-  },
+  try {
+    return await request;
+  } finally {
+    console.log(
+      `[CAMPAIGN PERFORMANCE] ${name}: ${Math.round(
+        performance.now() - start
+      )}ms`
+    );
+  }
 };
+const [response, updatesResult, relatedResult] =
+  await Promise.all([
+    timed(
+      "Campaign Details",
+      getCampaign(campaignId)
+    ),
 
-try {
-  campaignUpdatesResponse = await getCampaignUpdates({
-    page: 1,
-    per_page: 10,
-    campaign_id: campaignId,
-  });
-} catch (error) {
-  console.error(
-    `Unable to load updates for campaign ${campaignId}:`,
-    error
-  );
-}
+    
+    timed(
+      "Campaign Updates",
+      getCampaignUpdates({
+        page: 1,
+        per_page: 10,
+        campaign_id: campaignId,
+      }).catch(() => null)
+    ),
+
+    timed(
+      "Related Campaigns",
+      getCampaigns({
+        page: 1,
+        per_page: 24,
+        status: "launched-and-beyond",
+      }).catch(() => null)
+    ),
+  ]);
+  const recentDonations: Awaited<
+  ReturnType<typeof getCampaignRecentDonations>
+> = [];
+// Use the updates already fetched by Promise.all
+const campaignUpdatesResponse =
+  updatesResult ?? {
+    success: true,
+    data: [],
+    pagination: {
+      page: 1,
+      per_page: 10,
+    },
+  };
 
 
   if (!response.success || !response.data) {
@@ -276,15 +303,15 @@ try {
  const campaign = response.data;
 const extractedUpdates = campaignUpdatesResponse.data;
 
-// Related campaigns are optional: failure must never break the main page.
+// Related campaigns are optional
 let relatedCampaigns: Awaited<ReturnType<typeof getCampaigns>>["data"] = [];
 
 try {
-  const relatedResponse = await getCampaigns({
-    page: 1,
-    per_page: 24,
-    status: "launched-and-beyond",
-  });
+  const relatedResponse = relatedResult;
+
+  if (!relatedResponse?.success || !Array.isArray(relatedResponse.data)) {
+    throw new Error("Related campaigns unavailable");
+  }
 
   const eligible = relatedResponse.data.filter(
     (item) =>
@@ -391,83 +418,39 @@ try {
             <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] sm:text-2xl">
               {campaign.title}
             </h1>
-            <CampaignMediaSlider
-              video={campaign.video}
-              images={campaign.images}
-              title={campaign.title}
-              fallbackImage={imageUrl}
-            />            
+<CampaignMediaSlider
+  video={campaign.video}
+  images={campaign.images}
+  title={campaign.title}
+  fallbackImage={imageUrl}
+/>            
+          
+  
+           {/* Fundraiser and Share */}
+<div className="mt-10 flex flex-wrap items-center gap-y-5 md:mt-0 sm:justify-between">
+  {/* Fundraiser */}
+  <div className="flex basis-full flex-wrap items-center gap-3 md:basis-1/2">
+    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
+      {fundraiserInitial}
+    </div>
 
-            {/* =======================================================
-                  MOBILE-ONLY DONATE OVERVIEW (Under Slider)
-              ======================================================= */}
-              <div id="mobile-donate-section" className="mt-8 block rounded-[16px] bg-white p-5 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb] lg:hidden">
-                <div className="flex flex-row items-center gap-4">
-                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
-                      <circle className="text-gray-100 dark:text-gray-800" stroke="currentColor" fill="transparent" strokeWidth={strokeWidth} cx={size / 2} cy={size / 2} r={radius} />
-                      <circle className="text-[#01A14B]" stroke="currentColor" fill="transparent" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} cx={size / 2} cy={size / 2} r={radius} />
-                    </svg>
-                    <span className="absolute text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      {progress}%
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-lg font-bold tracking-tight text-[#111c2d]">
-                      ${campaign.raised_amount.toLocaleString()} raised of 
-                    </p>
-                    <p className="text-xl font-medium text-[#5a6a85]">
-                      ${campaign.goal.toLocaleString()}USD
-                    </p>
-                    <p className="mt-0.5 text-xs text-[#5a6a85]">
-                      {recentDonations.length.toLocaleString()} Donations
-                    </p>
-                  </div>
-                </div>
+    <div>
+      <p className="text-xs text-gray-400">
+        Fundraiser
+      </p>
 
-                {/* Mobile Action Buttons (Side by Side) */}
-                <div className="mt-6 flex flex-row gap-3">
-                  <Link
-                    href={`/checkout?campaign=${campaign.id}&title=${encodeURIComponent(campaign.title)}`}
-                    className="flex-1 rounded-full bg-primary py-3.5 text-center text-sm font-semibold text-white transition-colors hover:bg-primary"
-                  >
-                    Donate
-                  </Link>
-                  <Link
-                    href="#"
-                    className="flex-1 rounded-full bg-lightprimary py-3.5 text-center text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-                  >
-                    Share
-                  </Link>
-                </div>
-              </div>
-              {/* ======================================================= */}
+      <p className="text-sm font-semibold text-[#111c2d]">
+        {fundraiserName}
+      </p>
+    </div>
+  </div>
 
-              <div className="mt-10 md:mt-0flex flex-wrap items-center sm:justify-between"> 
-                {/* Fundraiser */}
-              
-                <div className="flex basis-full md:basis-1/2 flex-wrap items-center gap-3">
-                  <div className=" flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f6ed] text-sm font-bold text-[#01A14B]">
-                    {fundraiserInitial}
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">
-                      Fundraiser
-                    </p>
-
-                    <p className="text-sm font-semibold text-[#111c2d]">
-                      {fundraiserName}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Share */}
-                <div className="flex basis-full md:basis-1/2">
-                  <ShareCampaign title={campaign.title} />
-                </div>
-              </div>
-            <div className="py-10">
+  {/* Share */}
+  <div className="flex basis-full md:basis-1/2 md:justify-end">
+    <ShareCampaign title={campaign.title} />
+  </div>
+</div>
+            <div className="mx-auto max-w-[1218px] px-6 py-10">
               <CampaignTabs activeTab={activeTab} campaign={campaign} campaignUpdates={extractedUpdates} />
             </div>
           </div>
@@ -549,18 +532,20 @@ try {
 
                   {/* Share */}
 
-                  <Link
-                    href={`#`}
-                    className="mt-3 block w-full rounded-full bg-lightprimary px-6 py-3.5 text-center text-base font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-                  >
-                    Share
-                  </Link>
-                </div>
-                {/* Recent Donations */}
-                <CampaignRecentDonations
-                  initialDonations={recentDonations}
-                  totalCount={recentDonations.length}
-                />
+                <Link
+                  href={`#`}
+                  className="mt-3 block w-full rounded-full bg-[#01A14B] px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#018d42]"
+                >
+                  Share
+                </Link>
+
+            {/* Recent Donations */}
+<CampaignRecentDonations
+  campaignId={campaignId}
+  initialDonations={recentDonations}
+  totalCount={recentDonations.length}
+/>
+                
 
                 {deadline && (
                   <p className="mt-6 text-center text-xs text-gray-400">
@@ -609,7 +594,7 @@ try {
                 return (
                   <Link
                     key={item.id}
-                    href={`/campaigns/${item.id}`}
+                    href={`/campaign/${item.id}`}
                     className="group overflow-hidden rounded-[16px] border border-[#e0e6eb] bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(17,28,45,0.1)]"
                   >
                     <div className="aspect-[4/3] overflow-hidden bg-[#f8fafd]">
