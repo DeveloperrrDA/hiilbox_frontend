@@ -145,8 +145,7 @@ const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
   </button>
 
   {/* Original dropdown card */}
-  <div className="absolute right-0 top-[100%] pt-6 invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-hover:translate-y-1 z-50">
-    <div className="w-[520px] rounded-2xl bg-white dark:bg-darkgray p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-gray-100 dark:border-gray-800">
+<div className="absolute left-0 top-[100%] pt-6 invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-hover:translate-y-1 z-50">    <div className="w-[520px] rounded-2xl bg-white dark:bg-darkgray p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-gray-100 dark:border-gray-800">
 
       {/* Card header */}
       <div className="flex items-center gap-3 mb-6">
