@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import ThemeShell from "@/components/theme/ThemeShell";
 import MakeADifferenceCTA from "@/app/components/front-pages/MakeADifferenceCTA";
-
 export const metadata = {
   title: "About Us | HiilBox",
   description: "Learn about HiilBox's mission to make fundraising accessible, trusted, and global.",

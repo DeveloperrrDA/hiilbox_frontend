@@ -74,10 +74,10 @@ export const Footer = () => {
       link: "/react-tables/basic",
     },
     {
-      key: "link4",
-      title: "Contact Us",
-      link: "/forms/form-elements",
-    },
+  key: "link4",
+  title: "Contact Us",
+  link: "/frontend-pages/contact",
+},
   ];
   return (
     <>

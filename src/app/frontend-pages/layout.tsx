@@ -1,6 +1,6 @@
 "use client";
 
-import AnnouncementBar from "../components/front-pages/layout/AnnouncementBar";
+
 import FrontHeader from "../components/front-pages/layout/Header";
 import { Footer } from "../components/front-pages/layout/Footer";
 
@@ -12,8 +12,7 @@ export default function HomeLayout({
   return (
     <div className="frontend-page bg-white dark:bg-dark">
       {/* Header */}
-      <AnnouncementBar />
-      <FrontHeader />
+    <FrontHeader />
       {/* Content */}
       <section>{children}</section>
       {/* Footer */}
