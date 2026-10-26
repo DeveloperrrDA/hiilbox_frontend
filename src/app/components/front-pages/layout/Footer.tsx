@@ -76,7 +76,7 @@ export const Footer = () => {
     {
   key: "link4",
   title: "Contact Us",
-  link: "/frontend-pages/contact",
+  link: "/contact",
 },
   ];
   return (

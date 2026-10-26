@@ -58,7 +58,7 @@ export default function AboutPage() {
             </div>
             
             <div className="relative z-10 mt-8 flex w-full justify-center lg:mt-0 lg:w-[55%] lg:justify-end">
-              <img src="https://hiilbox.com/about/Fundraising_Campaigns_in_Action_Hiilbox.webp" alt="Fundraising Campaigns in Action" className="h-auto w-full max-w-[700px] object-contain drop-shadow-2xl transition-transform duration-500 hover:-translate-y-2" />
+              <img src="https://cms.hiilbox.com/about/Fundraising_Campaigns_in_Action_Hiilbox.webp" alt="Fundraising Campaigns in Action" className="h-auto w-full max-w-[700px] object-contain drop-shadow-2xl transition-transform duration-500 hover:-translate-y-2" />
             </div>
           </div>
         </section>
@@ -275,7 +275,7 @@ export default function AboutPage() {
               </div>
 
               <div className="relative flex w-full justify-center lg:w-[60%] lg:justify-end">
-                <img src="https://hiilbox.com/about/secure_donation_payment_flow.png" alt="Secure Donation Payment Flow" className="h-auto w-full object-contain" />
+                <img src="https://cms.hiilbox.com/about/secure_donation_payment_flow.png" alt="Secure Donation Payment Flow" className="h-auto w-full object-contain" />
               </div>
             </div>
 
@@ -322,14 +322,14 @@ export default function AboutPage() {
             
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: "solar:heart-pulse-bold", title: "Medical &\nHealthcare", desc: "Support medical treatment and surgeries for families.", slug: "health", image: "https://hiilbox.com/about/who-we-serve/medical-healthcare_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:diploma-bold", title: "Education &\nScholarships", desc: "Help students access quality education for a brighter future.", slug: "education", image: "https://hiilbox.com/about/who-we-serve/education-scholarships_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:danger-triangle-bold", title: "Emergency\nRelief", desc: "Provide urgent support during natural disasters.", slug: "emergency", image: "https://hiilbox.com/about/who-we-serve/emergency-relief_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:hand-stars-bold", title: "Humanitarian\nAssistance", desc: "Support vulnerable communities across Somalia.", slug: "humanitarian", image: "https://hiilbox.com/about/who-we-serve/humanitarian_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:buildings-bold", title: "Community\nProjects", desc: "Fund local development projects that create lasting change.", slug: "community", image: "https://hiilbox.com/about/who-we-serve/community-projects_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:hand-heart-bold", title: "Non-profit\nInitiatives", desc: "Support NGOs and non-profit organizations driving social impact.", slug: "non-profit", image: "https://hiilbox.com/about/who-we-serve/non-profit_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:moon-stars-bold", title: "Religious\nCauses", desc: "Support mosque construction and religious education.", slug: "masjid", image: "https://hiilbox.com/about/who-we-serve/religious_causes_who-we-serve-Hiilbox.webp" },
-                { icon: "solar:leaf-bold", title: "Environmental", desc: "Contribute to environmental protection and sustainable initiatives for a greener tomorrow.", slug: "environment", image: "https://hiilbox.com/about/who-we-serve/environmental_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:heart-pulse-bold", title: "Medical &\nHealthcare", desc: "Support medical treatment and surgeries for families.", slug: "health", image: "https://cms.hiilbox.com/about/who-we-serve/medical-healthcare_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:diploma-bold", title: "Education &\nScholarships", desc: "Help students access quality education for a brighter future.", slug: "education", image: "https://cms.hiilbox.com/about/who-we-serve/education-scholarships_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:danger-triangle-bold", title: "Emergency\nRelief", desc: "Provide urgent support during natural disasters.", slug: "emergency", image: "https://cms.hiilbox.com/about/who-we-serve/emergency-relief_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:hand-stars-bold", title: "Humanitarian\nAssistance", desc: "Support vulnerable communities across Somalia.", slug: "humanitarian", image: "https://cms.hiilbox.com/about/who-we-serve/humanitarian_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:buildings-bold", title: "Community\nProjects", desc: "Fund local development projects that create lasting change.", slug: "community", image: "https://cms.hiilbox.com/about/who-we-serve/community-projects_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:hand-heart-bold", title: "Non-profit\nInitiatives", desc: "Support NGOs and non-profit organizations driving social impact.", slug: "non-profit", image: "https://cms.hiilbox.com/about/who-we-serve/non-profit_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:moon-stars-bold", title: "Religious\nCauses", desc: "Support mosque construction and religious education.", slug: "masjid", image: "https://cms.hiilbox.com/about/who-we-serve/religious_causes_who-we-serve-Hiilbox.webp" },
+                { icon: "solar:leaf-bold", title: "Environmental", desc: "Contribute to environmental protection and sustainable initiatives for a greener tomorrow.", slug: "environment", image: "https://cms.hiilbox.com/about/who-we-serve/environmental_causes_who-we-serve-Hiilbox.webp" },
               ].map((cat, i) => (
                 <div key={i} className="group relative flex min-h-[240px] items-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all hover:bg-white/10 hover:border-white/20">
                   <div className="relative z-10 flex h-full w-[55%] flex-col justify-between">

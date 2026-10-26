@@ -534,7 +534,7 @@ try {
 
                 <Link
                   href={`#`}
-                  className="mt-3 block w-full rounded-full bg-lightprimary px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-primary"
+                  className="mt-3 block w-full rounded-full bg-lightprimary px-6 py-3.5 text-center text-base font-semibold text-primary dark:text-white transition-colors hover:bg-primary"
                 >
                   Share
                 </Link>

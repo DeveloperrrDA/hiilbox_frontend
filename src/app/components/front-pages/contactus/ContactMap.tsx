@@ -13,9 +13,9 @@ const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 // Defined locations with their exact country names
 const locations = [
-  { country: "Somaliland", coordinates: [44.0627, 9.5599] as [number, number] },
-  { country: "Somalia", coordinates: [45.3182, 2.0469] as [number, number] },
-  { country: "Ethiopia", coordinates: [38.7469, 9.0222] as [number, number] },
+  { country: "Hargeisa", coordinates: [44.0627, 9.5599] as [number, number] },
+  { country: "Mogadishu", coordinates: [45.3182, 2.0469] as [number, number] },
+  { country: "JigJiga", coordinates: [38.7469, 9.0222] as [number, number] },
 ];
 
 // Automatically create the highlight list from your locations
@@ -28,9 +28,9 @@ const ContactMap = () => {
         
         {/* Map Header Overlay */}
         <div className="absolute left-6 top-6 z-10 rounded-xl bg-white/80 p-4 shadow-sm backdrop-blur-md dark:bg-darkgray/80">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Our Region</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Our Office Region</h3>
           <p className="text-sm font-medium text-gray-500">
-            Somaliland, Somalia & Ethiopia
+            Hargeisa, Mogadishu, & JigJiga
           </p>
         </div>
 

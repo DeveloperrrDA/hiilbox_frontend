@@ -47,7 +47,7 @@ export default function MakeADifferenceCTA() {
           </div>
 
           <div className="relative z-10 w-full max-w-[450px] -rotate-2 transform rounded-3xl border border-white/60 bg-white/40 p-3 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] backdrop-blur-xl transition-transform duration-500 hover:rotate-0 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
-            <img src="https://hiilbox.com/about/fundraising_campaigns_in_action.png" alt="Make a Real Impact" className="h-auto w-full rounded-2xl object-cover" />
+            <img src="https://cms.hiilbox.com/about/fundraising_campaigns_in_action.png" alt="Make a Real Impact" className="h-auto w-full rounded-2xl object-cover" />
             <div className="absolute -right-4 -top-4 flex h-12 w-12 rotate-12 transform items-center justify-center rounded-xl border border-yellow-200/50 bg-[#FFF9C4]/80 shadow-md backdrop-blur-md dark:border-yellow-700/50 dark:bg-yellow-900/50">
               <Icon icon="solar:heart-bold" className="text-xl text-yellow-600 dark:text-yellow-400" />
             </div>
