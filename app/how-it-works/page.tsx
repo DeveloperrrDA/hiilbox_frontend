@@ -80,32 +80,34 @@ export default function HowItWorksPage() {
       <div className="fixed left-0 top-0 -z-10 h-[600px] w-[600px] -translate-x-1/3 -translate-y-1/3 rounded-full bg-[#01A14B] opacity-10 blur-[120px] pointer-events-none dark:opacity-20"></div>
       <div className="fixed bottom-0 right-0 -z-10 h-[600px] w-[600px] translate-x-1/3 translate-y-1/3 rounded-full bg-[#8BD3A8] opacity-20 blur-[120px] pointer-events-none dark:opacity-10"></div>
 
-      <main className="mx-auto max-w-7xl px-4 pb-24 md:px-8 relative z-10">
+      <main className="mx-auto max-w-full px-4 pb-24 md:px-8 relative z-10 dark:bg-dark">
         
         {/* =========================================
             HERO SECTION
         ========================================= */}
-        <section className="mx-auto max-w-3xl py-16 items-center text-center">
-          <div className="flex items-center justify-center"> 
-            <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
-              HOW HIILBOX WORKS
+        <section className="mx-auto container-1218 max-w-3xl py-20 items-center text-center">
+          <div className="py-20"> 
+            <div className="flex items-center justify-center"> 
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
+                HOW HIILBOX WORKS
+              </div>
             </div>
+            
+            
+            <h1 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
+              Turn Your Cause Into Support<br/>
+              <span className="text-primary">in Six Simple Steps</span>
+            </h1>
+            <p className="mx-auto max-w-2xl text-lg leading-relaxed text-[#687280] dark:text-gray-300">
+              From creating your account to receiving your funds, HiilBox makes fundraising easy, secure, and transparent — all in one trusted platform.
+            </p>
           </div>
-          
-          
-          <h1 className="mb-6 text-4xl font-black leading-[1.1] tracking-tight text-[#0F1F17] dark:text-white md:text-5xl lg:text-[3.5rem]">
-            Turn Your Cause Into Support<br/>
-            <span className="text-primary">in Six Simple Steps</span>
-          </h1>
-          <p className="mx-auto max-w-2xl text-lg leading-relaxed text-[#687280] dark:text-gray-300">
-            From creating your account to receiving your funds, HiilBox makes fundraising easy, secure, and transparent — all in one trusted platform.
-          </p>
         </section>
 
         {/* =========================================
             6 STEPS GRID (GLASSMORPHISM)
         ========================================= */}
-        <section id="steps" className="mb-24 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section id="steps" className="mb-24 container-1218 grid grid-cols-1 gap-6 lg:grid-cols-2">
           
           {/* Step 1 */}
           <div className="flex flex-col items-center gap-6 rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-300 hover:border-white/80 hover:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] dark:hover:border-white/20 dark:hover:bg-white/10 sm:flex-row sm:p-8">
@@ -303,10 +305,10 @@ export default function HowItWorksPage() {
         {/* =========================================
             PLATFORM FEATURES (GLASSMORPHISM)
         ========================================= */}
-        <section className="mb-24 relative z-10">
+        <section className="mb-24 container-1218 relative z-10">
           <div className="mb-16 flex flex-col items-center text-center">
             <div className="flex items-center justify-center"> 
-              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
                 PLATFORM FEATURES
               </div>
             </div>
@@ -722,7 +724,7 @@ export default function HowItWorksPage() {
         <section className="mx-auto mt-24 max-w-4xl relative z-10">
           <div className="mb-10 text-center">
             <div className="flex items-center justify-center"> 
-              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-lightprimary">
+              <div className="mb-4 rounded-full bg-[#01A14B]/20 border border-[#01A14B]/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-primary dark:text-primary">
                 FAQS
               </div>
             </div>

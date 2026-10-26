@@ -27,105 +27,103 @@ const CampaignTabs = ({
 }: { 
   activeTab: string; 
   campaign: any;
-  campaignUpdates: CampaignUpdate[];
+  campaignUpdates: any[]; 
 }) => {
   return (
-    <>
+    <div className="w-full">
+      
       {/* --- TABS NAVIGATION --- */}
-      <div className="flex flex-row items-center justify-between content-center">
-        <div className="overflow-x-auto base2/3">
-          <div className="flex shrink-0 gap-4 md:pb-14 py-4">
-            <Link
-              href="?tab=story"
-              className={`py-4 px-6 whitespace-nowrap w-full rounded-xl text-base font-semibold text-center flex gap-2 justify-center items-center md:hover:bg-lightprimary shadow-elevation2 ${
-                activeTab === "story"
-                  ? "text-white bg-primary dark:bg-primary shadow-elevation3"
-                  : "dark:text-white bg-white dark:bg-dark text-dark"
-              }`}
-            >
-              <Icon icon="material-symbols:article-outline-rounded" height={22} />
-              Story
-            </Link>
-
-            <Link
-              href="?tab=faqs"
-              className={`py-4 px-6 whitespace-nowrap w-full rounded-xl text-base font-semibold text-center flex gap-2 justify-center items-center md:hover:bg-lightprimary shadow-elevation2 ${
-                activeTab === "faqs"
-                  ? "text-white bg-primary dark:bg-primary shadow-elevation3"
-                  : "dark:text-white bg-white dark:bg-dark text-dark"
-              }`}
-            >
-              <Icon icon="material-symbols:help-outline-rounded" height={22} />
-              FAQs
-            </Link>
-
-            <Link
-              href="?tab=updates"
-              className={`py-4 px-6 whitespace-nowrap w-full rounded-xl text-base font-semibold text-center flex gap-2 justify-center items-center md:hover:bg-lightprimary shadow-elevation2 ${
-                activeTab === "updates"
-                  ? "text-white bg-primary dark:bg-primary shadow-elevation3"
-                  : "dark:text-white bg-white dark:bg-dark text-dark"
-              }`}
-            >
-              <Icon icon="material-symbols:campaign-outline-rounded" height={22} />
-              Updates
-            </Link>
-
-            <Link
-              href="?tab=comments"
-              className={`py-4 px-6 whitespace-nowrap w-full rounded-xl text-base font-semibold text-center flex gap-2 justify-center items-center md:hover:bg-lightprimary shadow-elevation2 ${
-                activeTab === "comments"
-                  ? "text-white bg-primary dark:bg-primary shadow-elevation3"
-                  : "dark:text-white bg-white dark:bg-dark text-dark"
-              }`}
-            >
-              <Icon icon="material-symbols:chat-bubble-outline-rounded" height={22} />
-              Comments
-            </Link>
-            
-          </div>
-        </div>
+      {/* FIXED: Uses a 2-column grid on mobile so tabs wrap cleanly, then becomes a row on md+ screens */}
+      <div className="grid grid-cols-2 gap-3 pb-6 pt-4 md:flex md:flex-row md:flex-wrap md:gap-4 md:pb-14">
         
+        <Link
+          href="?tab=story"
+          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[13px] font-semibold transition-colors sm:text-sm md:flex-1 md:gap-2 md:px-6 md:py-4 md:text-base md:hover:bg-lightprimary shadow-elevation2 ${
+            activeTab === "story"
+              ? "bg-primary text-white shadow-elevation3 dark:bg-primary"
+              : "bg-white text-dark dark:bg-dark dark:text-white"
+          }`}
+        >
+          <Icon icon="material-symbols:article-outline-rounded" className="text-base md:text-[22px]" />
+          Story
+        </Link>
+
+        <Link
+          href="?tab=faqs"
+          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[13px] font-semibold transition-colors sm:text-sm md:flex-1 md:gap-2 md:px-6 md:py-4 md:text-base md:hover:bg-lightprimary shadow-elevation2 ${
+            activeTab === "faqs"
+              ? "bg-primary text-white shadow-elevation3 dark:bg-primary"
+              : "bg-white text-dark dark:bg-dark dark:text-white"
+          }`}
+        >
+          <Icon icon="material-symbols:help-outline-rounded" className="text-base md:text-[22px]" />
+          FAQs
+        </Link>
+
+        <Link
+          href="?tab=updates"
+          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[13px] font-semibold transition-colors sm:text-sm md:flex-1 md:gap-2 md:px-6 md:py-4 md:text-base md:hover:bg-lightprimary shadow-elevation2 ${
+            activeTab === "updates"
+              ? "bg-primary text-white shadow-elevation3 dark:bg-primary"
+              : "bg-white text-dark dark:bg-dark dark:text-white"
+          }`}
+        >
+          <Icon icon="material-symbols:campaign-outline-rounded" className="text-base md:text-[22px]" />
+          Updates
+        </Link>
+
+        <Link
+          href="?tab=comments"
+          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[13px] font-semibold transition-colors sm:text-sm md:flex-1 md:gap-2 md:px-6 md:py-4 md:text-base md:hover:bg-lightprimary shadow-elevation2 ${
+            activeTab === "comments"
+              ? "bg-primary text-white shadow-elevation3 dark:bg-primary"
+              : "bg-white text-dark dark:bg-dark dark:text-white"
+          }`}
+        >
+          <Icon icon="material-symbols:chat-bubble-outline-rounded" className="text-base md:text-[22px]" />
+          Comments
+        </Link>
+
       </div>
+
       {/* --- TABS CONTENT --- */}
-      <div className="grid grid-cols-12 gap-7">
+      {/* FIXED: Removed grid-cols-12 which can cause blowout. Added break-words to handle long strings/URLs */}
+      <div className="w-full">
+        
         {activeTab === "story" && (
-          <div className="col-span-12">
-            <p className="whitespace-pre-line text-base leading-8 border-t border-[#e0e6eb] pt-4 text-[#5a6a85]">
+          <div className="w-full border-t border-[#e0e6eb] pt-6">
+            <p className="whitespace-pre-line break-words text-base leading-8 text-[#5a6a85]">
               {campaign.story || "No story available."}
             </p>
           </div>
         )}
 
         {activeTab === "faqs" && (
-          <div className="col-span-12">
-            <p className="whitespace-pre-line text-base leading-8 border-t border-[#e0e6eb] pt-4 text-[#5a6a85]">
+          <div className="w-full border-t border-[#e0e6eb] pt-6">
+            <p className="whitespace-pre-line break-words text-base leading-8 text-[#5a6a85]">
               FAQ Section
             </p>
           </div>
         )}
-        
+
         {activeTab === "updates" && (
-          <div className="col-span-12">
-            
-            {/* Updates Header with Count Badge (Optional, matching the image) */}
-            <div className="flex items-center gap-3 border-t border-[#e0e6eb] pt-8 mb-8">
+          <div className="w-full">
+            {/* Updates Header */}
+            <div className="mb-8 flex items-center gap-3 border-t border-[#e0e6eb] pt-8">
               <h2 className="text-2xl font-bold text-dark dark:text-white">Updates</h2>
-              <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm font-semibold">
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-sm font-semibold text-gray-700">
                 {campaignUpdates?.length || 0}
               </span>
             </div>
 
             <div className="space-y-12">
               {campaignUpdates?.map((update) => (
-                <div key={update.id} className="flex flex-col">
+                <div key={update.id} className="flex w-full flex-col max-w-full">
                   
-                  {/* ==============================
-                      AUTHOR & META ROW
-                  ============================== */}
-                  <div className="flex items-center gap-3 mb-5">
+                  {/* AUTHOR & META ROW */}
+                  <div className="mb-5 flex items-center gap-3">
                     {/* Avatar */}
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                       {update.created_by_image ? (
                         <img
                           src={update.created_by_image}
@@ -133,17 +131,16 @@ const CampaignTabs = ({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center font-bold text-gray-500 uppercase">
+                        <span className="font-bold uppercase text-gray-500">
                           {update.created_by_name?.charAt(0) || "U"}
-                        </div>
+                        </span>
                       )}
                     </div>
 
-                    {/* Meta Info (Date, Name, Role) */}
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
+                    {/* Meta Info (Added min-w-0 flex-1 to prevent text blowout) */}
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-dark dark:text-white">
-                          {/* You can format this date further if needed */}
                           {new Date(update.created_at).toLocaleDateString('en-US', { 
                             month: 'short', day: 'numeric', year: 'numeric' 
                           })}
@@ -165,51 +162,44 @@ const CampaignTabs = ({
   ) : null;
 })()}
                       </div>
-                      <div className="text-sm text-[#5a6a85]">
+                      <div className="truncate text-sm text-[#5a6a85]">
                         {update.created_by_name} <span className="mx-1">•</span> {update.created_by_role}
                       </div>
                     </div>
                   </div>
 
-                  {/* ==============================
-                      CONTENT
-                  ============================== */}
-                  {/* Title */}
-                  <h3 className="mb-3 text-lg font-bold text-dark dark:text-white">
+                  {/* CONTENT */}
+                  <h3 className="mb-3 break-words text-lg font-bold text-dark dark:text-white">
                     {update.title}
                   </h3>
 
-                  {/* Description */}
-                  <div className="text-base leading-8 text-[#5a6a85]">
-                    <p className="whitespace-pre-line line-clamp-4">
+                  <div className="w-full text-base leading-8 text-[#5a6a85]">
+                    <p className="line-clamp-4 break-words whitespace-pre-line">
                       {update.description}
                     </p>
                   </div>
 
-                  {/* Read More Link */}
-                  <button className="mt-3 text-left font-medium text-dark underline underline-offset-4 hover:text-primary dark:text-white w-max">
+                  <button className="mt-3 w-max text-left font-medium text-dark underline underline-offset-4 hover:text-primary dark:text-white">
                     Read more
                   </button>
-                  
                 </div>
               ))}
 
-              {/* Empty State fallback */}
               {(!campaignUpdates || campaignUpdates.length === 0) && (
-                <p className="text-[#5a6a85] pt-4">No updates posted yet.</p>
+                <p className="pt-4 text-[#5a6a85]">No updates posted yet.</p>
               )}
             </div>
-
           </div>
         )}
 
-       {activeTab === "comments" && (
-  <div className="col-span-12">
-    <CampaignComments campaignId={Number(campaign.id)} />
-  </div>
-)}
+        {activeTab === "comments" && (
+          <div className="w-full border-t border-[#e0e6eb] pt-6">
+            {/* <CampaignComments campaignId={Number(campaign.id)} /> */}
+          </div>
+        )}
+
       </div>
-    </>
+    </div>
   );
 };
 
@@ -286,8 +276,8 @@ const campaignUpdatesResponse =
   if (!response.success || !response.data) {
     return (
       <ThemeShell>
-      <main className="min-h-[60vh] bg-[#f8fafd]">
-        <div className="mx-auto max-w-[1218px] px-6 py-10">
+      <main className="min-h-[60vh] bg-[#f8fafd] dark:bg-darkgray">
+        <div className="mx-auto max-w-[1218px] px-6 py-10 dark:bg-darkgray">
           <Link
             href="/campaigns"
             className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B]"
@@ -396,13 +386,13 @@ try {
 
   return (
     <ThemeShell>
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-white dark:bg-darkgray">
       {/* ================= TOP ================= */}
 
-      <div className="bg-white"><div className="mx-auto max-w-[1218px] px-6 py-4">
+      <div className="bg-white dark:bg-darkgray"><div className="mx-auto max-w-[1218px] px-6 py-4">
         <Link
           href="/campaigns"
-          className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B]"
+          className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B] dark:text-white"
         >
           ← Back to campaigns
         </Link>
@@ -423,9 +413,9 @@ try {
         <div className="grid gap-12 lg:grid-cols-[1fr_380px]">
           {/* ================= STORY ================= */}
 
-          <div>
+          <div className="min-w-0">
             {/* Title */}
-            <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] sm:text-2xl">
+            <h1 className="mb-6 text-xl font-bold leading-tight tracking-tight text-[#111c2d] dark:text-white sm:text-2xl">
               {campaign.title}
             </h1>
 <CampaignMediaSlider
@@ -449,14 +439,14 @@ try {
         Fundraiser
       </p>
 
-      <p className="text-sm font-semibold text-[#111c2d]">
+      <p className="text-sm font-semibold text-[#111c2d] dark:text-white">
         {fundraiserName}
       </p>
     </div>
   </div>
 
   {/* Share */}
-  <div className="flex basis-full md:basis-1/2 md:justify-end">
+  <div className="flex basis-full md:basis-1/2 md:justify-end dark:text-white">
     <ShareCampaign title={campaign.title} />
   </div>
 </div>
@@ -467,83 +457,84 @@ try {
 
           {/* ================= DONATION SIDEBAR ================= */}
 
-          <aside id="mobile-donate-section" className="min-w-0">
-            <div className="sticky top-28">
-              <div className="rounded-[16px] bg-white p-6 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb]">
+          <aside id="mobile-donate-section" className="min-w-0 bg-white dark:bg-darkgray">
+            <div className="sticky top-28 dark:bg-darkgray">
+              <div className="rounded-[16px]  p-6 shadow-[0_0px_25px_rgba(17,28,45,0.08)] ring-1 ring-[#e0e6eb]">
 
                 {/* Raised */}
+                <div className="hidden lg:block">
+                  <div className="flex flex-row items-center gap-4">
+                    {/* Progress */}
 
-                <div className="flex flex-row items-center justify-between gap-4">
-                  {/* Progress */}
+                    {/* FIXED: Removed basis-1/2 and content-ccenter. Added shrink-0 so it doesn't squish or stretch */}
+                    <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
+                      <svg
+                        className="w-full h-full transform -rotate-90"
+                        viewBox={`0 0 ${size} ${size}`}
+                      >
+                        {/* Background Track Circle */}
+                        <circle
+                          className="text-gray-100 dark:text-gray-800"
+                          stroke="currentColor"
+                          fill="transparent"
+                          strokeWidth={strokeWidth}
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                        />
 
-                  <div className="relative basis-1/2 flex items-center justify-center content-ccenter w-24 h-24">
-                    <svg
-                      className="w-full h-full transform -rotate-90"
-                      viewBox={`0 0 ${size} ${size}`}
-                    >
-                      {/* Background Track Circle */}
-                      <circle
-                        className="text-gray-100 dark:text-gray-800"
-                        stroke="currentColor"
-                        fill="transparent"
-                        strokeWidth={strokeWidth}
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                      />
+                        {/* Progress Circle */}
+                        <circle
+                          className="text-[#01A14B]"
+                          stroke="currentColor"
+                          fill="transparent"
+                          strokeWidth={strokeWidth}
+                          strokeLinecap="round"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                        />
+                      </svg>
 
-                      {/* Progress Circle */}
-                      <circle
-                        className="text-[#01A14B]"
-                        stroke="currentColor"
-                        fill="transparent"
-                        strokeWidth={strokeWidth}
-                        strokeLinecap="round"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                      />
-                    </svg>
+                      {/* Center Text */}
+                      <span className="absolute text-base font-semibold text-gray-700 dark:text-gray-300">
+                        {progress}%
+                      </span>
+                    </div>
 
-                    {/* Center Text */}
-                    <span className="absolute text-base font-semibold text-gray-700 dark:text-gray-300">
-                      {progress}%
-                    </span>
+                    {/* FIXED: Removed basis-2/3. Added min-w-0 and flex-1 so it wraps text instead of blowing out screen width */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xl/6 font-bold tracking-tight text-[#111c2d] dark:text-white">
+                        ${campaign.raised_amount.toLocaleString()} raised of 
+                      </p>
+
+                      <p className="mt-1 text-2xl/6 text-[#5a6a85] dark:text-gray-300">
+                        ${campaign.goal.toLocaleString()}USD
+                      </p>
+                      <p className="mt-1 text-sm/4 text-[#5a6a85] dark:text-gray-300">
+                        {recentDonations.length.toLocaleString()} Donations
+                      </p>
+                    </div>
                   </div>
-                  <div className="basis-2/3">
-                    <p className="text-xl/6 font-bold tracking-tight text-[#111c2d]">
-                      ${campaign.raised_amount.toLocaleString()} raised of 
-                    </p>
 
-                    <p className="mt-1 text-2xl/6 text-[#5a6a85]">
-                       ${campaign.goal.toLocaleString()}USD
-                    </p>
-                    <p className="mt-1 text-sm/4 text-[#5a6a85]">
-  {recentDonations.length.toLocaleString()} Donations
-</p>
-                  </div>
+                  {/* Donate */}
 
-                  
-                </div>
+                  <Link
+                    href={`/checkout?campaign=${campaign.id}&title=${encodeURIComponent(
+                      campaign.title
+                    )}`}
+                    className="mt-7 block w-full rounded-full bg-primary px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-primary hover:text-white"
+                  >
+                    Donate
+                  </Link>
 
-                {/* Donate */}
-
-                <Link
-                  href={`/checkout?campaign=${campaign.id}&title=${encodeURIComponent(
-                    campaign.title
-                  )}`}
-                  className="mt-7 block w-full rounded-full bg-[#01A14B] px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#018d42]"
-                >
-                  Donate
-                </Link>
-
-                {/* Share */}
+                  {/* Share */}
 
                 <Link
                   href={`#`}
-                  className="mt-3 block w-full rounded-full bg-[#01A14B] px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#018d42]"
+                  className="mt-3 block w-full rounded-full bg-lightprimary px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-primary"
                 >
                   Share
                 </Link>
@@ -562,14 +553,14 @@ try {
                   </p>
                 )}
               </div>
-            </div>
+            </div></div>
                     </aside>
         </div>
       </div>
 
       {/* ================= RELATED CAMPAIGNS ================= */}
       {relatedCampaigns.length > 0 && (
-        <section className="border-t border-[#e0e6eb] bg-white py-12 md:py-16">
+        <section className="border-t border-[#e0e6eb] bg-white py-12 md:py-16 dark:bg-dark">
           <div className="mx-auto max-w-[1218px] px-6">
 
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">

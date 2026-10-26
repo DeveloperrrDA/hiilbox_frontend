@@ -121,9 +121,9 @@ export default function CampaignRecentDonations({
                   )}
                 </div>
                <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-[15px] font-semibold text-[#111c2d]">{name}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center text-sm text-[#5a6a85]">
-                    <span className="font-bold text-[#111c2d]">{formatAmount(donation)}</span>
+                  <p className="truncate text-[15px] font-semibold text-[#111c2d] dark:text-white">{name}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center text-sm text-[#5a6a85] dark:text-gray-300">
+                    <span className="font-bold text-[#111c2d] dark:text-white">{formatAmount(donation)}</span>
                     <span className="mx-2 shrink-0 text-[#dfe5eb]">•</span>
                    <span className="truncate">
   {formatTime(donation.created_at, donation.is_new_simulation)}
@@ -166,11 +166,11 @@ export default function CampaignRecentDonations({
             role="dialog"
             aria-modal="true"
             aria-label="Donations"
-            className="flex max-h-[85vh] w-full max-w-[452px] flex-col overflow-hidden rounded-2xl border border-[#e0e6eb] bg-white p-6 shadow-[0_12px_48px_rgba(17,28,45,0.18)]"
+            className="mt-20 flex max-h-[85vh] w-full max-w-[452px] flex-col overflow-hidden rounded-2xl border border-[#e0e6eb] bg-white dark:bg-dark p-6 shadow-[0_12px_48px_rgba(17,28,45,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between border-b border-[#e0e6eb] pb-4">
-              <h2 className="text-2xl font-bold text-[#111c2d]">Donations</h2>
+              <h2 className="text-2xl font-bold text-[#111c2d] dark:text-white">Donations</h2>
               <button
                 type="button"
                 aria-label="Close donations"
@@ -200,7 +200,7 @@ export default function CampaignRecentDonations({
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {popupDonations.length === 0 ? (
-                <p className="py-6 text-sm text-gray-500">No donations yet.</p>
+                <p className="py-6 text-sm text-gray-500 dark:text-gray-300">No donations yet.</p>
               ) : (
                 popupDonations.map((donation) => (
                   <div key={donation.id} className="flex items-center gap-3 border-b border-[#f0f2f4] py-3 last:border-0">
@@ -212,8 +212,8 @@ export default function CampaignRecentDonations({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-[#111c2d]">{donorName(donation)}</p>
-                      <p className="mt-1 text-sm text-[#5a6a85]">
+                      <p className="truncate font-semibold text-[#111c2d] dark:text-white">{donorName(donation)}</p>
+                      <p className="mt-1 text-sm text-[#5a6a85] dark:text-gray-300">
                         {formatAmount(donation)} · {formatTime(donation.created_at, donation.is_new_simulation)}
                       </p>
                     </div>
