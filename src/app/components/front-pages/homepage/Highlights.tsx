@@ -7,7 +7,7 @@ export const Highlights = () => {
       icon: "tabler:mosque",
       title: "Masjid",
       description: "Faith-based causes",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -15,7 +15,7 @@ export const Highlights = () => {
       icon: "tabler:mood-kid",
       title: "Orphans",
       description: "Care and protection",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -23,7 +23,7 @@ export const Highlights = () => {
       icon: "tabler:heart-handshake",
       title: "Community",
       description: "Support local causes",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -31,7 +31,7 @@ export const Highlights = () => {
       icon: "tabler:books",
       title: "Education",
       description: "Help students grow",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -39,7 +39,7 @@ export const Highlights = () => {
       icon: "tabler:medical-cross",
       title: "Health",
       description: "Medical support",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -47,7 +47,7 @@ export const Highlights = () => {
       icon: "tabler:droplet",
       title: "Water",
       description: "Clean water projects",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -55,7 +55,7 @@ export const Highlights = () => {
       icon: "tabler:home-shield",
       title: "Shelter",
       description: "Homes and safety",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -63,7 +63,7 @@ export const Highlights = () => {
       icon: "tabler:tools-kitchen-2",
       title: "Food Aid",
       description: "Meals for families",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -71,7 +71,7 @@ export const Highlights = () => {
       icon: "tabler:leaf",
       title: "Environment",
       description: "Faith-based causes",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
     {
@@ -79,7 +79,7 @@ export const Highlights = () => {
       icon: "tabler:moon",
       title: "Ramadan",
       description: "Protect the future",
-      bg: "bg-lightprimary",
+      bg: "bg-[#F8FAFC] dark:bg-gray-800",
       text: "text-primary",
     },
   ];
