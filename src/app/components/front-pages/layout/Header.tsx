@@ -6,24 +6,21 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
-// import { Leftnavigation, Rightnavigation } from "./Navigation"; // Replaced with inline mega menu
 import MobileMenu from "./MobileMenu";
 import { useHiilboxAuth } from "@/hooks/useHiilboxAuth";
 
 const FrontHeader = () => {
   const [isSticky, setIsSticky] = useState(false);
   const router = useRouter();
-const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    router.push(`/campaigns?search=${encodeURIComponent(query)}`);
+  };
 
-  const query = searchQuery.trim();
-
-  if (!query) return;
-
-  router.push(`/campaigns?search=${encodeURIComponent(query)}`);
-};
   const { loggedIn, logout } = useHiilboxAuth();
 
   useEffect(() => {
@@ -42,204 +39,178 @@ const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
     };
   }, []);
 
-  // Shared navigation class with dark mode support
-  const navClass = "text-sm font-semibold text-dark dark:text-white transition-colors hover:text-primary dark:hover:text-primary";
+  const navClass =
+    "text-sm font-semibold text-dark dark:text-white transition-colors hover:text-primary dark:hover:text-primary";
 
   return (
     <>
       <header
-        className={`top-0 z-50 ${
+        // FIXED: Using 'sticky' instead of 'fixed' for native, jump-free scrolling behavior
+        className={`sticky top-0 z-50 w-full transition-all duration-300 ${
           isSticky
-            ? "bg-white dark:bg-dark shadow-md fixed w-full py-5"
-            : "bg-lightgray dark:bg-darkgray lg:py-9 py-5"
+            ? "bg-white py-4 shadow-md dark:bg-dark"
+            : "bg-lightgray py-5 dark:bg-darkgray lg:py-9"
         }`}
       >
-      <div className="container-1218 mx-auto relative flex items-center justify-between gap-4">
+        {/* FIXED: Added px-4 xl:px-0 so content isn't pushed off the edge on mobile screens */}
+        <div className="container-1218 mx-auto flex items-center justify-between gap-4 px-4 xl:px-0">
+          
+          {/* MOBILE LOGO (Hidden on desktop) */}
+          <div className="flex shrink-0 xl:hidden">
+            <FullLogo />
+          </div>
 
-  {/* LEFT NAVIGATION */}
-  <div className="hidden xl:flex items-center gap-8">
-   {/* SEARCH CAMPAIGNS HOVER MENU */}
-<div className="group relative py-4 -my-4">
-  <Link
-    href="/campaigns"
-    className={`${navClass} inline-flex items-center gap-2`}
-  >
-    <Icon icon="tabler:search" className="text-xl" />
-    Search Campaigns
-  </Link>
+          {/* LEFT NAVIGATION (Desktop only) */}
+          <div className="hidden xl:flex items-center gap-8">
+            {/* SEARCH CAMPAIGNS HOVER MENU */}
+            <div className="group relative -my-4 py-4">
+              <Link
+                href="/campaigns"
+                className={`${navClass} inline-flex items-center gap-2`}
+              >
+                <Icon icon="tabler:search" className="text-xl" />
+                Search Campaigns
+              </Link>
 
-  {/* Hover search field */}
-  <div
-    className="
-      invisible absolute left-0 top-full z-50 w-[340px]
-      pt-4 opacity-0 translate-y-1
-      transition-all duration-200
-      group-hover:visible group-hover:opacity-100
-      group-hover:translate-y-0
-      group-focus-within:visible group-focus-within:opacity-100
-      group-focus-within:translate-y-0
-    "
-  >
-    <form
-      onSubmit={handleSearch}
-      role="search"
-      className="
-        flex items-center gap-2 rounded-xl
-        border border-gray-200 bg-white p-3
-        shadow-xl dark:border-gray-700 dark:bg-darkgray
-      "
-    >
-      <Icon
-        icon="tabler:search"
-        className="text-xl text-gray-400"
-      />
+              <div className="invisible absolute left-0 top-full z-50 w-[340px] -translate-y-1 pt-4 opacity-0 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                <form
+                  onSubmit={handleSearch}
+                  role="search"
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-darkgray"
+                >
+                  <Icon icon="tabler:search" className="text-xl text-gray-400" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search campaigns..."
+                    aria-label="Search campaigns"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#01A14B] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#018d42]"
+                  >
+                    Search
+                  </button>
+                </form>
+              </div>
+            </div>
 
-      <input
-        type="search"
-        value={searchQuery}
-        onChange={(event) => setSearchQuery(event.target.value)}
-        placeholder="Search campaigns..."
-        aria-label="Search campaigns"
-        className="
-          min-w-0 flex-1 bg-transparent
-          text-sm text-gray-900 outline-none
-          placeholder:text-gray-400 dark:text-white
-        "
-      />
+            {/* ABOUT MEGA MENU */}
+            <div className="group relative -my-4 py-4">
+              <button
+                type="button"
+                className={`${navClass} flex items-center gap-1 font-bold`}
+              >
+                <span className="font-bold">About</span>
+                <svg
+                  className="h-4 w-4 opacity-70"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
 
-      <button
-        type="submit"
-        className="
-          rounded-lg bg-[#01A14B]
-          px-4 py-2 text-sm font-semibold
-          text-white transition-colors
-          hover:bg-[#018d42]
-        "
-      >
-        Search
-      </button>
-    </form>
-  </div>
-</div>
+              <div className="invisible absolute left-0 top-[100%] z-50 translate-y-1 pt-6 opacity-0 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                <div className="w-[520px] rounded-2xl border border-gray-100 bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:border-gray-800 dark:bg-darkgray dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
+                  <div className="mb-6 flex items-center gap-3">
+                    <svg
+                      className="h-5 w-5 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-lg font-medium text-dark dark:text-white">
+                      How it works, pricing, and more
+                    </span>
+                  </div>
 
-{/* ABOUT MEGA MENU — RESTORED */}
-<div className="group relative py-4 -my-4">
-  <button
-    type="button"
-    className={`${navClass} font-bold flex items-center gap-1`}
-  >
-    <span className="font-bold">About</span>
-    <svg
-      className="h-4 w-4 font-bold opacity-70"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
-  </button>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                    {[
+                      ["How Hiilbox works", "/how-it-works"],
+                      ["About Hiilbox", "/about"],
+                      ["Hiilbox Giving Guarantee", "/guarantee"],
+                      ["Newsroom", "/newsroom"],
+                      ["Supported countries", "/countries"],
+                      ["Careers", "/careers"],
+                      ["Pricing", "/pricing"],
+                      ["Hiilbox.org", "/foundation"],
+                      ["Help Center", "/help"],
+                      ["Hiilbox Partnerships", "/partnerships"],
+                    ].map(([label, href]) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        className="text-[15px] font-medium text-gray-600 transition-colors hover:text-primary dark:text-gray-300 dark:hover:text-primary"
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  {/* Original dropdown card */}
-<div className="absolute left-0 top-[100%] pt-6 invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-hover:translate-y-1 z-50">    <div className="w-[520px] rounded-2xl bg-white dark:bg-darkgray p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-gray-100 dark:border-gray-800">
+          {/* DESKTOP LOGO */}
+          <div className="hidden xl:absolute xl:left-1/2 xl:block xl:-translate-x-1/2">
+            <FullLogo />
+          </div>
 
-      {/* Card header */}
-      <div className="flex items-center gap-3 mb-6">
-        <svg
-          className="h-5 w-5 text-gray-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <span className="text-lg font-medium text-dark dark:text-white">
-          How it works, pricing, and more
-        </span>
-      </div>
+          {/* RIGHT NAVIGATION (Desktop only) */}
+          <div className="hidden items-center gap-3 xl:flex">
+            <Button
+              asChild
+              className="border border-dark bg-transparent font-bold text-dark transition-colors hover:border-[#018d42] hover:bg-[#018d42] hover:text-white dark:border-white dark:text-white"
+            >
+              <Link href="/signup?type=fundraiser">Start a HiilBox</Link>
+            </Button>
 
-      {/* Original two-column links */}
-      <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-        {[
-          ["How Hiilbox works", "/how-it-works"],
-          ["About Hiilbox", "/about"],
-          ["Hiilbox Giving Guarantee", "/guarantee"],
-          ["Newsroom", "/newsroom"],
-          ["Supported countries", "/countries"],
-          ["Careers", "/careers"],
-          ["Pricing", "/pricing"],
-          ["Hiilbox.org", "/foundation"],
-          ["Help Center", "/help"],
-          ["Hiilbox Partnerships", "/partnerships"],
-        ].map(([label, href]) => (
-          <Link
-            key={href}
-            href={href}
-            className="text-[15px] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors"
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
-    </div>
-  </div>
-</div>
+            {loggedIn ? (
+              <>
+                <Button asChild className="font-bold">
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="font-bold"
+                  onClick={logout}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button
+                asChild
+                className="border border-dark bg-transparent font-bold text-dark transition-colors hover:border-[#018d42] hover:bg-[#018d42] hover:text-white dark:border-white dark:text-white"
+              >
+                <Link href="/login">Login</Link>
+              </Button>
+            )}
+          </div>
 
-  </div>
-
-  {/* CENTERED LOGO */}
-  <div className="absolute left-1/2 -translate-x-1/2">
-    <FullLogo />
-  </div>
-
-  {/* RIGHT NAVIGATION */}
-  <div className="ml-auto hidden xl:flex items-center gap-3">
-    <Button
-      asChild
-      className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors"
-    >
-      <Link href="/signup?type=fundraiser">
-        Start a HiilBox
-      </Link>
-    </Button>
-
-    {loggedIn ? (
-      <>
-        <Button asChild className="font-bold">
-          <Link href="/dashboard">Dashboard</Link>
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="font-bold"
-          onClick={logout}
-        >
-          Logout
-        </Button>
-      </>
-    ) : (
-      <Button asChild className="bg-transparent font-bold border border-1 border-dark dark:border-white text-dark dark:text-white hover:text-white hover:bg-[#018d42] hover:border-[#018d42] transition-colors">
-        <Link href="/login">Login</Link>
-      </Button>
-    )}
-  </div>
-
-  {/* MOBILE MENU */}
-  <div className="ml-auto xl:hidden">
-    <MobileMenu />
-  </div>
-
-</div>
+          {/* MOBILE MENU TRIGGER */}
+          {/* FIXED: Added shrink-0 so it doesn't get squeezed out of view by the logo */}
+          <div className="flex shrink-0 xl:hidden">
+            <MobileMenu />
+          </div>
+        </div>
       </header>
     </>
   );
