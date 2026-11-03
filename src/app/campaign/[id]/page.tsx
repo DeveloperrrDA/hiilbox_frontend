@@ -299,8 +299,7 @@ export default async function CampaignPage({
                       of ${campaign.goal.toLocaleString()}
                     </p>
                    <p className="mt-1 text-sm text-[#667085]">
-  {recentDonations.length.toLocaleString()} donations
-</p>
+{campaign.number_of_contributions.toLocaleString()} donations</p>
                   </div>
                 </div>
 
