@@ -6,7 +6,12 @@ const WORDPRESS_API = (
 ).replace(/\/$/, "");
 
 const GROWFUND_API_KEY = process.env.GROWFUND_CLIENT_API_KEY;
+const donationCache = new Map<
+  number,
+  { expiresAt: number; data: unknown }
+>();
 
+const CACHE_TTL_MS = 30_000;
 function pickArray(value: any): any[] {
   const candidates = [
     value?.data?.results,
@@ -76,7 +81,15 @@ export async function GET(
         { status: 500 }
       );
     }
+const cached = donationCache.get(campaignId);
 
+if (cached) {
+  if (cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.data);
+  }
+
+  donationCache.delete(campaignId);
+}
     const tokenResponse = await fetch(`${WORDPRESS_API}/auth/system-token`, {
       method: "POST",
       headers: { Accept: "application/json", "X-API-Key": GROWFUND_API_KEY },
@@ -118,14 +131,29 @@ export async function GET(
 
     const donations = (Array.isArray(data?.data) ? data.data : pickArray(data))
       .map(normalizeDonation)
-      .filter((item: any) => !["failed", "cancelled", "canceled", "refunded", "reversed", "void"].includes(item.status))
-      .sort((a: any, b: any) => {
+.filter(
+  (item: any) =>
+    String(item.status ?? "")
+      .trim()
+      .toLowerCase() === "completed"
+)      .sort((a: any, b: any) => {
         const aTime = a.created_at ? Date.parse(a.created_at) : 0;
         const bTime = b.created_at ? Date.parse(b.created_at) : 0;
         return bTime - aTime || Number(b.id) - Number(a.id);
       });
 
-    return NextResponse.json({ success: true, data: donations });
+const result = {
+  success: true,
+  data: donations,
+  completed_count: donations.length,
+};
+
+donationCache.set(campaignId, {
+  expiresAt: Date.now() + CACHE_TTL_MS,
+  data: result,
+});
+
+return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Unable to load recent donations." },

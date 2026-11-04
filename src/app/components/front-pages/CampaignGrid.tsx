@@ -24,13 +24,65 @@ const response = await getCampaigns({
   status: "launched-and-beyond",
 })
         if (!cancelled) {
-          if (response.success) {
-            setCampaigns(response.data);
-          } else {
-            setCampaigns([]);
-            setError("Failed to load campaigns.");
+  if (response.success) {
+setCampaigns(
+  response.data.map((campaign) => ({
+    ...campaign,
+    number_of_contributions: -1,
+  }))
+);
+setIsLoading(false);
+    const campaignsWithCompletedCounts =
+      await Promise.all(
+        
+        response.data.map(async (campaign) => {
+      
+
+          try {
+            const donationResponse = await fetch(
+              `/api/campaigns/${campaign.id}/donations`,
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+            const donationData =
+              await donationResponse.json();
+
+            if (
+              donationResponse.ok &&
+              donationData?.success
+            ) {
+              return {
+                ...campaign,
+                number_of_contributions:
+                  Number(
+                    donationData.completed_count ?? 0
+                  ),
+              };
+            }
+          } catch (error) {
+            console.error(
+              `Failed to load completed donation count for campaign ${campaign.id}:`,
+              error
+            );
           }
-        }
+
+          return campaign;
+        })
+      );
+
+    if (!cancelled) {
+      setCampaigns(
+        campaignsWithCompletedCounts
+      );
+    }
+  } else {
+    setCampaigns([]);
+    setError("Failed to load campaigns.");
+  }
+}
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to fetch campaigns:", err);
@@ -95,7 +147,7 @@ const response = await getCampaigns({
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:gap-10 md:grid-cols-2 lg:grid-cols-3">
             {campaigns.map((campaign) => (
               <CampaignCard key={campaign.id} campaign={campaign} />
             ))}

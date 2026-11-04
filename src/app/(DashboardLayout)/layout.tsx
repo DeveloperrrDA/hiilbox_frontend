@@ -6,41 +6,54 @@ import { Customizer } from "./layout/shared/customizer/Customizer";
 import { CustomizerContext } from "@/app/context/CustomizerContext";
 import { Activity } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import DashboardAccessGuard from "@/app/components/growfund/role/DashboardAccessGuard";
 
 export default function Layout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { activeLayout, isLayout } = useContext(CustomizerContext);
+  const { activeLayout, isLayout, isCollapse } = useContext(CustomizerContext);
+  
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen">
-        <div className="page-wrapper flex w-full">
-          <Activity mode={activeLayout == "vertical" ? "visible" : "hidden"}>
-            <div className="xl:block hidden">
-              <Sidebar />
-            </div>
-          </Activity>
-          <div className="body-wrapper w-full bg-lightgray dark:bg-dark">
-            {activeLayout == "horizontal" ? (
-              <Header layoutType="horizontal" />
-            ) : (
-              <Header layoutType="vertical" />
-            )}
-
-            <div
-              className={` ${
-                isLayout == "full"
-                  ? "w-full py-[30px] md:px-[30px] px-5"
-                  : " container mx-auto py-[30px]"
-              } ${activeLayout == "horizontal" ? "xl:mt-3" : ""}
-            `}
-            >
-              {children}
-            </div>
-            <Customizer />
+        <Activity mode={activeLayout === "vertical" ? "visible" : "hidden"}>
+          <div className="xl:block hidden">
+            <Sidebar />
           </div>
+        </Activity>
+        
+        {/* 
+          - !ms-0 completely kills the old theme's broken margin override
+          - padding-start (ps) smoothly offsets the content to fit the fixed sidebar perfectly
+        */}
+        <div 
+          className={`body-wrapper !ms-0 w-full min-w-0 bg-lightgray dark:bg-dark flex flex-col transition-all duration-300 ease-in-out ${
+            activeLayout === "vertical" 
+              ? isCollapse === "mini-sidebar"
+                ? "xl:ps-[80px]" 
+                : "xl:ps-[260px]"
+              : ""
+          }`}
+        >
+          {activeLayout === "horizontal" ? (
+            <Header layoutType="horizontal" />
+          ) : (
+            <Header layoutType="vertical" />
+          )}
+
+          <div
+            className={`flex-1 ${
+              isLayout === "full"
+                ? "w-full py-[30px] md:px-[30px] px-5"
+                : "container-full mx-10 py-[30px]"
+            } ${activeLayout === "horizontal" ? "xl:mt-3" : ""}
+          `}
+          >
+            <DashboardAccessGuard>{children}</DashboardAccessGuard>
+          </div>
+          <Customizer />
         </div>
       </div>
     </SidebarProvider>

@@ -51,10 +51,38 @@ export async function getSystemToken(): Promise<SystemTokenResponse> {
 export async function login(
   credentials: LoginRequest
 ): Promise<LoginResponse> {
-  return apiRequest<LoginResponse>("/auth/login", {
+  const response = await fetch("/api/auth/login", {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(credentials),
   });
+
+  let data: LoginResponse | { message?: string; code?: string };
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      `The server returned an invalid response (${response.status}).`
+    );
+  }
+
+  if (!response.ok) {
+    const error = data as {
+      message?: string;
+      code?: string;
+    };
+
+    throw new Error(
+      error.message ||
+        error.code ||
+        `Login failed with status ${response.status}`
+    );
+  }
+
+  return data as LoginResponse;
 }
 
 export async function register(

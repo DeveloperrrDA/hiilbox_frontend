@@ -43,8 +43,7 @@ export const BlogProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [error, setError] = useState<any>(null);
 
     // Fetch Post data from the API
-    const {data:postsData,isLoading:isPostsLoading , error:postsError} = useSWR('/api/blog',getFetcher);
-
+const {data:postsData,isLoading:isPostsLoading , error:postsError} = useSWR('/api/public-blogs',getFetcher);
     useEffect(() => {
         if(postsData){
             setPosts(postsData.data);

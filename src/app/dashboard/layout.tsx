@@ -1,3 +1,2 @@
-import DashboardLayout from "../(DashboardLayout)/layout";
-
+import DashboardLayout from "@/app/(DashboardLayout)/layout";
 export default DashboardLayout;

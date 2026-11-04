@@ -32,12 +32,10 @@ const BlogDetailData = () => {
   const pathName = usePathname();
   const getTitle: string | any = pathName.split("/").pop();
   const post = posts.find(
-    (p) =>
-      p.title
-        .toLowerCase()
-        .replace(/ /g, "-")
-        .replace(/[^\w-]+/g, "") === getTitle
-  );
+  (p) =>
+    (p as typeof p & { slug?: string }).slug ===
+    decodeURIComponent(getTitle)
+);
   const [replyTxt, setReplyTxt] = React.useState("");
 
   const onSubmit = () => {
@@ -143,67 +141,22 @@ const BlogDetailData = () => {
               </div>
             </div>
             <div className="h-px bg-gray-200 dark:bg-gray-700 my-0 mb-4"></div>
-            <div className="px-6 pb-6">
-              <h2 className="md:text-3xl text-2xl pb-5">
-                Title of the paragraph
-              </h2>
-              <p className="text-darklink dark:text-bodytext">
-                But you cannot figure out what it is or what it can do. MTA web
-                directory is the simplest way in which one can bid on a link, or
-                a few links if they wish to do so. The link directory on MTA
-                displays all of the links it currently has, and does so in
-                alphabetical order, which makes it much easier for someone to
-                find what they are looking for if it is something specific and
-                they do not want to go through all the other sites and links as
-                well. It allows you to start your bid at the bottom and slowly
-                work your way to the top of the list
-              </p>
-              <br></br>
-              <p className="text-darklink dark:text-bodytext">
-                Gigure out what it is or what it can do. MTA web directory is
-                the simplest way in which one can bid on a link, or a few links
-                if they wish to do so. The link directory on MTA displays all of
-                the links it currently has, and does so in alphabetical order,
-                which makes it much easier for someone to find what they are
-                looking for if it is something specific and they do not want to
-                go through all the other sites and links as well. It allows you
-                to start your bid at the bottom and slowly work your way to the
-                top of the
-              </p>
-              <br></br>
-              <p>
-                <b className="text-ld">This is strong text.</b>
-              </p>
-              <i>This is italic text.</i>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-8"></div>
-              <h3 className="text-xl mb-3">Unorder list</h3>
-              <ul className="list-disc pl-6 text-darklink dark:text-bodytext">
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-              </ul>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-8"></div>
-              <h3 className="text-xl mb-3">Order list</h3>
-              <ol className="list-decimal pl-6 text-darklink dark:text-bodytext">
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-              </ol>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-8"></div>
-              <h3 className="text-xl mb-3">Quotes</h3>
-              <div className="pt-5 pb-4 px-4 rounded-md border-s-2 border-primary bg-muted dark:bg-darkmuted flex gap-1 items-start">
-                <FaQuoteLeft size={20} className="text-ld -mt-1" />
-                <h2 className="text-base font-bold">
-                  Life is short, Smile while you still have teeth!
-                </h2>
-              </div>
-            </div>
+           <div className="px-6 pb-6">
+  <article
+    className="prose prose-lg dark:prose-invert max-w-none
+      [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:my-6
+      [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:my-5
+      [&_p]:my-4 [&_p]:leading-8
+      [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-4
+      [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-4
+      [&_li]:my-2
+      [&_a]:text-primary [&_a]:underline
+      [&_img]:rounded-lg"
+    dangerouslySetInnerHTML={{
+      __html: (post as typeof post & { content?: string }).content || "",
+    }}
+  />
+</div>
           </CardBox>
           <CardBox className="mt-6">
             <h5 className="text-xl mb-2">Post Comments</h5>

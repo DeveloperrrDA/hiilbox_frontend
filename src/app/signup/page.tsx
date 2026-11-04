@@ -2,9 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { register } from "@/lib/auth";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [userType, setUserType] = useState<"donor" | "fundraiser">("donor");
 
   const [form, setForm] = useState({
@@ -63,11 +65,26 @@ export default function SignupPage() {
         localStorage.setItem("refresh_token", result.refresh_token);
       }
 
-      setSuccess(
-        userType === "fundraiser"
-          ? "Your fundraiser account has been created. Please continue with the KYC process."
-          : "Your donor account has been created successfully."
-      );
+      const userId = Number(result.user_id || 0);
+      localStorage.setItem("auth_user", JSON.stringify({
+        id: userId,
+        user_id: userId,
+        username: result.username || form.username,
+        email: result.email || form.email,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        roles: [userType],
+      }));
+      window.dispatchEvent(new Event("hiilbox-auth-changed"));
+
+      if (userType === "fundraiser") {
+        setSuccess("Your fundraiser account has been created. Continue with identity and payout verification.");
+        router.push(`/signup/fundraiser-kyc?fundraiser_id=${encodeURIComponent(String(userId))}`);
+        return;
+      }
+
+      setSuccess("Your donor account has been created successfully.");
+      router.push("/dashboard");
 
       setForm({
         first_name: "",

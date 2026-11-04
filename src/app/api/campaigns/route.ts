@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
+import { readCache, writeCache, deduplicate } from "@/lib/hiilbox-cache";
 const WORDPRESS_API =
   process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
   "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1";
@@ -11,7 +11,13 @@ export async function GET(request: NextRequest) {
     // =========================================================
     // STEP 0: Make sure the API key exists
     // =========================================================
+const cacheKey = `campaigns:v1:${request.nextUrl.searchParams.toString()}`;
 
+const cached = await readCache<unknown>(cacheKey);
+
+if (cached !== null) {
+  return NextResponse.json(cached);
+}
     if (!GROWFUND_API_KEY) {
       console.error(
         "CAMPAIGNS ERROR: GROWFUND_CLIENT_API_KEY is missing"
@@ -31,7 +37,7 @@ export async function GET(request: NextRequest) {
     // =========================================================
     // STEP 1: Get system access token
     // =========================================================
-
+       const tokenStart = performance.now();
     const tokenResponse = await fetch(
       `${WORDPRESS_API}/auth/system-token`,
       {
@@ -44,7 +50,11 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     );
-
+  console.log(
+  "[PERFORMANCE] System token:",
+  Math.round(performance.now() - tokenStart),
+  "ms"
+);
     const tokenRaw = await tokenResponse.text();
 
     let tokenData: any;
@@ -122,7 +132,7 @@ export async function GET(request: NextRequest) {
     // Use X-API-Key, the same header used by the
     // /auth/system-token endpoint.
     // =========================================================
-
+   const campaignsStart = performance.now();
     const response = await fetch(campaignsUrl, {
       method: "GET",
       headers: {
@@ -136,7 +146,11 @@ export async function GET(request: NextRequest) {
       },
       cache: "no-store",
     });
-
+console.log(
+  "[PERFORMANCE] WordPress campaigns:",
+  Math.round(performance.now() - campaignsStart),
+  "ms"
+);
     // =========================================================
     // STEP 4: Read response safely
     // =========================================================
@@ -192,9 +206,13 @@ export async function GET(request: NextRequest) {
     // STEP 6: Return backend response
     // =========================================================
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    if (response.ok && data?.success !== false) {
+  await writeCache(cacheKey, data, 60);
+}
+
+return NextResponse.json(data, {
+  status: response.status,
+});
   } catch (error) {
     console.error(
       "CAMPAIGN PROXY ERROR:",

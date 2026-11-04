@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import CampaignCard from "./CampaignCard";
+import CampaignCard from "@/app/components/front-pages/CampaignCard";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
 
 export default function CampaignGrid() {
@@ -21,16 +21,58 @@ export default function CampaignGrid() {
 const response = await getCampaigns({
   page: 1,
   per_page: 10,
-  status: "published",
+  status: "launched-and-beyond",
 })
         if (!cancelled) {
-          if (response.success) {
-            setCampaigns(response.data);
-          } else {
-            setCampaigns([]);
-            setError("Failed to load campaigns.");
+  if (response.success) {
+    const campaignsWithCompletedCounts =
+      await Promise.all(
+        response.data.map(async (campaign) => {
+          try {
+            const donationResponse = await fetch(
+              `/api/campaigns/${campaign.id}/donations`,
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+            const donationData =
+              await donationResponse.json();
+
+            if (
+              donationResponse.ok &&
+              donationData?.success
+            ) {
+              return {
+                ...campaign,
+                number_of_contributions:
+                  Number(
+                    donationData.completed_count ?? 0
+                  ),
+              };
+            }
+          } catch (error) {
+            console.error(
+              `Failed to load completed donation count for campaign ${campaign.id}:`,
+              error
+            );
           }
-        }
+
+          return campaign;
+        })
+      );
+
+    if (!cancelled) {
+      setCampaigns(
+        campaignsWithCompletedCounts
+      );
+    }
+  } else {
+    setCampaigns([]);
+    setError("Failed to load campaigns.");
+  }
+}
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to fetch campaigns:", err);
@@ -80,11 +122,30 @@ const response = await getCampaigns({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {campaigns.map((campaign) => (
-        <CampaignCard key={campaign.id} campaign={campaign} />
-      ))}
+    <div className="lg:py-24 py-12 dark:bg-dark">
+      <div className="container-1218 mx-auto">
+        <div className=" lg:pt-24 pt-12 rounded-md overflow-hidden">
+            <div className="flex w-full justify-center mb-12">
+            <div className="text-center">
+              <h2 className="sm:text-44 text-3xl font-bold leading-48px! text-darkgray dark:text-white text-center">
+                Explore <span className="text-primary">Verified</span> Somali Crowdfunding Campaigns
+              </h2>
+              <p className="text-base leading-32px pt-4 text-darklink">
+                Discover trusted Somali crowdfunding campaigns supporting
+                health, education, emergencies, community projects, and charitable causes.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+            {campaigns.map((campaign) => (
+              <CampaignCard key={campaign.id} campaign={campaign} />
+            ))}
+        </div>
+      </div>
     </div>
+    
+    
   );
 }
 

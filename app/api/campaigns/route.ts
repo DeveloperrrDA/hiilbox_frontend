@@ -5,9 +5,29 @@ const WORDPRESS_API =
   "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1";
 
 const GROWFUND_API_KEY = process.env.GROWFUND_CLIENT_API_KEY;
-
+// Temporary server-side cache for public campaigns
+const campaignCache = new Map<
+  string,
+  { data: unknown; expiresAt: number }
+>();
+// Keep campaign data in memory for 10 minutes
+const CACHE_TTL = 10 * 60 * 1000;
 export async function GET(request: NextRequest) {
   try {
+    // CHECK CAMPAIGN CACHE FIRST
+    const cacheKey = request.nextUrl.searchParams.toString();
+    const cached = campaignCache.get(cacheKey);
+
+    if (cached && Date.now() < cached.expiresAt) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          "Cache-Control":
+            "public, max-age=0, s-maxage=60, stale-while-revalidate=120",
+          "X-Hiilbox-Cache": "HIT",
+        },
+      });
+    }
+
     // =========================================================
     // STEP 0: Make sure the API key exists
     // =========================================================
@@ -192,9 +212,24 @@ export async function GET(request: NextRequest) {
     // STEP 6: Return backend response
     // =========================================================
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+// STEP 3: Save successful public campaign responses
+if (response.ok && data?.success !== false) {
+  campaignCache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + CACHE_TTL,
+  });
+}
+
+// Return the campaign response
+return NextResponse.json(data, {
+  status: response.status,
+  headers: {
+    "Cache-Control": response.ok
+      ? "public, max-age=0, s-maxage=60, stale-while-revalidate=120"
+      : "no-store",
+    "X-Hiilbox-Cache": "MISS",
+  },
+});
   } catch (error) {
     console.error(
       "CAMPAIGN PROXY ERROR:",

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiBase, getOwnedCampaign, growfundJson, requireUser } from "../../_server";
 
+
+async function adminRequest(authorization: string) {
+  const { response, data } = await growfundJson(`${apiBase}/auth/me`, { method: "GET", headers: { Accept: "application/json", Authorization: authorization } });
+  if (!response.ok) return false;
+  const source = data?.data ?? data ?? {};
+  const raw = source?.roles ?? source?.role ?? source?.user_roles ?? [];
+  const roles = (Array.isArray(raw) ? raw : [raw]).map((r: any) => String(r).toLowerCase());
+  return roles.some((r: string) => ["administrator", "admin", "shop_manager"].includes(r));
+}
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireUser(req);
@@ -9,9 +18,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     // The GrowFund overview route is public, but the dashboard proxy first verifies
     // that the requested campaign belongs to the authenticated fundraiser.
-    const owned = await getOwnedCampaign(req, id, auth.userId);
-    if (!owned.response.ok) return NextResponse.json(owned.data, { status: owned.response.status });
-    if (!owned.campaign) return NextResponse.json({ success: false, message: "Campaign not found for this fundraiser account." }, { status: 404 });
+    const isAdmin = await adminRequest(auth.authorization);
+    if (!isAdmin) {
+      const owned = await getOwnedCampaign(req, id, auth.userId);
+      if (!owned.response.ok) return NextResponse.json(owned.data, { status: owned.response.status });
+      if (!owned.campaign) return NextResponse.json({ success: false, message: "Campaign not found for this fundraiser account." }, { status: 404 });
+    }
 
     const url = new URL(`${apiBase}/campaigns/${encodeURIComponent(id)}/overview`);
     const start = req.nextUrl.searchParams.get("start_date");

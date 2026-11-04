@@ -1,11 +1,23 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent,useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { register } from "@/lib/auth";
-
+import ThemeShell from "@/components/theme/ThemeShell";
+import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
 export default function SignupPage() {
-  const [userType, setUserType] = useState<"donor" | "fundraiser">("donor");
+const router = useRouter();
+
+const [userType, setUserType] = useState<"donor" | "fundraiser">("donor");
+
+useEffect(() => {
+  const type = new URLSearchParams(window.location.search).get("type");
+
+  if (type === "fundraiser") {
+    setUserType("fundraiser");
+  }
+}, []);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -63,11 +75,26 @@ export default function SignupPage() {
         localStorage.setItem("refresh_token", result.refresh_token);
       }
 
-      setSuccess(
-        userType === "fundraiser"
-          ? "Your fundraiser account has been created. Please continue with the KYC process."
-          : "Your donor account has been created successfully."
-      );
+      const userId = Number(result.user_id || 0);
+      localStorage.setItem("auth_user", JSON.stringify({
+        id: userId,
+        user_id: userId,
+        username: result.username || form.username,
+        email: result.email || form.email,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        roles: [userType],
+      }));
+      window.dispatchEvent(new Event("hiilbox-auth-changed"));
+
+      if (userType === "fundraiser") {
+        setSuccess("Your fundraiser account has been created. Continue with identity and payout verification.");
+        router.push(`/signup/fundraiser-kyc?fundraiser_id=${encodeURIComponent(String(userId))}`);
+        return;
+      }
+
+      setSuccess("Your donor account has been  created successfully.");
+      router.push("/dashboard");
 
       setForm({
         first_name: "",
@@ -89,17 +116,19 @@ export default function SignupPage() {
   }
 
   return (
+  <ThemeShell>
     <main className="min-h-screen bg-[#F6FAF7] px-4 py-8 sm:px-6 lg:py-12">
       <div className="mx-auto w-full max-w-2xl">
 
         {/* Logo / Header */}
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center">
-            <span className="text-3xl font-extrabold tracking-tight text-[#18A558]">
-              Hiil
-              <span className="text-[#16324F]">box</span>
-            </span>
-          </Link>
+         <Link
+  href="/"
+  className="inline-flex items-center justify-center"
+  aria-label="HiilBox homepage"
+>
+  <FullLogo />
+</Link>
 
           <h1 className="mt-7 text-3xl font-bold tracking-tight text-[#16324F] sm:text-4xl">
             Create your account
@@ -253,7 +282,7 @@ export default function SignupPage() {
                   }
                   required
                   autoComplete="given-name"
-                  placeholder="Enter your first name"
+                  placeholder="Enter your first name and Middle name"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-[#16324F] outline-none transition placeholder:text-gray-400 focus:border-[#18A558] focus:bg-white focus:ring-4 focus:ring-[#18A558]/10"
                 />
               </div>
@@ -408,7 +437,8 @@ export default function SignupPage() {
           By creating an account, you&apos;re joining Hiilbox&apos;s
           crowdfunding community.
         </p>
-      </div>
+           </div>
     </main>
+  </ThemeShell>
   );
 }

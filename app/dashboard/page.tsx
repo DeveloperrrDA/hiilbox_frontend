@@ -1,11 +1,3 @@
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
-import FundraiserDashboard from "@/app/components/growfund/FundraiserDashboard";
-
-export default function DashboardPage() {
-  return (
-    <>
-      <BreadcrumbComp title="Fundraiser Dashboard" items={[{ title: "Dashboard" }]} />
-      <FundraiserDashboard />
-    </>
-  );
-}
+import RoleDashboard from "@/app/components/growfund/role/RoleDashboard";
+export default function DashboardPage(){return <><BreadcrumbComp title="Dashboard" items={[{title:"Dashboard"}]}/><RoleDashboard/></>}

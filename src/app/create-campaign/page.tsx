@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useEffect,
@@ -36,6 +37,9 @@ const label =
   "block text-sm font-bold text-[#111c2d]";
 
 export default function CreateCampaignPage() {
+  console.log("### CORRECT CREATE CAMPAIGN PAGE ###");
+
+  const router = useRouter();
   const [step, setStep] = useState(1);
 
   const [token, setToken] = useState("");
@@ -55,11 +59,6 @@ export default function CreateCampaignPage() {
     useState(false);
 
   const [error, setError] = useState("");
-
-  const [created, setCreated] = useState<{
-    id: number;
-    status: string;
-  } | null>(null);
 
   const [images, setImages] =
     useState<Uploaded[]>([]);
@@ -607,60 +606,67 @@ export default function CreateCampaignPage() {
         collaborators:
           [],
 
-        show_collaborator_list:
-          false,
+       show_collaborator_list:
+  false,
 
-        is_featured:
-          false,
-      };
+is_featured:
+  false,
 
-      const response =
-        await authFetch(
-          "/api/campaigns/create",
-          {
-            method: "POST",
+faqs: [],
+};
+const response = await authFetch(
+  "/api/campaigns/create",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  }
+);
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+const data = await response.json();
 
-            body:
-              JSON.stringify(
-                payload
-              ),
-          }
-        );
+console.log(
+  "[create-campaign] Next API response:",
+  data
+);
 
-      const data =
-        await response.json();
+if (!response.ok || data?.success === false) {
+  throw new Error(
+    data?.message ||
+      Object.values(data?.data?.details || {})
+        .flat()
+        .join(" ") ||
+      "Campaign creation failed."
+  );
+}
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            Object.values(
-              data?.data
-                ?.details ||
-                {}
-            )
-              .flat()
-              .join(" ") ||
-            "Campaign creation failed."
-        );
-      }
+const campaignId = Number(data?.id);
 
-      setCreated(
-        data.data
-      );
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Campaign creation failed."
-      );
-    } finally {
-      setBusy(false);
-    }
+if (!Number.isFinite(campaignId) || campaignId <= 0) {
+  throw new Error(
+    "Campaign creation did not return a valid campaign ID."
+  );
+}
+
+router.push(
+  `/dashboard/campaigns/${campaignId}/edit`
+);
+
+router.refresh();
+
+return;
+
+} catch (caughtError) {
+  setError(
+    caughtError instanceof Error
+      ? caughtError.message
+      : "Campaign creation failed."
+  );
+} finally {
+  setBusy(false);
+}
   }
 
   /*
@@ -697,44 +703,7 @@ export default function CreateCampaignPage() {
   /*
    * Campaign successfully submitted.
    */
-  if (created) {
-    return (
-      <ThemeShell>
-        <main className="container-1218 py-16">
-          <div className="mx-auto max-w-2xl rounded-3xl border border-[#d9eee2] bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e9f8ef] text-2xl text-[#01A14B]">
-              ✓
-            </div>
-
-            <h1 className="mt-5 text-3xl font-extrabold">
-              Campaign submitted
-            </h1>
-
-            <p className="mt-3 text-[#5a6a85]">
-              Campaign #
-              {created.id} has
-              been saved with
-              status{" "}
-              <b>
-                {
-                  created.status
-                }
-              </b>{" "}
-              and is ready for
-              review.
-            </p>
-
-            <Link
-              href={`/campaign/${created.id}`}
-              className="mt-6 inline-flex rounded-xl bg-[#01A14B] px-6 py-3 font-bold text-white"
-            >
-              View campaign
-            </Link>
-          </div>
-        </main>
-      </ThemeShell>
-    );
-  }
+  
 
   return (
     <ThemeShell>

@@ -1,111 +1,77 @@
-import { Icon } from "@iconify/react";
+"use client";
 
-import React, { useContext } from "react";
-import * as profileData from "./Data";
+import { Icon } from "@iconify/react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import SimpleBar from "simplebar-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CustomizerContext } from "@/app/context/CustomizerContext";
+import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
+
+function firstValue(user: any, keys: string[]) {
+  for (const key of keys) {
+    const value = user?.[key] ?? user?.data?.[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
 
 const Profile = () => {
   const { activeDir } = useContext(CustomizerContext);
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
 
-  return (
-    <div className="relative group/menu">
-      <DropdownMenu dir={activeDir === "rtl" ? "rtl" : "ltr"}>
-        <DropdownMenuTrigger asChild>
-          <span className="h-10 w-10 hover:text-primary hover:bg-lightprimary rounded-full flex justify-center items-center cursor-pointer group-hover/menu:bg-lightprimary group-hover/menu:text-primary">
-            <Image
-              src="/images/profile/user-1.jpg"
-              alt="logo"
-              height="35"
-              width="35"
-              className="rounded-full"
-            />
-          </span>
-        </DropdownMenuTrigger>
+  useEffect(() => {
+    const sync = () => setUser(savedDashboardUser());
+    sync();
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
-        <DropdownMenuContent className="w-screen sm:w-[360px] py-6 px-0 rounded-sm ">
-          {/* Header */}
-          <div className="px-6">
-            <h3 className="text-lg font-semibold text-ld">User Profile</h3>
-            <div className="flex items-center gap-6 pb-5 border-b border-border dark:border-darkborder mt-5 mb-3">
-              <Image
-                src="/images/profile/user-1.jpg"
-                alt="logo"
-                height="80"
-                width="80"
-                className="rounded-full"
-              />
-              <div>
-                <h5 className="card-title">Jonathan Deo</h5>
+  const name = useMemo(() => {
+    const first = firstValue(user, ["first_name"]);
+    const last = firstValue(user, ["last_name"]);
+    return [first, last].filter(Boolean).join(" ") || firstValue(user, ["display_name", "name", "username", "user_login"]) || "User";
+  }, [user]);
+  const email = firstValue(user, ["email", "user_email"]);
+  const role = dashboardRole(user);
+  const roleLabel = role === "guest" ? "User" : role.charAt(0).toUpperCase() + role.slice(1);
+  const avatar = firstValue(user, ["avatar_url", "avatar", "profile_image", "profile_image_url", "image", "photo", "picture"]);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
 
-                <span className="card-subtitle">Admin</span>
+ function logout() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("auth_user");
+  sessionStorage.clear();
 
-                <p className="card-subtitle mb-0 mt-1 flex items-center">
-                  <Icon
-                    icon="solar:mailbox-line-duotone"
-                    className="text-base me-1"
-                  />
-                  info@Materialm.com
-                </p>
-              </div>
-            </div>
+  router.replace("/login");
+  router.refresh();
+}
+  const avatarNode = (size: "small" | "large") => {
+    const classes = size === "large" ? "h-20 w-20 text-xl" : "h-9 w-9 text-sm";
+    return avatar ? <img src={avatar} alt={name} className={`${classes} rounded-full object-cover`} /> : <span className={`${classes} flex shrink-0 items-center justify-center rounded-full bg-lightprimary font-semibold text-primary`}>{initials}</span>;
+  };
+
+  return <div className="relative group/menu">
+    <DropdownMenu dir={activeDir === "rtl" ? "rtl" : "ltr"}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label="Open user profile menu" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-lightprimary">{avatarNode("small")}</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[min(360px,calc(100vw-24px))] rounded-md px-0 py-5">
+        <div className="px-6">
+          <h3 className="text-lg font-semibold text-ld">User Profile</h3>
+          <div className="mt-5 mb-3 flex items-center gap-5 border-b border-border pb-5 dark:border-darkborder">
+            {avatarNode("large")}
+            <div className="min-w-0"><h5 className="truncate font-semibold">{name}</h5><span className="text-sm capitalize text-darklink">{roleLabel}</span>{email && <p className="mt-1 flex items-center truncate text-sm text-darklink"><Icon icon="solar:letter-line-duotone" className="me-1 shrink-0" />{email}</p>}</div>
           </div>
-
-          {/* Dropdown items */}
-          <SimpleBar>
-            {profileData.profileDD.map((items, index) => (
-              <DropdownMenuItem
-                key={index}
-                asChild
-                className="px-6 py-3 flex justify-between items-center bg-hover group/link w-full cursor-pointer "
-              >
-                <Link href={items.url} className="flex items-center w-full">
-                  <div className="flex items-center w-full">
-                    <div
-                      className={`h-11 w-11 flex-shrink-0 rounded-md flex justify-center items-center ${items.bgcolor}`}
-                    >
-                      <Icon
-                        icon={items.icon}
-                        height={20}
-                        className={items.color}
-                      />
-                    </div>
-                    <div className="ps-4 flex justify-between w-full">
-                      <div className="w-3/4 ">
-                        <h5 className="mb-1 text-sm  group-hover/link:text-primary">
-                          {items.title}
-                        </h5>
-                        <div className="text-xs  text-darklink">
-                          {items.subtitle}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </SimpleBar>
-
-          {/* Logout Button */}
-
-          <div className="pt-6 px-6">
-            <Button color="primary" className="w-full rounded-full">
-              <Link href="/auth/auth1/login"> Logout</Link>
-            </Button>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+        </div>
+        <DropdownMenuItem asChild className="mx-2 cursor-pointer px-4 py-3"><Link href="/dashboard/profile" className="flex w-full items-center gap-3"><Icon icon="solar:user-circle-line-duotone" className="text-xl"/><span><span className="block font-medium">My Profile</span><span className="text-xs text-darklink">View your profile</span></span></Link></DropdownMenuItem>
+        <DropdownMenuItem asChild className="mx-2 cursor-pointer px-4 py-3"><Link href="/dashboard/settings" className="flex w-full items-center gap-3"><Icon icon="solar:settings-line-duotone" className="text-xl"/><span><span className="block font-medium">Settings</span><span className="text-xs text-darklink">Account and preferences</span></span></Link></DropdownMenuItem>
+        <div className="px-6 pt-4"><Button type="button" className="w-full rounded-full" onClick={logout}><Icon icon="solar:logout-2-line-duotone"/> Logout</Button></div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>;
 };
-
 export default Profile;

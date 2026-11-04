@@ -15,13 +15,8 @@ const FrontLeftnav = [
     menu: "Donate",
     link: "/campaigns",
     badge: true,
-  },
-  {
-    menu: "Fundraise",
-    link: "/create-campaign",
-    badge: false,
-    icon: true,
-  },
+  }
+ 
   
 ];
 
