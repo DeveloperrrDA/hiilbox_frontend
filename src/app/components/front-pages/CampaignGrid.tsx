@@ -1,9 +1,10 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import CampaignCard from "@/app/components/front-pages/CampaignCard";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
+import { Button } from "@/components/ui/button";
 
 export default function CampaignGrid() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -18,71 +19,62 @@ export default function CampaignGrid() {
         setIsLoading(true);
         setError(null);
 
-const response = await getCampaigns({
-  page: 1,
-  per_page: 10,
-  status: "launched-and-beyond",
-})
+        const response = await getCampaigns({
+          page: 1,
+          per_page: 9,
+          status: "launched-and-beyond",
+        });
+
         if (!cancelled) {
-  if (response.success) {
-setCampaigns(
-  response.data.map((campaign) => ({
-    ...campaign,
-    number_of_contributions: -1,
-  }))
-);
-setIsLoading(false);
-    const campaignsWithCompletedCounts =
-      await Promise.all(
-        
-        response.data.map(async (campaign) => {
-      
-
-          try {
-            const donationResponse = await fetch(
-              `/api/campaigns/${campaign.id}/donations`,
-              {
-                method: "GET",
-                cache: "no-store",
-              }
-            );
-
-            const donationData =
-              await donationResponse.json();
-
-            if (
-              donationResponse.ok &&
-              donationData?.success
-            ) {
-              return {
+          if (response.success) {
+            setCampaigns(
+              response.data.map((campaign) => ({
                 ...campaign,
-                number_of_contributions:
-                  Number(
-                    donationData.completed_count ?? 0
-                  ),
-              };
-            }
-          } catch (error) {
-            console.error(
-              `Failed to load completed donation count for campaign ${campaign.id}:`,
-              error
+                number_of_contributions: -1,
+              }))
             );
+            setIsLoading(false);
+
+            const campaignsWithCompletedCounts = await Promise.all(
+              response.data.map(async (campaign) => {
+                try {
+                  const donationResponse = await fetch(
+                    `/api/campaigns/${campaign.id}/donations`,
+                    {
+                      method: "GET",
+                      cache: "no-store",
+                    }
+                  );
+
+                  const donationData = await donationResponse.json();
+
+                  if (donationResponse.ok && donationData?.success) {
+                    return {
+                      ...campaign,
+                      number_of_contributions: Number(
+                        donationData.completed_count ?? 0
+                      ),
+                    };
+                  }
+                } catch (error) {
+                  console.error(
+                    `Failed to load completed donation count for campaign ${campaign.id}:`,
+                    error
+                  );
+                }
+
+                return campaign;
+              })
+            );
+
+            if (!cancelled) {
+              setCampaigns(campaignsWithCompletedCounts);
+            }
+          } else {
+            setCampaigns([]);
+            setError("Failed to load campaigns.");
           }
-
-          return campaign;
-        })
-      );
-
-    if (!cancelled) {
-      setCampaigns(
-        campaignsWithCompletedCounts
-      );
-    }
-  } else {
-    setCampaigns([]);
-    setError("Failed to load campaigns.");
-  }
-}
+        }
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to fetch campaigns:", err);
@@ -134,8 +126,8 @@ setIsLoading(false);
   return (
     <div className="lg:py-24 py-12 dark:bg-dark">
       <div className="container-1218 mx-auto">
-        <div className=" lg:pt-24 pt-12 rounded-md overflow-hidden">
-            <div className="flex w-full justify-center mb-12">
+        <div className="lg:pt-24 pt-12 rounded-md overflow-hidden">
+          <div className="flex w-full justify-center mb-12">
             <div className="text-center">
               <h2 className="sm:text-44 text-3xl font-bold leading-48px! text-darkgray dark:text-white text-center">
                 Explore <span className="text-primary">Verified</span> Somali Crowdfunding Campaigns
@@ -147,15 +139,27 @@ setIsLoading(false);
             </div>
           </div>
         </div>
+        
+        {/* Campaign Grid (Limited to 9 via API) */}
         <div className="grid grid-cols-1 gap-6 md:gap-10 md:grid-cols-2 lg:grid-cols-3">
-            {campaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
-            ))}
+          {campaigns.slice(0, 9).map((campaign) => (
+            <CampaignCard key={campaign.id} campaign={campaign} />
+          ))}
         </div>
+
+        {/* See All Button Centered at Bottom */}
+        <div className="mt-16 flex justify-center">
+          <Button 
+            asChild 
+            className="rounded-full bg-[#01A14B] hover:bg-[#018b41] text-white shadow-sm px-10 py-6 text-base font-bold transition-transform hover:-translate-y-0.5"
+          >
+            <Link href="/campaigns">
+              See all campaigns
+            </Link>
+          </Button>
+        </div>
+
       </div>
     </div>
-    
-    
   );
 }
-

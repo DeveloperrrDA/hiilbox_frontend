@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 
 export default function CenteredCTA() {
   return (
-    <section className="py-10 md:py-16 lg:py-20 relative z-10 container-1218 rounded-lg overflow-hidden bg-[#01A14B]/20 dark:bg-[#01A14B]/5">
+    <section className="my-10 md:my-20 py-10 md:py-16 lg:py-20 relative z-10 container-1218 rounded-lg overflow-hidden bg-[#01A14B]/20 dark:bg-[#01A14B]/5">
       
       {/* =========================================
           BACKGROUND GRAPHICS (Full Width)
