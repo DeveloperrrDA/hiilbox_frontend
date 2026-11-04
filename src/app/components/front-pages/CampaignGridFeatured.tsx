@@ -153,7 +153,7 @@ const campaignsWithCompletedCounts = await Promise.all(
         <div className="mb-8 flex flex-row items-center justify-between gap-4 sm:mb-10 sm:items-end">
           <div className="text-left">
             <h2 className="text-2xl font-bold leading-tight text-dark dark:text-white sm:text-3xl sm:leading-[1.2] lg:text-[44px]">
-              Explore <span className="text-primary">Featured</span> <br className="hidden sm:block" />
+              Explore <span className="text-primary">Featured</span> <br className="hidden sm:inlineblock" />
               Campaigns
             </h2>
           </div>
