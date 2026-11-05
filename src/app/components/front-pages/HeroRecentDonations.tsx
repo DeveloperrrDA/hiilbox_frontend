@@ -4,19 +4,25 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { type Donation } from "@/lib/donations";
 
-// Fallback data with 8 items so we can clearly see the 4-by-4 batch rotation if the API is empty
+// Fixed static timestamps for fallback items so server HTML matches client hydration identically
 const fallbackDonations: Donation[] = [
-  { id: "mock1", donor_name: "Amina Hassan", amount: 50, currency: "USD", created_at: new Date(Date.now() - 2 * 60000).toISOString() },
-  { id: "mock2", donor_name: "Mohamed Ali", amount: 100, currency: "USD", created_at: new Date(Date.now() - 12 * 60000).toISOString() },
-  { id: "mock3", donor_name: "Fatima Ahmed", amount: 25, currency: "USD", created_at: new Date(Date.now() - 28 * 60000).toISOString() },
-  { id: "mock4", donor_name: "Hassan Yusuf", amount: 75, currency: "USD", created_at: new Date(Date.now() - 60 * 60000).toISOString() },
-  { id: "mock5", donor_name: "Khadija Noor", amount: 200, currency: "USD", created_at: new Date(Date.now() - 120 * 60000).toISOString() },
-  { id: "mock6", donor_name: "Anonymous", amount: 10, currency: "USD", created_at: new Date(Date.now() - 150 * 60000).toISOString() },
-  { id: "mock7", donor_name: "Saeed Jama", amount: 150, currency: "USD", created_at: new Date(Date.now() - 200 * 60000).toISOString() },
-  { id: "mock8", donor_name: "Farah Abdi", amount: 40, currency: "USD", created_at: new Date(Date.now() - 240 * 60000).toISOString() },
+  { id: "mock1", donor_name: "Amina Hassan", amount: 50, currency: "USD", created_at: "2026-03-01T12:00:00.000Z" },
+  { id: "mock2", donor_name: "Mohamed Ali", amount: 100, currency: "USD", created_at: "2026-03-01T11:50:00.000Z" },
+  { id: "mock3", donor_name: "Fatima Ahmed", amount: 25, currency: "USD", created_at: "2026-03-01T11:32:00.000Z" },
+  { id: "mock4", donor_name: "Hassan Yusuf", amount: 75, currency: "USD", created_at: "2026-03-01T11:00:00.000Z" },
+  { id: "mock5", donor_name: "Khadija Noor", amount: 200, currency: "USD", created_at: "2026-03-01T10:00:00.000Z" },
+  { id: "mock6", donor_name: "Anonymous", amount: 10, currency: "USD", created_at: "2026-03-01T09:30:00.000Z" },
+  { id: "mock7", donor_name: "Saeed Jama", amount: 150, currency: "USD", created_at: "2026-03-01T08:40:00.000Z" },
+  { id: "mock8", donor_name: "Farah Abdi", amount: 40, currency: "USD", created_at: "2026-03-01T08:00:00.000Z" },
 ];
 
 export default function HeroRecentDonations({ donations }: { donations: Donation[] }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Use API data if available, otherwise fallback
   const sourceDonations = donations && donations.length > 0 ? donations : fallbackDonations;
   
@@ -42,6 +48,8 @@ export default function HeroRecentDonations({ donations }: { donations: Donation
   const formatTimeAgo = (dateString?: string | null) => {
     if (!dateString) return "Recent";
     const diffMs = Date.now() - new Date(dateString).getTime();
+    if (Number.isNaN(diffMs)) return "Recent";
+
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
 
@@ -104,7 +112,9 @@ export default function HeroRecentDonations({ donations }: { donations: Donation
                     {currencySymbol}{amountFormatted}
                   </span>
                   <span className="mx-1.5">•</span>
-                  <span className="whitespace-nowrap">{formatTimeAgo(donation.created_at)}</span>
+                  <span className="whitespace-nowrap" suppressHydrationWarning>
+                    {mounted ? formatTimeAgo(donation.created_at) : "Recent"}
+                  </span>
                 </div>
               </div>
             </div>

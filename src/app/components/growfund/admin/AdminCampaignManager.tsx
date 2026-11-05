@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Icon } from "@iconify/react";
+import useSWR from "swr";
 import { adminApi, adminToken, dataFrom, fmtDate, idOf, money, rowsFrom } from "./adminApi";
 import DatePresetSelect from "@/app/components/growfund/shared/DatePresetSelect";
 import { isDateInRange, type DateRangeKey } from "@/lib/dashboard/dateRanges";
@@ -71,13 +72,6 @@ function campaignStatus(row: any) {
       .map(normalize)
       .find(Boolean) || "unknown";
 
-  /*
-   * Trash must take priority over secondary campaign state.
-   *
-   * A campaign can still have is_paused/is_hidden/is_ended metadata
-   * after WordPress moves the post to trash. If those flags are checked
-   * first, the Trash filter incorrectly removes the campaign.
-   */
   if (["trash", "trashed"].includes(primaryStatus)) {
     return "trashed";
   }
@@ -99,19 +93,6 @@ function campaignStatus(row: any) {
   if (isTrue(row?.is_hidden)) {
     return "hidden";
   }
-  /*
-   * Status priority:
-   *
-   * 1. Secondary/action status
-   *    paused, ended, hidden, visible, etc.
-   *
-   * 2. Event-driven status
-   *    e.g. campaign goal has been reached.
-   *
-   * 3. Primary status
-   *    draft, pending, published, declined, etc.
-   */
-
  
   const secondaryStatus =
     [
@@ -133,11 +114,6 @@ function campaignStatus(row: any) {
     return secondaryStatus;
   }
 
-  /*
-   * If no explicit secondary action exists, check
-   * campaign events. A campaign that has reached its
-   * goal should display Funded instead of Published.
-   */
   const raisedAmount = raised(row);
   const goalAmount = goal(row);
 
@@ -150,6 +126,7 @@ function campaignStatus(row: any) {
 
   return primaryStatus;
 }
+
 function statusMatches(row: any, wanted: string) {
   const actual = campaignStatus(row);
 
@@ -183,12 +160,15 @@ function featured(row: any) {
 
   return value === true || value === 1;
 }
+
 function statusOf(row: any) {
   return String(row?.status ?? row?.campaign_status ?? row?.post_status ?? "").trim().toLowerCase();
 }
+
 function creator(row: any) {
   return row?.author?.display_name || row?.fundraiser?.display_name || row?.creator?.display_name || row?.author?.name || row?.fundraiser?.name || row?.creator?.name || row?.author_name || row?.fundraiser_name || row?.creator_name || "—";
 }
+
 function campaignOwnerId(row: any) {
   return Number(
     row?.author?.id ??
@@ -204,21 +184,20 @@ function campaignOwnerId(row: any) {
     0
   );
 }
+
 function deepValue(input: any, keys: string[]): any {
   if (!input || typeof input !== "object") return undefined;
   for (const key of keys) if (input[key] !== undefined && input[key] !== null && input[key] !== "") return input[key];
   for (const value of Object.values(input)) if (value && typeof value === "object") { const found = deepValue(value, keys); if (found !== undefined) return found; }
   return undefined;
 }
+
 function numericValue(value: any): number | null {
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
-// The single-campaign endpoint is the same source used by the public campaign page.
-// Prefer its campaign-specific totals before any overview wrapper. A recursive overview
-// search can accidentally pick an aggregate total that belongs to another scope.
 function raised(row: any) {
   const directCandidates = [
     row?.fund_raised,
@@ -250,6 +229,7 @@ function raised(row: any) {
   }
   return 0;
 }
+
 function goal(row: any) {
   for (const value of [row?.goal_amount, row?.goal, row?.target_amount, row?.campaign?.goal_amount]) {
     const n = numericValue(value);
@@ -257,6 +237,7 @@ function goal(row: any) {
   }
   return 0;
 }
+
 function donationCount(row: any) {
   const direct = [
     row?.number_of_contributions,
@@ -279,6 +260,7 @@ function donationCount(row: any) {
   }
   return 0;
 }
+
 function createdDate(row: any) {
   return (
     row?.date_created ??
@@ -299,69 +281,7 @@ function createdDate(row: any) {
     ""
   );
 }
-export default function AdminCampaignManager() {
-  const router = useRouter();
-  const adminUser = savedDashboardUser();
 
-const adminUserId = Number(
-  adminUser?.id ??
-  adminUser?.ID ??
-  adminUser?.user_id ??
-  0
-);
-const adminCanSeeCampaign = useCallback(
-  (row: any) => {
-    if (!statusMatches(row, "draft")) {
-      return true;
-    }
-
-    const ownerId = campaignOwnerId(row);
-
-    return ownerId > 0 && ownerId === adminUserId;
-  },
-  [adminUserId]
-);
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [status, setStatus] = useState("all");
-  const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
- const [selected, setSelected] = useState<number[]>([]);
-const [page, setPage] = useState(1);
-const [totalCampaigns, setTotalCampaigns] = useState(0);
-  const [updateCampaign, setUpdateCampaign] = useState<any | null>(null);
-  const [updateForm, setUpdateForm] = useState({ title: "", description: "" });
-  const [updateImages, setUpdateImages] = useState<any[]>([]);
-  const [uploadingUpdateImage, setUploadingUpdateImage] = useState(false);
-  const [postingUpdate, setPostingUpdate] = useState(false);
-  const [updatesCampaign, setUpdatesCampaign] = useState<any | null>(null);
-  const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
-  const [updatesLoading, setUpdatesLoading] = useState(false);
-  const [selectedUpdate, setSelectedUpdate] = useState<any | null>(null);
-  const [updateComments, setUpdateComments] = useState<any[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [commentBusy, setCommentBusy] = useState(false);
-  const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
-  const [trashCampaign, setTrashCampaign] = useState<any | null>(null);
-const [trashingCampaign, setTrashingCampaign] = useState(false);
-const [approveCampaign, setApproveCampaign] = useState<any | null>(null);
-const [approvingCampaign, setApprovingCampaign] = useState(false);
-
-const [declineCampaign, setDeclineCampaign] = useState<any | null>(null);
-const [declineReason, setDeclineReason] = useState("");
-const [decliningCampaign, setDecliningCampaign] = useState(false);
-
-const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
-const [emptyingTrash, setEmptyingTrash] = useState(false);
-
-const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
-const [bulkTrashing, setBulkTrashing] = useState(false);
 function totalFromResponse(data: any, fallback: number) {
   const candidates = [
     data?.data?.total,
@@ -379,465 +299,326 @@ function totalFromResponse(data: any, fallback: number) {
 
   return fallback;
 }
-  const load = useCallback(async () => {
-  setLoading(true);
-  setError("");
 
-  try {
-    async function fetchAllCampaigns(campaignStatus: string) {
-      const allRows: any[] = [];
-      let currentPage = 1;
-      let expectedTotal: number | null = null;
+export default function AdminCampaignManager() {
+  const router = useRouter();
+  const adminUser = savedDashboardUser();
 
-      while (true) {
-        const qs = new URLSearchParams({
-          page: String(currentPage),
-          per_page: "100",
-          status: campaignStatus,
-        });
-
-        if (search.trim()) {
-          qs.set("search", search.trim());
-        }
-
-       const response = await adminApi(`campaigns?${qs}`);
-const batch = rowsFrom(response);
-
-
-if (expectedTotal === null) {
-          expectedTotal = totalFromResponse(response, batch.length);
-        }
-
-        allRows.push(...batch);
-
-        // No more rows.
-        if (batch.length === 0) break;
-
-        // We have reached the API's reported total.
-        if (
-          expectedTotal !== null &&
-          expectedTotal > 0 &&
-          allRows.length >= expectedTotal
-        ) {
-          break;
-        }
-
-        // A short page means this was the last page.
-        if (batch.length < 100) break;
-
-        currentPage += 1;
-
-        // Safety guard against a broken API repeatedly returning the same page.
-        if (currentPage > 1000) break;
-      }
-
-      return allRows;
-    }
-
- if (status === "all") {
-  
-  const results = await Promise.allSettled([
-    fetchAllCampaigns("all"),
-    fetchAllCampaigns("pending"),
-    fetchAllCampaigns("rejected"),
-    fetchAllCampaigns("draft"),
-  ]);
-
-  const merged: any[] = [];
-
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      merged.push(...result.value);
-    }
-  }
-
-  const byId = new Map<string, any>();
-
-  merged.forEach((row, index) => {
-    const key = String(
-      row?.id ??
-        row?.ID ??
-        row?.campaign_id ??
-        `row-${index}`
-    );
-
-    if (!byId.has(key)) {
-      byId.set(key, row);
-    }
-  });
-
-  const completeRows = Array.from(byId.values()).filter(
-  adminCanSeeCampaign
-);
-
-setRows(completeRows);
-setTotalCampaigns(completeRows.length);
-} else if (status === "trash") {
-  /*
-   * Trashed campaigns are not expected to appear in the normal
-   * "all" campaign collection. Load the trash collection directly.
-   *
-   * GrowFund installations may expose this status as either
-   * "trash" or "trashed", so try both and merge the results.
-   */
-  const trashResults = await Promise.allSettled([
-    fetchAllCampaigns("trash"),
-    fetchAllCampaigns("trashed"),
-  ]);
-
-  const mergedTrashRows: any[] = [];
-
-  for (const result of trashResults) {
-    if (result.status === "fulfilled") {
-      mergedTrashRows.push(...result.value);
-    }
-  }
-
-  const trashById = new Map<string, any>();
-
-  mergedTrashRows.forEach((row, index) => {
-    const key = String(
-      row?.id ??
-        row?.ID ??
-        row?.campaign_id ??
-        `trash-${index}`
-    );
-
-    if (!trashById.has(key)) {
-      trashById.set(key, row);
-    }
-  });
-
-  const trashRows = Array.from(trashById.values()).filter(
-    (row: any) => statusMatches(row, "trash")
+  const adminUserId = Number(
+    adminUser?.id ??
+    adminUser?.ID ??
+    adminUser?.user_id ??
+    0
   );
 
-  setRows(trashRows);
-  setTotalCampaigns(trashRows.length);
-} else {
-  /*
-   * First load the complete "all" collection and check whether
-   * it already contains campaigns with the requested status.
-   */
-  const allRows = await fetchAllCampaigns("all");
+  const adminCanSeeCampaign = useCallback(
+    (row: any) => {
+      if (!statusMatches(row, "draft")) {
+        return true;
+      }
+      const ownerId = campaignOwnerId(row);
+      return ownerId > 0 && ownerId === adminUserId;
+    },
+    [adminUserId]
+  );
 
-  const local = allRows.filter(
-  (r: any) =>
-    statusMatches(r, status) &&
-    adminCanSeeCampaign(r)
-);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
+  const [updateCampaign, setUpdateCampaign] = useState<any | null>(null);
+  const [updateForm, setUpdateForm] = useState({ title: "", description: "" });
+  const [updateImages, setUpdateImages] = useState<any[]>([]);
+  const [uploadingUpdateImage, setUploadingUpdateImage] = useState(false);
+  const [postingUpdate, setPostingUpdate] = useState(false);
+  const [updatesCampaign, setUpdatesCampaign] = useState<any | null>(null);
+  const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [selectedUpdate, setSelectedUpdate] = useState<any | null>(null);
+  const [updateComments, setUpdateComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [paidCounts, setPaidCounts] = useState<Record<number, number>>({});
+  const [trashCampaign, setTrashCampaign] = useState<any | null>(null);
+  const [trashingCampaign, setTrashingCampaign] = useState(false);
+  const [approveCampaign, setApproveCampaign] = useState<any | null>(null);
+  const [approvingCampaign, setApprovingCampaign] = useState(false);
+  const [declineCampaign, setDeclineCampaign] = useState<any | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [decliningCampaign, setDecliningCampaign] = useState(false);
+  const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
+  const [emptyingTrash, setEmptyingTrash] = useState(false);
+  const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
+  const [bulkTrashing, setBulkTrashing] = useState(false);
 
-  if (local.length) {
-    setRows(local);
-    setTotalCampaigns(local.length);
-  } else {
-    /*
-     * Some backend versions do not include every status in
-     * the "all" collection, so load that status explicitly.
-     */
-    const statusRows = await fetchAllCampaigns(status);
+  // Implement SWR for fetching campaigns
+  const swrKey = useMemo(() => ["admin_campaigns", status, search], [status, search]);
+  
+  const { data: fetchedRows, error: swrError, isLoading, isValidating, mutate } = useSWR(
+    swrKey,
+    async ([_, currentStatus, currentSearch]) => {
+      async function fetchAllCampaigns(campaignStatus: string) {
+        const allRows: any[] = [];
+        let currentPage = 1;
+        let expectedTotal: number | null = null;
 
-    const filtered = statusRows.filter(
-  (r: any) =>
-    statusMatches(r, status) &&
-    adminCanSeeCampaign(r)
-);
+        while (true) {
+          const qs = new URLSearchParams({
+            page: String(currentPage),
+            per_page: "100",
+            status: campaignStatus,
+          });
 
-    setRows(filtered);
-    setTotalCampaigns(filtered.length);
-  }
-}
-  } catch (e) {
-    setError(
-      e instanceof Error
-        ? e.message
-        : "Unable to load campaigns."
-    );
+          if (currentSearch.trim()) {
+            qs.set("search", currentSearch.trim());
+          }
 
-    setRows([]);
-    setTotalCampaigns(0);
-  } finally {
-    setLoading(false);
-  }
-}, [status, search, adminCanSeeCampaign]);
-  useEffect(() => void load(), [load]);
+          const response = await adminApi(`campaigns?${qs}`);
+          const batch = rowsFrom(response);
+
+          if (expectedTotal === null) {
+            expectedTotal = totalFromResponse(response, batch.length);
+          }
+
+          allRows.push(...batch);
+          if (batch.length === 0) break;
+          if (expectedTotal !== null && expectedTotal > 0 && allRows.length >= expectedTotal) break;
+          if (batch.length < 100) break;
+          currentPage += 1;
+          if (currentPage > 1000) break;
+        }
+
+        return allRows;
+      }
+
+      if (currentStatus === "all") {
+        const results = await Promise.allSettled([
+          fetchAllCampaigns("all"),
+          fetchAllCampaigns("pending"),
+          fetchAllCampaigns("rejected"),
+          fetchAllCampaigns("draft"),
+        ]);
+
+        const merged: any[] = [];
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            merged.push(...result.value);
+          }
+        }
+
+        const byId = new Map<string, any>();
+        merged.forEach((row, index) => {
+          const key = String(row?.id ?? row?.ID ?? row?.campaign_id ?? `row-${index}`);
+          if (!byId.has(key)) {
+            byId.set(key, row);
+          }
+        });
+
+        return Array.from(byId.values()).filter(adminCanSeeCampaign);
+      } else if (currentStatus === "trash") {
+        const trashResults = await Promise.allSettled([
+          fetchAllCampaigns("trash"),
+          fetchAllCampaigns("trashed"),
+        ]);
+
+        const mergedTrashRows: any[] = [];
+        for (const result of trashResults) {
+          if (result.status === "fulfilled") {
+            mergedTrashRows.push(...result.value);
+          }
+        }
+
+        const trashById = new Map<string, any>();
+        mergedTrashRows.forEach((row, index) => {
+          const key = String(row?.id ?? row?.ID ?? row?.campaign_id ?? `trash-${index}`);
+          if (!trashById.has(key)) {
+            trashById.set(key, row);
+          }
+        });
+
+        return Array.from(trashById.values()).filter((row: any) => statusMatches(row, "trash"));
+      } else {
+        const allRows = await fetchAllCampaigns("all");
+        const local = allRows.filter((r: any) => statusMatches(r, currentStatus) && adminCanSeeCampaign(r));
+
+        if (local.length) {
+          return local;
+        } else {
+          const statusRows = await fetchAllCampaigns(currentStatus);
+          return statusRows.filter((r: any) => statusMatches(r, currentStatus) && adminCanSeeCampaign(r));
+        }
+      }
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
+      keepPreviousData: true,
+    }
+  );
+
+  const rows = fetchedRows || [];
+  const loading = isLoading;
+  const displayError = actionError || (swrError instanceof Error ? swrError.message : swrError ? "Unable to load campaigns." : "");
 
   async function post(id: number, path: string, payload: any, msg: string) {
     setBusy(id);
-    setError("");
+    setActionError("");
     setNotice("");
     try {
       const data = await adminApi(path, { method: "POST", body: JSON.stringify(payload) });
-setNotice(data?.message || msg);
-      await load();
+      setNotice(data?.message || msg);
+      await mutate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Action failed.");
+      setActionError(e instanceof Error ? e.message : "Action failed.");
     } finally {
       setBusy(null);
     }
   }
-async function createDraft() {
-  setBusy(-1);
-  setError("");
-  setNotice("");
 
-  try {
-    const token = adminToken();
+  async function createDraft() {
+    setBusy(-1);
+    setActionError("");
+    setNotice("");
 
-    if (!token) {
-      throw new Error("Please sign in to create a campaign.");
-    }
-
-    const response = await fetch(
-      "/api/campaigns/create-draft",
-      {
+    try {
+      const token = adminToken();
+      if (!token) throw new Error("Please sign in to create a campaign.");
+      
+      const response = await fetch("/api/campaigns/create-draft", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({}),
-      }
-    );
+      });
 
-    const data = await response
-      .json()
-      .catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(
-        data?.message ||
-          "Unable to create campaign draft."
-      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || "Unable to create campaign draft.");
+      
+      const campaignId = Number(data?.data?.id ?? data?.data?.campaign_id ?? data?.campaign?.id ?? data?.campaign_id ?? data?.id ?? 0);
+      if (!campaignId) throw new Error("Campaign draft was created but no campaign ID was returned.");
+      
+      router.push(`/dashboard/campaigns/${campaignId}/edit`);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Unable to create campaign draft.");
+    } finally {
+      setBusy(null);
     }
-
-    const campaignId = Number(
-      data?.data?.id ??
-        data?.data?.campaign_id ??
-        data?.campaign?.id ??
-        data?.campaign_id ??
-        data?.id ??
-        0
-    );
-
-    if (!campaignId) {
-      throw new Error(
-        "Campaign draft was created but no campaign ID was returned."
-      );
-    }
-
-    router.push(
-      `/dashboard/campaigns/${campaignId}/edit`
-    );
-  } catch (e) {
-    setError(
-      e instanceof Error
-        ? e.message
-        : "Unable to create campaign draft."
-    );
-  } finally {
-    setBusy(null);
   }
-}
+
   async function duplicate(r: any) {
-  const id = idOf(r);
+    const id = idOf(r);
+    setBusy(id);
+    setActionError("");
 
-  setBusy(id);
-  setError("");
+    try {
+      const full = dataFrom(await adminApi(`campaigns/${id}`));
+      const source = full?.campaign ?? full;
+      const payload: Record<string, any> = {};
 
-  try {
-    // Fetch the original campaign.
-    const full = dataFrom(
-      await adminApi(`campaigns/${id}`)
-    );
+      const copyFields = [
+        "description", "story", "images", "video", "category", "sub_category",
+        "start_date", "end_date", "location", "tags", "fundraiser_id", "collaborators",
+        "show_collaborator_list", "risk", "has_goal", "goal_type", "reaching_action",
+        "confirmation_title", "confirmation_description", "provide_confirmation_pdf_receipt",
+        "goal_amount", "allow_custom_donation", "min_donation_amount", "max_donation_amount",
+        "suggested_option_type", "suggested_options", "faqs", "author_id",
+      ];
 
-    const source = full?.campaign ?? full;
-
-    // Only copy campaign fields that should belong
-    // to the new campaign.
-    //
-    // Do NOT copy:
-    // id
-    // created_at
-    // updated_at
-    // date_created
-    // timestamps
-    const payload: Record<string, any> = {};
-
-    const copyFields = [
-      "description",
-      "story",
-      "images",
-      "video",
-      "category",
-      "sub_category",
-      "start_date",
-      "end_date",
-      "location",
-      "tags",
-      "fundraiser_id",
-      "collaborators",
-      "show_collaborator_list",
-      "risk",
-      "has_goal",
-      "goal_type",
-      "reaching_action",
-      "confirmation_title",
-      "confirmation_description",
-      "provide_confirmation_pdf_receipt",
-      "goal_amount",
-      "allow_custom_donation",
-      "min_donation_amount",
-      "max_donation_amount",
-      "suggested_option_type",
-      "suggested_options",
-      "faqs",
-      "author_id",
-    ];
-
-    for (const field of copyFields) {
-      if (source?.[field] !== undefined) {
-        payload[field] = source[field];
+      for (const field of copyFields) {
+        if (source?.[field] !== undefined) payload[field] = source[field];
       }
+
+      payload.title = `Copy of ${source?.title || r?.title || `Campaign ${id}`}`;
+      payload.status = "draft";
+
+      const result = await adminApi("campaigns/create", { method: "POST", body: JSON.stringify(payload) });
+      setNotice(result?.message || "Campaign copied successfully.");
+      await mutate();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Unable to copy campaign.");
+    } finally {
+      setBusy(null);
     }
+  }
 
-    payload.title =
-      `Copy of ${
-        source?.title ||
-        r?.title ||
-        `Campaign ${id}`
-      }`;
+  function approve(r: any) {
+    setApproveCampaign(r);
+  }
 
-    // A copied campaign starts as a new draft.
-    payload.status = "draft";
+  async function confirmApproveCampaign() {
+    if (!approveCampaign) return;
+    const id = idOf(approveCampaign);
+    setApprovingCampaign(true);
+    setActionError("");
+    setNotice("");
 
-    // Create an entirely new campaign.
-    // The backend will generate the new creation timestamp.
-    const result = await adminApi(
-      "campaigns/create",
-      {
+    try {
+      const data = await adminApi(`campaign/${id}/update-status`, {
         method: "POST",
-        body: JSON.stringify(payload),
-      }
-    );
-
-    setNotice(
-      result?.message ||
-      "Campaign copied successfully."
-    );
-
-    await load();
-  } catch (e) {
-    setError(
-      e instanceof Error
-        ? e.message
-        : "Unable to copy campaign."
-    );
-  } finally {
-    setBusy(null);
+        body: JSON.stringify({ status: "published" }),
+      });
+      setNotice(data?.message || "Campaign approved.");
+      setApproveCampaign(null);
+      await mutate();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Unable to approve campaign.");
+    } finally {
+      setApprovingCampaign(false);
+    }
   }
-}
 
- function approve(r: any) {
-  setApproveCampaign(r);
-}
-
-async function confirmApproveCampaign() {
-  if (!approveCampaign) return;
-
-  const id = idOf(approveCampaign);
-  setApprovingCampaign(true);
-  setError("");
-  setNotice("");
-
-  try {
-    const data = await adminApi(`campaign/${id}/update-status`, {
-      method: "POST",
-      body: JSON.stringify({ status: "published" }),
-    });
-
-    setNotice(data?.message || "Campaign approved.");
-    setApproveCampaign(null);
-    await load();
-  } catch (e) {
-    setError(
-      e instanceof Error ? e.message : "Unable to approve campaign."
-    );
-  } finally {
-    setApprovingCampaign(false);
-  }
-}
-
-function decline(r: any) {
-  setDeclineCampaign(r);
-  setDeclineReason("");
-}
-
-async function confirmDeclineCampaign() {
-  if (!declineCampaign) return;
-
-  const id = idOf(declineCampaign);
-  setDecliningCampaign(true);
-  setError("");
-  setNotice("");
-
-  try {
-    const data = await adminApi(`campaign/${id}/update-status`, {
-      method: "POST",
-      body: JSON.stringify({
-        status: "declined",
-        decline_reason: declineReason.trim(),
-      }),
-    });
-
-    setNotice(data?.message || "Campaign declined.");
-    setDeclineCampaign(null);
+  function decline(r: any) {
+    setDeclineCampaign(r);
     setDeclineReason("");
-    await load();
-  } catch (e) {
-    setError(
-      e instanceof Error ? e.message : "Unable to decline campaign."
-    );
-  } finally {
-    setDecliningCampaign(false);
   }
-}
 
-    function trash(r: any) {
+  async function confirmDeclineCampaign() {
+    if (!declineCampaign) return;
+    const id = idOf(declineCampaign);
+    setDecliningCampaign(true);
+    setActionError("");
+    setNotice("");
+
+    try {
+      const data = await adminApi(`campaign/${id}/update-status`, {
+        method: "POST",
+        body: JSON.stringify({ status: "declined", decline_reason: declineReason.trim() }),
+      });
+      setNotice(data?.message || "Campaign declined.");
+      setDeclineCampaign(null);
+      setDeclineReason("");
+      await mutate();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Unable to decline campaign.");
+    } finally {
+      setDecliningCampaign(false);
+    }
+  }
+
+  function trash(r: any) {
     setTrashCampaign(r);
   }
 
   async function confirmTrashCampaign() {
     if (!trashCampaign) return;
-
     const id = idOf(trashCampaign);
-
     setTrashingCampaign(true);
-    setError("");
+    setActionError("");
     setNotice("");
 
     try {
-      const data = await adminApi(
-        `campaign/${id}/delete`,
-        {
-          method: "POST",
-          body: JSON.stringify({}),
-        }
-      );
-
-      setNotice(
-        data?.message ||
-          "Campaign moved to trash."
-      );
-
+      const data = await adminApi(`campaign/${id}/delete`, { method: "POST", body: JSON.stringify({}) });
+      setNotice(data?.message || "Campaign moved to trash.");
       setTrashCampaign(null);
-      await load();
+      await mutate();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Unable to move campaign to trash."
-      );
+      setActionError(e instanceof Error ? e.message : "Unable to move campaign to trash.");
     } finally {
       setTrashingCampaign(false);
     }
@@ -853,20 +634,19 @@ async function confirmDeclineCampaign() {
     await post(id, "campaign/update-featured-status", { ids: [id], is_featured: value }, value ? "Campaign featured." : "Campaign unfeatured.");
   }
 
-
   function openPostUpdate(r: any) {
     setUpdateCampaign(r);
     setUpdateForm({ title: "", description: "" });
     setUpdateImages([]);
-    setError("");
+    setActionError("");
   }
 
   async function uploadUpdateImages(files: FileList | null) {
     if (!files?.length) return;
     const token = adminToken();
-    if (!token) { setError("Please sign in to upload media."); return; }
+    if (!token) { setActionError("Please sign in to upload media."); return; }
     setUploadingUpdateImage(true);
-    setError("");
+    setActionError("");
     try {
       const form = new FormData();
       Array.from(files).forEach((file) => form.append("images[]", file));
@@ -880,7 +660,7 @@ async function confirmDeclineCampaign() {
       const uploaded = Array.isArray(data?.images) ? data.images : Array.isArray(data?.data?.images) ? data.data.images : [];
       setUpdateImages((current) => [...current, ...uploaded]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Image upload failed.");
+      setActionError(e instanceof Error ? e.message : "Image upload failed.");
     } finally {
       setUploadingUpdateImage(false);
     }
@@ -890,27 +670,21 @@ async function confirmDeclineCampaign() {
     if (!updateCampaign) return;
     const title = updateForm.title.trim();
     const description = updateForm.description.trim();
-    if (!title || !description) { setError("Title and description are required for a campaign update."); return; }
+    if (!title || !description) { setActionError("Title and description are required for a campaign update."); return; }
     setPostingUpdate(true);
-    setError("");
+    setActionError("");
     setNotice("");
     try {
       const slug = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const result = await adminApi("campaign/update/create", {
         method: "POST",
-        body: JSON.stringify({
-          campaign_id: idOf(updateCampaign),
-          title,
-          slug,
-          description,
-          image: updateImages,
-        }),
+        body: JSON.stringify({ campaign_id: idOf(updateCampaign), title, slug, description, image: updateImages }),
       });
       setNotice(result?.message || "Campaign update posted successfully.");
       setUpdateCampaign(null);
       setUpdateImages([]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to post campaign update.");
+      setActionError(e instanceof Error ? e.message : "Unable to post campaign update.");
     } finally {
       setPostingUpdate(false);
     }
@@ -927,12 +701,12 @@ async function confirmDeclineCampaign() {
     setSelectedUpdate(null);
     setUpdateComments([]);
     setUpdatesLoading(true);
-    setError("");
+    setActionError("");
     try {
       const qs = new URLSearchParams({ page: "1", per_page: "50", campaign_id: String(campaignId) });
       setCampaignUpdates(rowsFrom(await adminApi(`campaign/updates/paginated?${qs}`)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to load campaign updates.");
+      setActionError(e instanceof Error ? e.message : "Unable to load campaign updates.");
     } finally {
       setUpdatesLoading(false);
     }
@@ -965,61 +739,53 @@ async function confirmDeclineCampaign() {
     const content = commentText.trim();
     if (!postId || !content) return;
     setCommentBusy(true);
-    setError("");
+    setActionError("");
     try {
       await adminApi("campaign/update/comment/create", { method: "POST", body: JSON.stringify({ post_id: postId, content }) });
       setCommentText("");
       setUpdateComments(rowsFrom(await adminApi(`campaign/update/comments/paginated?page=1&post_id=${postId}`)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to add comment.");
+      setActionError(e instanceof Error ? e.message : "Unable to add comment.");
     } finally {
       setCommentBusy(false);
     }
   }
 
   function emptyTrash() {
-  setEmptyTrashOpen(true);
-}
-
-async function confirmEmptyTrash() {
-  setEmptyingTrash(true);
-  setError("");
-  setNotice("");
-
-  try {
-    const d = await adminApi("campaigns/empty-trash", {
-      method: "POST",
-      body: "{}",
-    });
-
-    setNotice(d?.message || "Campaign trash emptied.");
-    setEmptyTrashOpen(false);
-    await load();
-  } catch (e) {
-    setError(
-      e instanceof Error ? e.message : "Unable to empty trash."
-    );
-  } finally {
-    setEmptyingTrash(false);
+    setEmptyTrashOpen(true);
   }
-}
+
+  async function confirmEmptyTrash() {
+    setEmptyingTrash(true);
+    setActionError("");
+    setNotice("");
+    try {
+      const d = await adminApi("campaigns/empty-trash", { method: "POST", body: "{}" });
+      setNotice(d?.message || "Campaign trash emptied.");
+      setEmptyTrashOpen(false);
+      await mutate();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Unable to empty trash.");
+    } finally {
+      setEmptyingTrash(false);
+    }
+  }
+
   async function bulk(action: string) {
     if (!selected.length) return;
     try {
       const d = await adminApi("campaigns/bulk-action", { method: "POST", body: JSON.stringify({ ids: selected, action }) });
       setNotice(d?.message || "Campaigns updated.");
       setSelected([]);
-      await load();
+      await mutate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bulk action failed.");
+      setActionError(e instanceof Error ? e.message : "Bulk action failed.");
     }
   }
 
   async function confirmBulkTrash() {
     if (!selected.length) return;
-
     setBulkTrashing(true);
-
     try {
       await bulk("trash");
       setBulkTrashOpen(false);
@@ -1027,124 +793,71 @@ async function confirmEmptyTrash() {
       setBulkTrashing(false);
     }
   }
-const visibleRows = useMemo(() => {
-  return rows.filter((r) => {
-    if (!statusMatches(r, status)) {
-      return false;
-    }
 
-    const raw = createdDate(r);
-
-    // No date filter selected.
-    if (
-      dateRange === "all" &&
-      !startDate &&
-      !endDate
-    ) {
-      return true;
-    }
-
-    // A campaign without a valid creation date cannot match
-    // an active date filter.
-    if (!raw) {
-      return false;
-    }
-
-    const d = new Date(raw);
-
-    if (Number.isNaN(d.getTime())) {
-      return false;
-    }
-
-    // Custom/manual date range.
-    // Do NOT also apply the preset filter.
-    if (startDate || endDate) {
-      if (
-        startDate &&
-        d < new Date(`${startDate}T00:00:00`)
-      ) {
-        return false;
+  const visibleRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (!statusMatches(r, status)) return false;
+      const raw = createdDate(r);
+      if (dateRange === "all" && !startDate && !endDate) return true;
+      if (!raw) return false;
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return false;
+      if (startDate || endDate) {
+        if (startDate && d < new Date(`${startDate}T00:00:00`)) return false;
+        if (endDate && d > new Date(`${endDate}T23:59:59.999`)) return false;
+        return true;
       }
-
-      if (
-        endDate &&
-        d > new Date(`${endDate}T23:59:59.999`)
-      ) {
-        return false;
-      }
-
+      if (dateRange !== "all") return isDateInRange(raw, dateRange);
       return true;
-    }
+    });
+  }, [rows, status, dateRange, startDate, endDate]);
 
-    // Preset date filter.
-    if (dateRange !== "all") {
-      return isDateInRange(raw, dateRange);
-    }
+  const campaignSummary = useMemo(() => {
+    const total = visibleRows.length;
+    const live = visibleRows.filter((row) => ["published", "active", "launched"].includes(campaignStatus(row))).length;
+    const ended = visibleRows.filter((row) => ["completed", "complete", "funded", "ended"].includes(campaignStatus(row))).length;
+    const paused = visibleRows.filter((row) => campaignStatus(row) === "paused").length;
+    return { total, live, ended, paused };
+  }, [visibleRows]);
 
-    return true;
-  });
-}, [rows, status, dateRange, startDate, endDate]);
-const campaignSummary = useMemo(() => {
-  const total = visibleRows.length;
-
-  const live = visibleRows.filter((row) =>
-    ["published", "active", "launched"].includes(
-      campaignStatus(row)
-    )
-  ).length;
-
-  const ended = visibleRows.filter((row) =>
-    ["completed", "complete", "funded", "ended"].includes(
-      campaignStatus(row)
-    )
-  ).length;
-
-  const paused = visibleRows.filter(
-    (row) => campaignStatus(row) === "paused"
-  ).length;
-
-  return {
-    total,
-    live,
-    ended,
-    paused,
-  };
-}, [visibleRows]);
-const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / 10));
   const pageRows = visibleRows.slice((page - 1) * 10, page * 10);
+
   useEffect(() => {
     if (!pageRows.length) return;
     let cancelled = false;
     void Promise.all(pageRows.map(async (r:any) => {
       const cid=idOf(r); if(!cid) return [cid,0] as const;
-      try { const result=await adminApi(`donations/paginated?page=1&per_page=100&campaign_id=${cid}&orderby=id&order=desc`); const donationRows=rowsFrom(result); const count=donationRows.filter((d:any)=>{const payment=String(d?.payment_status??"").toLowerCase();const status=String(d?.status??"").toLowerCase();return payment?payment==="paid":["paid","completed","complete","successful","success"].includes(status)}).length; return [cid,count] as const; } catch { return [cid,0] as const; }
-    })).then(entries=>{if(!cancelled)setPaidCounts(current=>({...current,...Object.fromEntries(entries)}));});
-    return()=>{cancelled=true;};
+      try { 
+        const result = await adminApi(`donations/paginated?page=1&per_page=100&campaign_id=${cid}&orderby=id&order=desc`); 
+        const donationRows = rowsFrom(result); 
+        const count = donationRows.filter((d:any)=>{
+          const payment = String(d?.payment_status??"").toLowerCase();
+          const status = String(d?.status??"").toLowerCase();
+          return payment ? payment === "paid" : ["paid","completed","complete","successful","success"].includes(status);
+        }).length; 
+        return [cid,count] as const; 
+      } catch { 
+        return [cid,0] as const; 
+      }
+    })).then(entries => {
+      if(!cancelled) setPaidCounts(current=>({...current,...Object.fromEntries(entries)}));
+    });
+    return () => {cancelled = true;};
   }, [page, visibleRows]);
 
   useEffect(() => setPage(1), [status, search, dateRange, startDate, endDate]);
 
-  const pageIds = useMemo(
-  () => pageRows.map((r) => idOf(r)).filter((id) => id > 0),
-  [pageRows]
-);
-
-const allSelected = useMemo(
-  () =>
-    pageIds.length > 0 &&
-    pageIds.every((id) => selected.includes(id)),
-  [pageIds, selected]
-);
-
-const toggleAll = () => {
-  setSelected((current) => {
-    if (allSelected) {
-      return current.filter((id) => !pageIds.includes(id));
-    }
-
-    return Array.from(new Set([...current, ...pageIds]));
-  });
-};
+  const pageIds = useMemo(() => pageRows.map((r) => idOf(r)).filter((id) => id > 0), [pageRows]);
+  const allSelected = useMemo(() => pageIds.length > 0 && pageIds.every((id) => selected.includes(id)), [pageIds, selected]);
+  
+  const toggleAll = () => {
+    setSelected((current) => {
+      if (allSelected) return current.filter((id) => !pageIds.includes(id));
+      return Array.from(new Set([...current, ...pageIds]));
+    });
+  };
+  
   const toggle = (id: number) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
 
  return (
@@ -1195,7 +908,13 @@ const toggleAll = () => {
     </div>
 
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div><h5 className="card-title">Campaigns</h5><p className="mt-1 text-sm text-darklink">Review and manage campaigns.</p></div>
+        <div>
+          <div className="flex items-center gap-3">
+            <h5 className="card-title">Campaigns</h5>
+            {isValidating && <span className="text-xs text-primary animate-pulse">Syncing...</span>}
+          </div>
+          <p className="mt-1 text-sm text-darklink">Review and manage campaigns.</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {selected.length > 0 && <><Button variant="outline" onClick={() => bulk("publish")}>Approve selected</Button><Button variant="outline" onClick={() => bulk("restore")}><Icon icon="solar:restart-line-duotone" /> Restore selected</Button><Button
   variant="outline"
@@ -1313,7 +1032,7 @@ const toggleAll = () => {
   </div>
 )}
       {notice && <div className="mt-4 rounded-md bg-lightsuccess px-4 py-3 text-sm text-success">{notice}</div>}
-      {error && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{error}</div>}
+      {displayError && <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">{displayError}</div>}
 
       <div className="mt-4 flex justify-end"><ColumnVisibilityControl tableClass="admin-campaigns-table" columns={["Select", "ID", "Campaign", "Creator", "Status", "Raised / Goal", "Donations", "Created", "State", "Actions"]}/></div><div className="mt-4 overflow-x-auto">
         <Table className="admin-campaigns-table">

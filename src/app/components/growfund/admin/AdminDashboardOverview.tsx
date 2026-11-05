@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import CardBox from "@/app/components/shared/CardBox";
@@ -8,6 +8,7 @@ import { Icon } from "@iconify/react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import SimpleBar from "simplebar-react";
+import useSWR from "swr";
 import {
   Table,
   TableBody,
@@ -99,317 +100,333 @@ const getDates = (preset: string) => {
   return { start: toLocalISOString(start), end: toLocalISOString(end) };
 };
 
-export default function AdminDashboardOverview() {
-  const [dateRange, setDateRange] = useState({ label: "This year", ...getDates("This year") });
-  const [customDate, setCustomDate] = useState({ start: "", end: "" });
-
-  const [stats, setStats] = useState({
-    campaigns: { total: 0, chartData: [] as { x: string; y: number }[] },
-    donations: { total: 0, chartData: [] as { x: string; y: number }[] },
-    donors: { total: 0, chartData: [] as { x: string; y: number }[] },
-    fundraisers: { total: 0, chartData: [] as { x: string; y: number }[] },
-  });
-  
-  const [revenueChart, setRevenueChart] = useState({ categories: [] as string[], data: [] as number[], total: 0 });
-  const [overallDonationsChart, setOverallDonationsChart] = useState({ categories: [] as string[], data: [] as number[], total: 0 });
-  const [gatewayChart, setGatewayChart] = useState({
-    total: 0, categories: [] as string[], series: [] as { name: string; data: number[] }[], colors: [] as string[],
-    totals: [] as { name: string; amount: number; color: string; icon: string }[],
-  });
-  const [revenueUpdatesChart, setRevenueUpdatesChart] = useState({
-    categories: [] as string[], netDonations: [] as number[], revenue: [] as number[], totalNet: 0, totalRev: 0,
-  });
-
-  const [topCampaigns, setTopCampaigns] = useState<any[]>([]);
-  const [topCampaignsTotals, setTopCampaignsTotals] = useState({ count: 0, totalRaised: 0 });
-  const [recentDonations, setRecentDonations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("Revenue");
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const getDynamicBuckets = (startDate: string, endDate: string) => {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+// SWR Fetcher that mimics the logic from your useEffect
+const fetchDashboardData = async (url: string, dateRange: any) => {
+  const getDynamicBuckets = (startDate: string, endDate: string) => {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      
+      let actualStart = new Date(start);
+      let actualEnd = new Date(end);
+      
+      if (diffDays === 0) {
+        actualStart.setDate(start.getDate() - 5);
+        actualEnd.setDate(start.getDate() + 6);
+      } else if (diffDays <= 12) {
+        const pad = 12 - diffDays;
+        const padStart = Math.floor(pad / 2);
+        const padEnd = pad - padStart;
+        actualStart.setDate(start.getDate() - padStart);
+        actualEnd.setDate(end.getDate() + padEnd);
+      }
+      
+      const adjustedDiff = Math.round((actualEnd.getTime() - actualStart.getTime()) / (1000 * 60 * 60 * 24));
+      const buckets = [];
+      
+      if (adjustedDiff <= 12) {
+        for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + 1)) {
+          const lbl = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          buckets.push({ label: lbl, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(d).setHours(23,59,59,999) });
+        }
+      } else if (adjustedDiff <= 35) {
+        const chunkSize = Math.ceil(adjustedDiff / 12);
+        for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + chunkSize)) {
+          const chunkEnd = new Date(d);
+          chunkEnd.setDate(chunkEnd.getDate() + chunkSize - 1);
+          if (chunkEnd > actualEnd) chunkEnd.setTime(actualEnd.getTime());
           
-          let actualStart = new Date(start);
-          let actualEnd = new Date(end);
+          const l1 = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const l2 = chunkEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           
-          if (diffDays === 0) {
-            actualStart.setDate(start.getDate() - 5);
-            actualEnd.setDate(start.getDate() + 6);
-          } else if (diffDays <= 12) {
-            const pad = 12 - diffDays;
-            const padStart = Math.floor(pad / 2);
-            const padEnd = pad - padStart;
-            actualStart.setDate(start.getDate() - padStart);
-            actualEnd.setDate(end.getDate() + padEnd);
+          let lbl = l1;
+          if (l1 !== l2) {
+            const m1 = l1.split(' ')[0];
+            const m2 = l2.split(' ')[0];
+            lbl = m1 === m2 ? `${l1} - ${l2.split(' ')[1]}` : `${l1} - ${l2}`;
           }
+          buckets.push({ label: lbl, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(chunkEnd).setHours(23,59,59,999) });
+        }
+      } else if (adjustedDiff <= 95) {
+        const chunkSize = Math.ceil(adjustedDiff / 12);
+        for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + chunkSize)) {
+          const chunkEnd = new Date(d);
+          chunkEnd.setDate(chunkEnd.getDate() + chunkSize - 1);
+          if (chunkEnd > actualEnd) chunkEnd.setTime(actualEnd.getTime());
           
-          const adjustedDiff = Math.round((actualEnd.getTime() - actualStart.getTime()) / (1000 * 60 * 60 * 24));
-          const buckets = [];
-          
-          if (adjustedDiff <= 12) {
-            for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-              const lbl = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              buckets.push({ label: lbl, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(d).setHours(23,59,59,999) });
-            }
-          } else if (adjustedDiff <= 35) {
-            const chunkSize = Math.ceil(adjustedDiff / 12);
-            for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + chunkSize)) {
-              const chunkEnd = new Date(d);
-              chunkEnd.setDate(chunkEnd.getDate() + chunkSize - 1);
-              if (chunkEnd > actualEnd) chunkEnd.setTime(actualEnd.getTime());
-              
-              const l1 = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              const l2 = chunkEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              
-              let lbl = l1;
-              if (l1 !== l2) {
-                const m1 = l1.split(' ')[0];
-                const m2 = l2.split(' ')[0];
-                lbl = m1 === m2 ? `${l1} - ${l2.split(' ')[1]}` : `${l1} - ${l2}`;
-              }
-              buckets.push({ label: lbl, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(chunkEnd).setHours(23,59,59,999) });
-            }
-          } else if (adjustedDiff <= 95) {
-            const chunkSize = Math.ceil(adjustedDiff / 12);
-            for(let d = new Date(actualStart); d <= actualEnd; d.setDate(d.getDate() + chunkSize)) {
-              const chunkEnd = new Date(d);
-              chunkEnd.setDate(chunkEnd.getDate() + chunkSize - 1);
-              if (chunkEnd > actualEnd) chunkEnd.setTime(actualEnd.getTime());
-              
-              const l1 = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              const l2 = chunkEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              buckets.push({ label: `${l1} - ${l2}`, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(chunkEnd).setHours(23,59,59,999) });
-            }
-          } else if (adjustedDiff <= 366) {
-            let currentMonth = new Date(actualStart.getFullYear(), actualStart.getMonth(), 1);
-            while(currentMonth <= actualEnd) {
-              const lbl = currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-              const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-              buckets.push({ label: lbl, startMs: currentMonth.getTime(), endMs: nextMonth.getTime() - 1 });
-              currentMonth = nextMonth;
-            }
-          } else {
-            let y = actualStart.getFullYear();
-            let q = Math.floor(actualStart.getMonth() / 3) + 1;
-            const endY = actualEnd.getFullYear();
-            const endQ = Math.floor(actualEnd.getMonth() / 3) + 1;
-            
-            while(y < endY || (y === endY && q <= endQ)) {
-              const lbl = `Q${q} ${y}`;
-              const startMs = new Date(y, (q-1)*3, 1).getTime();
-              const endMs = new Date(y, q*3, 0, 23, 59, 59, 999).getTime();
-              buckets.push({ label: lbl, startMs, endMs });
-              q++;
-              if (q > 4) { q = 1; y++; }
-            }
-          }
-          return buckets;
-        };
-
-        const chartBuckets = getDynamicBuckets(dateRange.start, dateRange.end);
-        if (chartBuckets.length === 0) chartBuckets.push({ label: "Data", startMs: 0, endMs: Infinity });
-
-        const fetchStart = toLocalISOString(new Date(chartBuckets[0].startMs));
-        const fetchEnd = toLocalISOString(new Date(chartBuckets[chartBuckets.length - 1].endMs));
+          const l1 = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const l2 = chunkEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          buckets.push({ label: `${l1} - ${l2}`, startMs: new Date(d).setHours(0,0,0,0), endMs: new Date(chunkEnd).setHours(23,59,59,999) });
+        }
+      } else if (adjustedDiff <= 366) {
+        let currentMonth = new Date(actualStart.getFullYear(), actualStart.getMonth(), 1);
+        while(currentMonth <= actualEnd) {
+          const lbl = currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+          buckets.push({ label: lbl, startMs: currentMonth.getTime(), endMs: nextMonth.getTime() - 1 });
+          currentMonth = nextMonth;
+        }
+      } else {
+        let y = actualStart.getFullYear();
+        let q = Math.floor(actualStart.getMonth() / 3) + 1;
+        const endY = actualEnd.getFullYear();
+        const endQ = Math.floor(actualEnd.getMonth() / 3) + 1;
         
-        const exactStartMs = new Date(dateRange.start).getTime();
-        const exactEndMs = new Date(dateRange.end).setHours(23,59,59,999);
+        while(y < endY || (y === endY && q <= endQ)) {
+          const lbl = `Q${q} ${y}`;
+          const startMs = new Date(y, (q-1)*3, 1).getTime();
+          const endMs = new Date(y, q*3, 0, 23, 59, 59, 999).getTime();
+          buckets.push({ label: lbl, startMs, endMs });
+          q++;
+          if (q > 4) { q = 1; y++; }
+        }
+      }
+      return buckets;
+    };
 
-        const getBucketLabel = (dateStr: string) => {
-          if (!dateStr) return null;
-          const t = new Date(dateStr).getTime();
-          const b = chartBuckets.find(b => t >= b.startMs && t <= b.endMs);
-          return b ? b.label : null;
-        };
+    const chartBuckets = getDynamicBuckets(dateRange.start, dateRange.end);
+    if (chartBuckets.length === 0) chartBuckets.push({ label: "Data", startMs: 0, endMs: Infinity });
 
-        const fetchAllPages = async (baseEndpoint: string) => {
-          const perPage = 100;
-          const sep1 = baseEndpoint.includes("?") ? "&" : "?";
-          const endpointWithDates = `${baseEndpoint}${sep1}start_date=${fetchStart}&end_date=${fetchEnd}`;
+    const fetchStart = toLocalISOString(new Date(chartBuckets[0].startMs));
+    const fetchEnd = toLocalISOString(new Date(chartBuckets[chartBuckets.length - 1].endMs));
+    
+    const exactStartMs = new Date(dateRange.start).getTime();
+    const exactEndMs = new Date(dateRange.end).setHours(23,59,59,999);
+
+    const getBucketLabel = (dateStr: string) => {
+      if (!dateStr) return null;
+      const t = new Date(dateStr).getTime();
+      const b = chartBuckets.find(b => t >= b.startMs && t <= b.endMs);
+      return b ? b.label : null;
+    };
+
+    const fetchAllPages = async (baseEndpoint: string) => {
+      const perPage = 100;
+      const sep1 = baseEndpoint.includes("?") ? "&" : "?";
+      const endpointWithDates = `${baseEndpoint}${sep1}start_date=${fetchStart}&end_date=${fetchEnd}`;
+      
+      const firstPage = await adminApi(`${endpointWithDates}&page=1&per_page=${perPage}`);
+      const apiTotal = Number(firstPage?.paginated?.total ?? firstPage?.data?.total ?? firstPage?.data?.data?.total ?? firstPage?.total);
+      let rows = rowsFrom(firstPage);
+      const total = Number.isFinite(apiTotal) && apiTotal >= 0 ? apiTotal : rows.length;
+      const totalPages = Math.ceil(total / perPage);
+      
+      if (totalPages > 1) {
+        const promises = [];
+        for (let i = 2; i <= totalPages; i++) {
+          promises.push(adminApi(`${endpointWithDates}&page=${i}&per_page=${perPage}`));
+        }
+        const subsequentPages = await Promise.all(promises);
+        subsequentPages.forEach((pageRes) => { rows = rows.concat(rowsFrom(pageRes)); });
+      }
+      return { total, rows };
+    };
+
+    const fetchAnalytics = adminApi(`analytics?start_date=${dateRange.start}&end_date=${dateRange.end}&type=top-campaigns`);
+    const fetchRecentDonations = adminApi(`analytics?start_date=${dateRange.start}&end_date=${dateRange.end}&type=recent-contributions`);
+
+    const [cRes, dRes, doaRes, fRes, analyticsRes, recentRes] = await Promise.allSettled([
+      fetchAllPages("campaigns?status=all"),
+      fetchAllPages("donations/paginated"),
+      fetchAllPages("donors/paginated"),
+      fetchAllPages("fundraisers/paginated"),
+      fetchAnalytics,
+      fetchRecentDonations,
+    ]);
+
+    const processData = (res: PromiseSettledResult<any>, dateKey: string) => {
+      if (res.status !== "fulfilled") return { total: 0, chartData: [] };
+      const { rows } = res.value;
+
+      const groupedByBucket = rows.reduce((acc: Record<string, number>, item: any) => {
+        const lbl = getBucketLabel(item[dateKey]);
+        if (lbl) acc[lbl] = (acc[lbl] || 0) + 1;
+        return acc;
+      }, {});
+
+      const chartData = chartBuckets.map(b => ({
+        x: b.label,
+        y: groupedByBucket[b.label] || 0
+      }));
+
+      const exactTotal = rows.filter((item: any) => {
+        const t = new Date(item[dateKey]).getTime();
+        return t >= exactStartMs && t <= exactEndMs;
+      }).length;
+
+      return { total: exactTotal, chartData };
+    };
+
+    let processedData = {
+        stats: {
+            campaigns: processData(cRes, "start_date"),
+            donations: processData(dRes, "created_at"),
+            donors: processData(doaRes, "joined_at"),
+            fundraisers: processData(fRes, "joined_at"),
+        },
+        topCampaigns: [] as any[],
+        topCampaignsTotals: { count: 0, totalRaised: 0 },
+        recentDonations: [] as any[],
+        revenueChart: { categories: [] as string[], data: [] as number[], total: 0 },
+        overallDonationsChart: { categories: [] as string[], data: [] as number[], total: 0 },
+        gatewayChart: {
+            total: 0, categories: [] as string[], series: [] as { name: string; data: number[] }[], colors: [] as string[],
+            totals: [] as { name: string; amount: number; color: string; icon: string }[],
+        },
+        revenueUpdatesChart: {
+            categories: [] as string[], netDonations: [] as number[], revenue: [] as number[], totalNet: 0, totalRev: 0,
+        }
+    };
+
+    if (analyticsRes.status === "fulfilled" && analyticsRes.value?.data) {
+      const cData = analyticsRes.value.data;
+      processedData.topCampaigns = cData;
+      processedData.topCampaignsTotals.totalRaised = cData.reduce((acc: number, curr: any) => acc + (Number(curr.fund_raised) || 0), 0);
+      processedData.topCampaignsTotals.count = cData.length;
+    }
+
+    if (recentRes.status === "fulfilled" && recentRes.value?.data) {
+      processedData.recentDonations = recentRes.value.data.slice(0, 5);
+    }
+
+    if (dRes.status === "fulfilled") {
+      const donationRows = dRes.value.rows;
+      const completedDonations = donationRows.filter((item: any) => {
+        const status = String(item.status || "").toLowerCase();
+        const paymentStatus = String(item.payment_status || "").toLowerCase();
+        return status === "completed" || paymentStatus === "completed";
+      });
+
+      const revenueByBucket: Record<string, number> = {};
+      const grossDonationsByBucket: Record<string, number> = {};
+      const gQuarterly: Record<string, Record<string, number>> = {};
+      const netDonationsByBucket: Record<string, number> = {};
+      const revUpdatesByBucket: Record<string, number> = {};
+      
+      const gTotals: Record<string, number> = {};
+      let aggregateNetDonations = 0;
+      let aggregateRevenue = 0;
+      let aggregateGrossDonations = 0;
+      let totalGatewayDonations = 0;
+
+      completedDonations.forEach((item: any) => {
+        const amount = parseFloat(item.amount) || 0;
+        const gatewayFee = Math.abs(parseFloat(item.gateway_fee) || parseFloat(item.processing_fee) || 0);
+        const platformFee = Math.abs(parseFloat(item.platform_fee) || 0);
+        const tipAmount = Math.abs(parseFloat(item.tip_amount) || parseFloat(item.tip) || 0);
+
+        const netDonation = amount - (gatewayFee + platformFee);
+        const revenue = platformFee + tipAmount;
+
+        const t = new Date(item.created_at).getTime();
+        const isExact = t >= exactStartMs && t <= exactEndMs;
+        const lbl = getBucketLabel(item.created_at);
+        
+        if (lbl) {
+          revenueByBucket[lbl] = (revenueByBucket[lbl] || 0) + revenue;
+          grossDonationsByBucket[lbl] = (grossDonationsByBucket[lbl] || 0) + amount;
+          netDonationsByBucket[lbl] = (netDonationsByBucket[lbl] || 0) + netDonation;
+          revUpdatesByBucket[lbl] = (revUpdatesByBucket[lbl] || 0) + revenue;
+
+          const rawName = item.payment_method?.name || "other";
+          const gInfo = GATEWAY_MAP[rawName] || { name: rawName, color: "primary", hex: "#6c757d", icon: "solar:dollar-minimalistic-line-duotone" };
+          const gName = gInfo.name;
+
+          if (!gQuarterly[gName]) gQuarterly[gName] = {};
+          gQuarterly[gName][lbl] = (gQuarterly[gName][lbl] || 0) + amount;
           
-          const firstPage = await adminApi(`${endpointWithDates}&page=1&per_page=${perPage}`);
-          const apiTotal = Number(firstPage?.paginated?.total ?? firstPage?.data?.total ?? firstPage?.data?.data?.total ?? firstPage?.total);
-          let rows = rowsFrom(firstPage);
-          const total = Number.isFinite(apiTotal) && apiTotal >= 0 ? apiTotal : rows.length;
-          const totalPages = Math.ceil(total / perPage);
-          
-          if (totalPages > 1) {
-            const promises = [];
-            for (let i = 2; i <= totalPages; i++) {
-              promises.push(adminApi(`${endpointWithDates}&page=${i}&per_page=${perPage}`));
-            }
-            const subsequentPages = await Promise.all(promises);
-            subsequentPages.forEach((pageRes) => { rows = rows.concat(rowsFrom(pageRes)); });
+          if (isExact) {
+            totalGatewayDonations += amount;
+            if (!gTotals[gName]) gTotals[gName] = 0;
+            gTotals[gName] += amount;
+            aggregateNetDonations += netDonation;
+            aggregateRevenue += revenue;
+            aggregateGrossDonations += amount;
           }
-          return { total, rows };
-        };
-
-        const fetchAnalytics = adminApi(`analytics?start_date=${dateRange.start}&end_date=${dateRange.end}&type=top-campaigns`);
-        const fetchRecentDonations = adminApi(`analytics?start_date=${dateRange.start}&end_date=${dateRange.end}&type=recent-contributions`);
-
-        const [cRes, dRes, doaRes, fRes, analyticsRes, recentRes] = await Promise.allSettled([
-          fetchAllPages("campaigns?status=all"),
-          fetchAllPages("donations/paginated"),
-          fetchAllPages("donors/paginated"),
-          fetchAllPages("fundraisers/paginated"),
-          fetchAnalytics,
-          fetchRecentDonations,
-        ]);
-
-        const processData = (res: PromiseSettledResult<any>, dateKey: string) => {
-          if (res.status !== "fulfilled") return { total: 0, chartData: [] };
-          const { rows } = res.value;
-
-          const groupedByBucket = rows.reduce((acc: Record<string, number>, item: any) => {
-            const lbl = getBucketLabel(item[dateKey]);
-            if (lbl) acc[lbl] = (acc[lbl] || 0) + 1;
-            return acc;
-          }, {});
-
-          const chartData = chartBuckets.map(b => ({
-            x: b.label,
-            y: groupedByBucket[b.label] || 0
-          }));
-
-          const exactTotal = rows.filter((item: any) => {
-            const t = new Date(item[dateKey]).getTime();
-            return t >= exactStartMs && t <= exactEndMs;
-          }).length;
-
-          return { total: exactTotal, chartData };
-        };
-
-        if (analyticsRes.status === "fulfilled" && analyticsRes.value?.data) {
-          const cData = analyticsRes.value.data;
-          setTopCampaigns(cData);
-          const tRaised = cData.reduce((acc: number, curr: any) => acc + (Number(curr.fund_raised) || 0), 0);
-          setTopCampaignsTotals({ count: cData.length, totalRaised: tRaised });
         }
+      });
 
-        if (recentRes.status === "fulfilled" && recentRes.value?.data) {
-          setRecentDonations(recentRes.value.data.slice(0, 5));
-        }
+      const allLabels = chartBuckets.map(b => b.label);
 
-        if (dRes.status === "fulfilled") {
-          const donationRows = dRes.value.rows;
-          const completedDonations = donationRows.filter((item: any) => {
-            const status = String(item.status || "").toLowerCase();
-            const paymentStatus = String(item.payment_status || "").toLowerCase();
-            return status === "completed" || paymentStatus === "completed";
-          });
+      processedData.revenueChart = { 
+          categories: allLabels, 
+          data: allLabels.map(lbl => Number((revenueByBucket[lbl] || 0).toFixed(2))), 
+          total: aggregateRevenue 
+      };
 
-          const revenueByBucket: Record<string, number> = {};
-          const grossDonationsByBucket: Record<string, number> = {};
-          const gQuarterly: Record<string, Record<string, number>> = {};
-          const netDonationsByBucket: Record<string, number> = {};
-          const revUpdatesByBucket: Record<string, number> = {};
-          
-          const gTotals: Record<string, number> = {};
-          let aggregateNetDonations = 0;
-          let aggregateRevenue = 0;
-          let aggregateGrossDonations = 0;
-          let totalGatewayDonations = 0;
+      processedData.overallDonationsChart = { 
+          categories: allLabels, 
+          data: allLabels.map(lbl => Number((grossDonationsByBucket[lbl] || 0).toFixed(2))), 
+          total: aggregateGrossDonations 
+      };
 
-          completedDonations.forEach((item: any) => {
-            const amount = parseFloat(item.amount) || 0;
-            const gatewayFee = Math.abs(parseFloat(item.gateway_fee) || parseFloat(item.processing_fee) || 0);
-            const platformFee = Math.abs(parseFloat(item.platform_fee) || 0);
-            const tipAmount = Math.abs(parseFloat(item.tip_amount) || parseFloat(item.tip) || 0);
-
-            const netDonation = amount - (gatewayFee + platformFee);
-            const revenue = platformFee + tipAmount;
-
-            const t = new Date(item.created_at).getTime();
-            const isExact = t >= exactStartMs && t <= exactEndMs;
-            const lbl = getBucketLabel(item.created_at);
-            
-            if (lbl) {
-              revenueByBucket[lbl] = (revenueByBucket[lbl] || 0) + revenue;
-              grossDonationsByBucket[lbl] = (grossDonationsByBucket[lbl] || 0) + amount;
-              netDonationsByBucket[lbl] = (netDonationsByBucket[lbl] || 0) + netDonation;
-              revUpdatesByBucket[lbl] = (revUpdatesByBucket[lbl] || 0) + revenue;
-
-              const rawName = item.payment_method?.name || "other";
-              const gInfo = GATEWAY_MAP[rawName] || { name: rawName, color: "primary", hex: "#6c757d", icon: "solar:dollar-minimalistic-line-duotone" };
-              const gName = gInfo.name;
-
-              if (!gQuarterly[gName]) gQuarterly[gName] = {};
-              gQuarterly[gName][lbl] = (gQuarterly[gName][lbl] || 0) + amount;
-              
-              if (isExact) {
-                totalGatewayDonations += amount;
-                if (!gTotals[gName]) gTotals[gName] = 0;
-                gTotals[gName] += amount;
-                aggregateNetDonations += netDonation;
-                aggregateRevenue += revenue;
-                aggregateGrossDonations += amount;
-              }
-            }
-          });
-
-          const allLabels = chartBuckets.map(b => b.label);
-
-          const overallRevenueData = allLabels.map(lbl => Number((revenueByBucket[lbl] || 0).toFixed(2)));
-          setRevenueChart({ categories: allLabels, data: overallRevenueData, total: aggregateRevenue });
-
-          const overallDonationsData = allLabels.map(lbl => Number((grossDonationsByBucket[lbl] || 0).toFixed(2)));
-          setOverallDonationsChart({ categories: allLabels, data: overallDonationsData, total: aggregateGrossDonations });
-
-          const sortedGatewayNames = Object.keys(gTotals).sort((a, b) => gTotals[b] - gTotals[a]);
-          const gatewaySeries = sortedGatewayNames.map(gName => ({
+      const sortedGatewayNames = Object.keys(gTotals).sort((a, b) => gTotals[b] - gTotals[a]);
+      processedData.gatewayChart = {
+        total: totalGatewayDonations,
+        categories: allLabels,
+        series: sortedGatewayNames.map(gName => ({
             name: gName,
             data: allLabels.map(lbl => Number((gQuarterly[gName]?.[lbl] || 0).toFixed(2)))
-          }));
-          const dynamicColors = sortedGatewayNames.map(gName => {
+        })),
+        colors: sortedGatewayNames.map(gName => {
             const rawKey = Object.keys(GATEWAY_MAP).find(k => GATEWAY_MAP[k].name === gName);
             return rawKey ? GATEWAY_MAP[rawKey].hex : "#6c757d";
-          });
-          const gatewayIconData = sortedGatewayNames.map(gName => {
+        }),
+        totals: sortedGatewayNames.map(gName => {
             const rawKey = Object.keys(GATEWAY_MAP).find(k => GATEWAY_MAP[k].name === gName);
             const info = rawKey ? GATEWAY_MAP[rawKey] : { color: "primary", hex: "#6c757d", icon: "solar:dollar-minimalistic-line-duotone" };
             return { ...info, name: gName, amount: gTotals[gName] };
-          });
+        }),
+      };
 
-          setGatewayChart({
-            total: totalGatewayDonations,
-            categories: allLabels,
-            series: gatewaySeries,
-            colors: dynamicColors,
-            totals: gatewayIconData,
-          });
+      processedData.revenueUpdatesChart = {
+        categories: allLabels,
+        netDonations: allLabels.map(lbl => Number((netDonationsByBucket[lbl] || 0).toFixed(2))),
+        revenue: allLabels.map(lbl => Number((revUpdatesByBucket[lbl] || 0).toFixed(2))),
+        totalNet: aggregateNetDonations,
+        totalRev: aggregateRevenue,
+      };
+    }
 
-          const netDonationsData = allLabels.map(lbl => Number((netDonationsByBucket[lbl] || 0).toFixed(2)));
-          const revUpdatesData = allLabels.map(lbl => Number((revUpdatesByBucket[lbl] || 0).toFixed(2)));
+    return processedData;
+};
 
-          setRevenueUpdatesChart({
-            categories: allLabels,
-            netDonations: netDonationsData,
-            revenue: revUpdatesData,
-            totalNet: aggregateNetDonations,
-            totalRev: aggregateRevenue,
-          });
-        }
 
-        setStats({
-          campaigns: processData(cRes, "start_date"),
-          donations: processData(dRes, "created_at"),
-          donors: processData(doaRes, "joined_at"),
-          fundraisers: processData(fRes, "joined_at"),
-        });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Unable to load admin overview.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [dateRange]); 
+export default function AdminDashboardOverview() {
+  const [dateRange, setDateRange] = useState({ label: "This year", ...getDates("This year") });
+  const [customDate, setCustomDate] = useState({ start: "", end: "" });
+  const [activeTab, setActiveTab] = useState("Revenue");
+
+  // SWR Key based on the date range to ensure unique caching per date
+  const swrKey = useMemo(() => `/dashboard-data-${dateRange.start}-${dateRange.end}`, [dateRange]);
+
+  // Implement SWR
+  // SWR will check localStorage (or memory cache), show that instantly, and then revalidate in the background
+  const { data, error, isLoading, isValidating } = useSWR(swrKey, (url) => fetchDashboardData(url, dateRange), {
+      revalidateOnFocus: false, // Don't refetch every time the tab is focused
+      dedupingInterval: 60000, // Wait 1 minute before allowing another fetch for the same key
+      keepPreviousData: true // When date changes, keep showing old data until new data arrives
+  });
+
+  // Provide default empty state while waiting for the very first load
+  const dashboardData = data || {
+        stats: {
+            campaigns: { total: 0, chartData: [] },
+            donations: { total: 0, chartData: [] },
+            donors: { total: 0, chartData: [] },
+            fundraisers: { total: 0, chartData: [] },
+        },
+        topCampaigns: [],
+        topCampaignsTotals: { count: 0, totalRaised: 0 },
+        recentDonations: [],
+        revenueChart: { categories: [], data: [], total: 0 },
+        overallDonationsChart: { categories: [], data: [], total: 0 },
+        gatewayChart: { total: 0, categories: [], series: [], colors: [], totals: [] },
+        revenueUpdatesChart: { categories: [], netDonations: [], revenue: [], totalNet: 0, totalRev: 0 }
+  };
+
+  const { stats, topCampaigns, topCampaignsTotals, recentDonations, revenueChart, overallDonationsChart, gatewayChart, revenueUpdatesChart } = dashboardData;
+  const loading = isLoading;
 
   return (
     <div className="space-y-7 bg-[#f1f2f5] dark:bg-[#121621] min-h-screen pb-10">
@@ -426,6 +443,7 @@ export default function AdminDashboardOverview() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Your operational snapshot, recent activity, and quick actions.
           </p>
+          {isValidating && <span className="text-xs text-primary animate-pulse ml-2">Updating data...</span>}
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="rounded-full bg-white dark:bg-dark border-gray-200 dark:border-gray-800 shadow-sm text-sm h-10 px-5">
@@ -498,7 +516,7 @@ export default function AdminDashboardOverview() {
 
       {error && (
         <div className="rounded-xl border border-error/30 bg-lighterror px-4 py-3 text-sm text-error mb-4">
-          {error}
+          {error.message || "An error occurred."}
         </div>
       )}
 
@@ -873,7 +891,7 @@ export default function AdminDashboardOverview() {
                   </TableHeader>
 
                   <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {loading ? (
+                    {loading && topCampaigns.length === 0 ? (
                        <TableRow><TableCell colSpan={3} className="text-center py-10 text-gray-500">Loading campaigns...</TableCell></TableRow>
                     ) : topCampaigns.length === 0 ? (
                        <TableRow><TableCell colSpan={3} className="text-center py-10 text-gray-500">No campaigns found.</TableCell></TableRow>
@@ -944,7 +962,7 @@ export default function AdminDashboardOverview() {
             </div>
 
             <div className="flex flex-col gap-4 flex-grow">
-              {loading ? (
+              {loading && recentDonations.length === 0 ? (
                 <div className="text-center text-sm text-gray-500 py-10">Loading donations...</div>
               ) : recentDonations.length === 0 ? (
                 <div className="text-center text-sm text-gray-500 py-10">No recent donations.</div>

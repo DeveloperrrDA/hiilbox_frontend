@@ -1,4 +1,3 @@
-
 import React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -27,29 +26,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <html lang="en" suppressHydrationWarning>
-        <body
-          className={inter.className}
-          suppressHydrationWarning
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={inter.className}
+        suppressHydrationWarning
+      >
+        <NextTopLoader
+          color="#5d87ff"
+          showSpinner={false}
+        />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
         >
-          <NextTopLoader
-            color="#5d87ff"
-            showSpinner={false}
-          />
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <CustomizerContextProvider>
-              {children}
-            </CustomizerContextProvider>
-            <Toaster />
-          </ThemeProvider>
-        </body>
-      </html>
-    </>
+          <CustomizerContextProvider>
+            {children}
+          </CustomizerContextProvider>
+          <Toaster />
+        </ThemeProvider>
+      </body>
+    </html>
   );
 }

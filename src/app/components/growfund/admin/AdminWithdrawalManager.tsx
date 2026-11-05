@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 
 import { Icon } from "@iconify/react";
+import useSWR from "swr";
 
 import {
   adminApi,
@@ -185,65 +186,22 @@ function fmtDateTime(value: any) {
 
   return date.toLocaleString();
 }
+
 export default function AdminWithdrawalManager() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [totalPayable, setTotalPayable] = useState<number | null>(null);
-const [payableError, setPayableError] = useState("");
-  const [loading, setLoading] =
-    useState(true);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("this_year");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(1);
 
-  const [busy, setBusy] = useState<
-    number | null
-  >(null);
-
-  const [error, setError] =
-    useState("");
-
-  const [notice, setNotice] =
-    useState("");
-
-  const [search, setSearch] =
-    useState("");
-
-  const [status, setStatus] =
-    useState("all");
-
-  const [dateRange, setDateRange] =
-    useState<DateRangeKey>("this_year");
-
-  const [startDate, setStartDate] =
-    useState("");
-
-  const [endDate, setEndDate] =
-    useState("");
-
-  const [page, setPage] =
-    useState(1);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setPayableError("");
-setTotalPayable(null);
-
-const token = localStorage.getItem("access_token") || "";
-
-const payableRequest = fetch("/api/admin/total-payable", {
-  headers: { Authorization: `Bearer ${token}` },
-  cache: "no-store",
-})
-  .then(async (response) => {
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || "Unable to load Total Payable.");
-    }
-    setTotalPayable(result.total_payable);
-  })
-  .catch((error) => {
-    setPayableError(error.message);
-  });
-
-    try {
+  // 1. SWR Fetcher for Withdrawal Requests
+  const { data: fetchResult, error: swrError, isLoading: isRowsLoading, isValidating: isRowsValidating, mutate: mutateRows } = useSWR(
+    ["admin_withdrawals"],
+    async () => {
       const q = new URLSearchParams({
         page: "1",
         per_page: "100",
@@ -251,124 +209,125 @@ const payableRequest = fetch("/api/admin/total-payable", {
         order: "desc",
       });
 
-      const response = await adminApi(
-        `fundraiser/withdrawal/requests/paginated?${q.toString()}`
-      );
-
-      const withdrawalRows =
-        rowsFrom(response);
+      const response = await adminApi(`fundraiser/withdrawal/requests/paginated?${q.toString()}`);
+      const withdrawalRows = rowsFrom(response);
 
       withdrawalRows.sort((a, b) => {
-        const aDate = new Date(
-          deepValue(a, [
-            "created_at",
-            "date_created",
-            "requested_at",
-            "request_date",
-            "date",
-          ]) || 0
-        ).getTime();
-
-        const bDate = new Date(
-          deepValue(b, [
-            "created_at",
-            "date_created",
-            "requested_at",
-            "request_date",
-            "date",
-          ]) || 0
-        ).getTime();
-
+        const aDate = new Date(deepValue(a, ["created_at", "date_created", "requested_at", "request_date", "date"]) || 0).getTime();
+        const bDate = new Date(deepValue(b, ["created_at", "date_created", "requested_at", "request_date", "date"]) || 0).getTime();
         return bDate - aDate;
       });
 
-      setRows(withdrawalRows);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Unable to load withdrawal requests."
-      );
-
-      setRows([]);
-    } finally {
-      setLoading(false);
-      await payableRequest;
+      return withdrawalRows;
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
+      keepPreviousData: true,
     }
-  }, []);
+  );
 
- useEffect(() => {
-  void load();
-}, [load]);
+  // 2. SWR Fetcher for Total Payable Summary
+  const { data: totalPayableResult, error: payableError, isLoading: isPayableLoading, isValidating: isPayableValidating, mutate: mutatePayable } = useSWR(
+    ["admin_total_payable"],
+    async () => {
+      const token = localStorage.getItem("access_token") || "";
+      const response = await fetch("/api/admin/total-payable", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to load Total Payable.");
+      }
+      return result.total_payable;
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
+    }
+  );
 
-const withdrawalSummary = useMemo(() => {
-  let totalPayable = 0;
-  let totalPending = 0;
-  let totalApproved = 0;
+  const rows = fetchResult || [];
+  const totalPayable = totalPayableResult ?? null;
+  const loading = isRowsLoading || isPayableLoading;
+  const isValidating = isRowsValidating || isPayableValidating;
+  
+  // Combine all possible errors for display
+  const displayError = actionError || 
+    (swrError instanceof Error ? swrError.message : swrError ? "Unable to load withdrawal requests." : "") ||
+    (payableError instanceof Error ? payableError.message : payableError ? "Unable to load total payable." : "");
 
-  const pendingFundraisers = new Set<number>();
+  const withdrawalSummary = useMemo(() => {
+    let totalPayableLocal = 0;
+    let totalPending = 0;
+    let totalApproved = 0;
 
-  for (const row of rows) {
-    const rawAmount = deepValue(row, [
-      "amount",
-      "withdrawal_amount",
-      "requested_amount",
-    ]);
+    const pendingFundraisers = new Set<number>();
 
-    const parsedAmount = Number(rawAmount);
-    const amount = Number.isFinite(parsedAmount)
-      ? parsedAmount
-      : 0;
+    for (const row of rows) {
+      const rawAmount = deepValue(row, [
+        "amount",
+        "withdrawal_amount",
+        "requested_amount",
+      ]);
 
-    const rowStatus = requestStatus(row);
+      const parsedAmount = Number(rawAmount);
+      const amount = Number.isFinite(parsedAmount)
+        ? parsedAmount
+        : 0;
 
-    if (
-      [
-        "pending",
-        "processing",
-        "review",
-        "submitted",
-      ].includes(rowStatus)
-    ) {
-      totalPending += amount;
-      totalPayable += amount;
+      const rowStatus = requestStatus(row);
 
-      const fundraiserId =
-        fundraiserIdFromRow(row);
+      if (
+        [
+          "pending",
+          "processing",
+          "review",
+          "submitted",
+        ].includes(rowStatus)
+      ) {
+        totalPending += amount;
+        totalPayableLocal += amount;
 
-      if (fundraiserId > 0) {
-        pendingFundraisers.add(fundraiserId);
+        const fundraiserId =
+          fundraiserIdFromRow(row);
+
+        if (fundraiserId > 0) {
+          pendingFundraisers.add(fundraiserId);
+        }
+      }
+
+      if (rowStatus === "approved") {
+        totalPayableLocal += amount;
+      }
+
+      if (
+        [
+          "approved",
+          "paid",
+          "completed",
+          "complete",
+          "success",
+          "successful",
+        ].includes(rowStatus)
+      ) {
+        totalApproved += amount;
       }
     }
 
-    if (rowStatus === "approved") {
-      totalPayable += amount;
-    }
+    return {
+      totalPayable: totalPayableLocal,
+      totalPending,
+      totalApproved,
+      totalPendingFundraisers:
+        pendingFundraisers.size,
+    };
+  }, [rows]);
 
-    if (
-      [
-        "approved",
-        "paid",
-        "completed",
-        "complete",
-        "success",
-        "successful",
-      ].includes(rowStatus)
-    ) {
-      totalApproved += amount;
-    }
-  }
-
-  return {
-    totalPayable,
-    totalPending,
-    totalApproved,
-    totalPendingFundraisers:
-      pendingFundraisers.size,
-  };
-}, [rows]);
-
-const visibleRows = useMemo(
+  const visibleRows = useMemo(
     () =>
       rows.filter((row) => {
         const st = requestStatus(row);
@@ -511,7 +470,7 @@ const visibleRows = useMemo(
     const id = requestId(row);
 
     if (!id) {
-      setError(
+      setActionError(
         "Unable to identify this withdrawal request."
       );
       return;
@@ -539,7 +498,7 @@ const visibleRows = useMemo(
     }
 
     setBusy(id);
-    setError("");
+    setActionError("");
     setNotice("");
 
     try {
@@ -570,9 +529,11 @@ const visibleRows = useMemo(
           }.`
       );
 
-      await load();
+      // Trigger SWR background re-fetch after mutating data
+      await mutateRows();
+      await mutatePayable();
     } catch (e) {
-      setError(
+      setActionError(
         e instanceof Error
           ? e.message
           : "Unable to update withdrawal request."
@@ -586,9 +547,10 @@ const visibleRows = useMemo(
     <CardBox className="w-full !max-w-none">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h5 className="card-title">
-            Withdrawals
-          </h5>
+          <div className="flex items-center gap-3">
+            <h5 className="card-title">Withdrawals</h5>
+            {isValidating && <span className="text-xs text-primary animate-pulse">Syncing...</span>}
+          </div>
 
           <p className="mt-1 text-sm text-darklink">
             Review fundraiser withdrawal
@@ -599,41 +561,42 @@ const visibleRows = useMemo(
 
         <Button
           variant="outline"
-          onClick={() =>
-            void load()
-          }
+          onClick={() => {
+            mutateRows();
+            mutatePayable();
+          }}
           disabled={loading}
         >
           <Icon icon="solar:refresh-line-duotone" />
           Refresh
-               </Button>
+        </Button>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-ld p-5">
-  <div className="flex items-center justify-between">
-    <div>
-      <p className="text-sm text-darklink">
-        Total Payable
-      </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-darklink">
+                Total Payable
+              </p>
 
-      <h4 className="mt-2 text-2xl font-semibold">
-       {loading
-  ? "…"
-  : totalPayable === null
-    ? "—"
-    : money(totalPayable)}
-      </h4>
-    </div>
+              <h4 className="mt-2 text-2xl font-semibold flex items-center gap-2">
+                {loading
+                  ? "…"
+                  : totalPayable === null
+                    ? "—"
+                    : money(totalPayable)}
+              </h4>
+            </div>
 
-    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
-      <Icon
-        icon="solar:wallet-money-line-duotone"
-        height={25}
-      />
-    </span>
-  </div>
-</div>
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lightprimary text-primary">
+              <Icon
+                icon="solar:wallet-money-line-duotone"
+                height={25}
+              />
+            </span>
+          </div>
+        </div>
         <div className="rounded-xl border border-ld p-5">
           
           <div className="flex items-center justify-between">
@@ -811,9 +774,9 @@ const visibleRows = useMemo(
         </div>
       )}
 
-      {error && (
+      {displayError && (
         <div className="mt-4 rounded-md bg-lighterror px-4 py-3 text-sm text-error">
-          {error}
+          {displayError}
         </div>
       )}
 
