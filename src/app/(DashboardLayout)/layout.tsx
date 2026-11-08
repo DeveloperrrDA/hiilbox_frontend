@@ -29,7 +29,7 @@ export default function Layout({
           - padding-start (ps) smoothly offsets the content to fit the fixed sidebar perfectly
         */}
         <div 
-          className={`body-wrapper !ms-0 w-full min-w-0 bg-lightgray dark:bg-dark flex flex-col transition-all duration-300 ease-in-out ${
+          className={`body-wrapper !ms-0 w-full min-w-0 bg-[#f1f2f5] dark:bg-dark flex flex-col transition-all duration-300 ease-in-out ${
             activeLayout === "vertical" 
               ? isCollapse === "mini-sidebar"
                 ? "xl:ps-[80px]" 
