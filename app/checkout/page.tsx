@@ -828,7 +828,8 @@ const total = donationAmount + tipAmount;
                     disabled={loading}
                     required
                     placeholder="0.00"
-                    className="flex-1 min-w-0 w-full h-full text-right text-5xl sm:text-6xl font-bold text-gray-900 outline-none pr-6 pl-4 bg-transparent m-0 leading-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    style={{ fontSize: "clamp(3rem, 8vw, 3.75rem)" }}
+                    className="flex-1 min-w-0 w-full h-full text-right font-bold text-gray-900 outline-none pr-6 pl-4 bg-transparent m-0 border-0 focus:ring-0 leading-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>
               </section>
@@ -840,8 +841,8 @@ const total = donationAmount + tipAmount;
                 <h3 className="font-bold text-gray-900 mb-1">HiilBox tip</h3>
                 <p className="text-sm text-gray-500 mb-6">Suggested 10% of your donation. You can change it or enter 0.</p>
                 
-                <div className="flex items-center border border-gray-200 rounded-lg px-4 py-3 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all bg-white">
-                  <span className="text-gray-700 font-medium text-sm mr-4">{currency === "SOS" ? "SLSH" : currency}</span>
+                <div className="flex items-center border border-gray-200 rounded-lg px-4 py-3 sm:py-4 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all bg-white overflow-hidden">
+                  <span className="text-gray-700 font-bold text-base mr-4">{currency === "SOS" ? "SLSH" : currency}</span>
                   <input
                     id="hiilbox_tip"
                     type="number"
@@ -851,7 +852,8 @@ const total = donationAmount + tipAmount;
                     value={manualTip === null ? tipAmount.toFixed(2) : manualTip}
                     onChange={(e) => setManualTip(e.target.value)}
                     disabled={loading}
-                    className="flex-1 text-right text-gray-900 font-medium outline-none bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    style={{ fontSize: "clamp(1.25rem, 4vw, 1.875rem)" }}
+                    className="flex-1 text-right text-gray-900 font-bold outline-none bg-transparent border-0 focus:ring-0 p-0 m-0 leading-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>
               </section>
@@ -931,7 +933,7 @@ const total = donationAmount + tipAmount;
                     {
                       key: "mobile",
                       label: "Mobile Payment",
-                      description: "ZAAD, EVC, SAHAL and eDahab",
+                      description: "EVC Plus, ZAAD, Sahal, Kaashplus, Jeeb, EDahab",
                       available: walletGatewayOptions.some((item) => Boolean(item.gateway)),
                       icon: "solar:smartphone-2-linear",
                     },
@@ -1001,8 +1003,8 @@ const total = donationAmount + tipAmount;
                             
                             {option.key === "mobile" && selected && (
                               <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
-                                <label className="block text-xs font-bold text-gray-700 mb-2">Mobile money phone number</label>
-                                <p className="text-[11px] text-gray-500 mb-2">Enter your number to select the supported mobile money provider.</p>
+                                <label className="block text-xs font-bold text-gray-700 mb-2"></label>
+                                <p className="text-[11px] text-gray-500 mb-2"></p>
                                 <Input 
                                   type="text" 
                                   value={walletNumber}
