@@ -1491,3 +1491,46 @@ console.log(
   };
 }
 
+export async function getCampaignComments({
+  page = 1,
+  campaignId,
+}: {
+  page?: number;
+  campaignId: number;
+}): Promise<CampaignCommentsResponse> {
+  const apiKey = process.env.GROWFUND_CLIENT_API_KEY;
+  if (!apiKey) {
+    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
+  }
+
+  const token = await getGrowfundSystemToken();
+
+  const response = await fetch(`${WORDPRESS_API}/campaign/update/comments/paginated`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify({
+      page: page,
+      post_id: campaignId,
+      comment_type: "update_comment",
+    }),
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to load campaign comments.");
+  }
+
+  return {
+    success: data.success ?? true,
+    data: data.data,
+    message: data.message,
+  };
+}
+
