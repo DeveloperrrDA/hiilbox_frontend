@@ -35,23 +35,19 @@ async function proxy(
   // ==========================================
   if (method === "GET" && backendPath === "campaigns") {
     try {
-      // OpenNext injects Cloudflare bindings into process.env
-      const db = process.env.growfund_db as any; 
+      // Trick Next.js static substitution by using a dynamic string
+      const bindingName = "growfund_db";
+      const db = (process.env as any)[bindingName] || (globalThis as any)[bindingName]; 
       
       if (db) {
         console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
-        // Query the D1 database
         const { results } = await db.prepare("SELECT * FROM campaigns ORDER BY id DESC").all();
-        
-        // Return instantly, bypassing WordPress entirely
         return NextResponse.json({ success: true, data: results }, { status: 200 });
       } else {
         console.log("⚠️ D1 Binding not found. Falling back to WordPress...");
       }
     } catch (error) {
       console.error("🔥 D1 INTERCEPT CRASHED:", error);
-      // If the table doesn't exist yet or the query fails, we intentionally 
-      // let it fall through to the WordPress proxy below!
     }
   }
   // ==========================================
