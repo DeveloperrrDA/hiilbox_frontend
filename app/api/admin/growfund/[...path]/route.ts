@@ -1,4 +1,5 @@
 console.log("📂 ROUTE.TS MODULE LOADED SUCCESSFULLY");
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { apiBase, growfundJson, requireUser } from "@/app/api/dashboard/campaigns/_server";
 
@@ -35,25 +36,18 @@ async function proxy(
   // ==========================================
   if (method === "GET" && backendPath === "campaigns") {
     try {
-      const bindingName = "growfund_db";
+      // Fetch the native Cloudflare environment context
+      const { env } = await getCloudflareContext();
       
-      // Hunt for the binding in all possible OpenNext / Cloudflare injection points
-      const db = 
-        (process.env as any)[bindingName] || 
-        (globalThis as any)[bindingName] || 
-        (globalThis as any)?.env?.[bindingName] ||
-        (req as any)?.env?.[bindingName] || 
-        (context as any)?.env?.[bindingName];
+      // Bypass TypeScript's strict type checking for the custom binding
+      const db = (env as any).growfund_db;
       
       if (db) {
         console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
         const { results } = await db.prepare("SELECT * FROM campaigns ORDER BY id DESC").all();
         return NextResponse.json({ success: true, data: results }, { status: 200 });
       } else {
-        console.log("⚠️ D1 Binding not found. Falling back to WordPress...");
-        // DIAGNOSTIC: Log available keys to see where Cloudflare is putting it
-        const envKeys = Object.keys(process.env || {}).filter(k => !k.startsWith("npm_") && !k.startsWith("NEXT"));
-        console.log("🔍 Available env keys:", envKeys.join(", "));
+        console.log("⚠️ D1 Binding not found in Cloudflare Context. Falling back to WordPress...");
       }
     } catch (error) {
       console.error("🔥 D1 INTERCEPT CRASHED:", error);
