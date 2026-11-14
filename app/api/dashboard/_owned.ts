@@ -27,7 +27,7 @@ export function belongsToUser(c:any,userId:number){
 export async function ownedCampaigns(req:NextRequest,userId:number){
   const systemToken=await getSystemToken(req.nextUrl.origin);
   const qs=new URLSearchParams({page:"1",per_page:"100",status:"all"});
-  const {response,data}=await growfundJson(`${apiBase}/campaigns?${qs.toString()}`,{
+  const {response,data}: {response: Response; data: any} = await growfundJson(`${apiBase}/campaigns?${qs.toString()}`,{
     method:"GET",headers:combinedHeaders(systemToken)
   });
   if(!response.ok) throw new Error(data?.message||data?.data?.message||"Unable to load campaigns.");

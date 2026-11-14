@@ -92,7 +92,7 @@ async function fetchCampaignDonations(
     }
   );
 
-  const tokenData = await tokenResponse.json().catch(() => null);
+  const tokenData: any = await tokenResponse.json().catch(() => null);
 
   if (!tokenResponse.ok || !tokenData?.system_access_token) {
     throw new Error(
@@ -120,7 +120,7 @@ async function fetchCampaignDonations(
     }
   );
 
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(data?.message || "Unable to load recent donations.");

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if ("error" in auth) return auth.error;
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body: any = await req.json().catch(() => ({}));
     const ids: number[] = Array.isArray(body?.ids)
       ? Array.from(
           new Set<number>(

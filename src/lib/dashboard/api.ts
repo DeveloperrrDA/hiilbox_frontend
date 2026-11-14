@@ -16,7 +16,7 @@ export async function dashboardApi(path: string, init: RequestInit = {}) {
       ...(init.headers || {}),
     },
   });
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
   const authMessage = String(data?.message || data?.data?.message || data?.error || "").toLowerCase();
   if (response.status === 401 || authMessage.includes("expired jwt") || authMessage.includes("invalid jwt") || authMessage.includes("invalid or expired")) {
     if (typeof window !== "undefined") {

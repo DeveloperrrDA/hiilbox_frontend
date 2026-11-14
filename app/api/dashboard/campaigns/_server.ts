@@ -98,7 +98,7 @@ export function belongsToUser(campaign: any, userId: number) {
 
 export async function getOwnedCampaign(req: NextRequest, id: string | number, userId: number) {
   const systemToken = await getSystemToken(req.nextUrl.origin);
-  const { response, data } = await growfundJson(`${apiBase}/campaigns/${encodeURIComponent(String(id))}`, {
+  const { response, data } : {response: Response; data:any} = await growfundJson(`${apiBase}/campaigns/${encodeURIComponent(String(id))}`, {
     method: "GET", headers: combinedHeaders(systemToken),
   });
   if (!response.ok) return { response, data, campaign: null };

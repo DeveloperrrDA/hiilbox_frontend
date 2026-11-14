@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const key = request.nextUrl.searchParams.get("key");
     if (!key) return NextResponse.json({ message: "Order key is required." }, { status: 401 });
     const response = await fetch(wcUrl(`/orders/${encodeURIComponent(id)}`), { headers: { Accept: "application/json", Authorization: wcAuthHeader() }, cache: "no-store" });
-    const order = await response.json().catch(() => null);
+    const order: any = await response.json().catch(() => null);
     if (!response.ok) return NextResponse.json({ message: order?.message ?? "Order not found." }, { status: response.status });
     if (!order?.order_key || order.order_key !== key) return NextResponse.json({ message: "Invalid order key." }, { status: 403 });
     const meta = new Map<string, unknown>(

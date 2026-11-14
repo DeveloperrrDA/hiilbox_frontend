@@ -900,7 +900,7 @@ async function getGrowfundSystemToken(): Promise<string> {
     cache: "no-store",
   });
 
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
 
   if (!response.ok || !data?.system_access_token) {
     throw new Error(
@@ -1306,7 +1306,7 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
       headers: { Accept: "application/json", "X-API-Key": apiKey },
       cache: "no-store",
     });
-    const tokenData = await tokenResponse.json().catch(() => null);
+    const tokenData: any = await tokenResponse.json().catch(() => null);
     const token = tokenData?.system_access_token;
     if (!tokenResponse.ok || !token) return [];
 
@@ -1329,7 +1329,7 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
         break;
       }
 
-      const payload = await response.json().catch(() => null);
+      const payload: any = await response.json().catch(() => null);
       const batch = Array.isArray(payload?.data) ? payload.data : [];
       if (!batch.length) break;
       all.push(...batch);
@@ -1521,7 +1521,7 @@ export async function getCampaignComments({
     cache: "no-store",
   });
 
-  const data = await response.json();
+  const data: any = await response.json();
 
   if (!response.ok) {
     throw new Error(data?.message || "Failed to load campaign comments.");

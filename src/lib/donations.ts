@@ -164,7 +164,7 @@ export async function getRecentDonations(): Promise<Donation[]> {
 
     if (!tokenResponse.ok) return [];
 
-    const tokenData = await tokenResponse.json();
+    const tokenData: any = await tokenResponse.json();
     const token = tokenData?.system_access_token;
     if (!token) return [];
 
@@ -182,7 +182,7 @@ export async function getRecentDonations(): Promise<Donation[]> {
 
     if (!response.ok) return [];
 
-    const payload = await response.json();
+    const payload: any = await response.json();
 
     const records = Array.isArray(payload)
       ? payload

@@ -57,7 +57,7 @@ function DonationSuccessContent() {
               cache: "no-store",
               headers: { Accept: "application/json" },
             });
-            const campaignPayload = await campaignResponse.json().catch(() => null);
+            const campaignPayload: any = await campaignResponse.json().catch(() => null);
             campaignTitle = String(campaignPayload?.data?.title || campaignTitle);
           } catch {}
         }

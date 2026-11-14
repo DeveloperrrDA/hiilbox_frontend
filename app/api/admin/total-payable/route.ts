@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Verify the user against WordPress, not just the local role.
-    const me = await growfundJson(`${apiBase}/auth/me`, {
+    const me: any = await growfundJson(`${apiBase}/auth/me`, {
       headers: { Authorization: auth.authorization },
     });
 
@@ -88,7 +88,7 @@ if (cache) {
         });
       }
 
-      const data = result.data;
+      const data: any = result.data;
       const batch =
         data?.data?.results ??
         data?.data?.data ??
@@ -123,7 +123,7 @@ if (cache) {
 
       const amounts = await Promise.all(
         batch.map(async (id) => {
-          const result = await growfundJson(
+          const result: any = await growfundJson(
             `${apiBase}/fundraiser/wallet/info?fundraiser_id=${id}`,
             { headers: { Authorization: auth.authorization } }
           );

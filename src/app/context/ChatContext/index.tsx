@@ -52,7 +52,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
 
-    const {data:ChatsData,isLoading:isChatsLoading,error:Chatserror,mutate} = useSWR('/api/chat', getFetcher);
+    const {data:ChatsData,isLoading:isChatsLoading,error:Chatserror,mutate}: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR('/api/chat', getFetcher);
 
     // Fetch chat data from the API
     useEffect(() => {

@@ -3,7 +3,7 @@ import { apiBase, combinedHeaders, getOwnedCampaign, getSystemToken, growfundJso
 
 
 async function adminRequest(authorization: string) {
-  const { response, data } = await growfundJson(`${apiBase}/auth/me`, { method: "GET", headers: { Accept: "application/json", Authorization: authorization } });
+  const { response, data } : {response: Response; data:any} = await growfundJson(`${apiBase}/auth/me`, { method: "GET", headers: { Accept: "application/json", Authorization: authorization } });
   if (!response.ok) return false;
   const source = data?.data ?? data ?? {};
   const raw = source?.roles ?? source?.role ?? source?.user_roles ?? [];

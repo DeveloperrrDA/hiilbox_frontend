@@ -46,7 +46,7 @@ export const ImageAiProvider = ({ children }: { children: ReactNode }) => {
         data,
         isLoading: isImageLoading,
         error: isImageError,
-    } = useSWR("/api/image-ai", getFetcher);
+    }: { data: any; isLoading: boolean; error: any } = useSWR("/api/image-ai", getFetcher);
 
     useEffect(() => {
         if (data?.images) {
@@ -66,7 +66,7 @@ export const ImageAiProvider = ({ children }: { children: ReactNode }) => {
         setIsGenerating(true);
         setIsUsingMock(false);
         try {
-            const result = await postFetcher("/api/image-ai", {
+            const result: any = await postFetcher("/api/image-ai", {
                 prompt,
                 currentIndex,
             });

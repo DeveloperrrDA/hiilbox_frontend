@@ -90,7 +90,7 @@ export async function loadCheckoutCurrencies(): Promise<CheckoutCurrency[]> {
     headers: gfcmHeaders(token),
     cache: "no-store",
   });
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.message ?? "Unable to load currencies.");
   return normalizeCurrencyRows(data);
 }

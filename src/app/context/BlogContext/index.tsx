@@ -43,7 +43,7 @@ export const BlogProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [error, setError] = useState<any>(null);
 
     // Fetch Post data from the API
-const {data:postsData,isLoading:isPostsLoading , error:postsError} = useSWR('/api/public-blogs',getFetcher);
+const {data:postsData,isLoading:isPostsLoading , error:postsError}: { data: any; isLoading: boolean; error: any } = useSWR('/api/public-blogs',getFetcher);
     useEffect(() => {
         if(postsData){
             setPosts(postsData.data);
@@ -69,7 +69,7 @@ const {data:postsData,isLoading:isPostsLoading , error:postsError} = useSWR('/ap
 
     // Fetches a specific blog post by its title from the API endpoint and updates the selected post in the state.
     const fetchPostById =  (id: number) => {
-            const {data:specificPostData,isLoading:isSpecificPostLoading , error:isSpecificPostError} = useSWR(`/api/blog/${id}`,getFetcher);
+            const {data:specificPostData,isLoading:isSpecificPostLoading , error:isSpecificPostError}: { data: any; isLoading: boolean; error: any } = useSWR(`/api/blog/${id}`,getFetcher);
             if(specificPostData){
                 setLoading(isSpecificPostLoading);
                 setSelectedPost(specificPostData);

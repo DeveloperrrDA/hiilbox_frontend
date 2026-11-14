@@ -52,7 +52,7 @@ function CommentItem({ comment, campaignId, level = 0 }: { comment: CampaignComm
         parent_id: String(comment.id)
       });
       const response = await fetch(`/api/campaigns/${campaignId}/comments?${params.toString()}`);
-      const data = await response.json();
+      const data: any = await response.json();
       if (data.success && data.data) {
         setLocalReplies((prev) => [...prev, ...(data.data.results || [])]);
         setReplyPage(nextPage);
@@ -137,7 +137,7 @@ export default function CampaignComments({ campaignId }: CampaignCommentsProps) 
   const fetchComments = async (pageNum: number, signal?: AbortSignal) => {
     const params = new URLSearchParams({ page: String(pageNum), per_page: "3", comment_type: "comment" });
     const response = await fetch(`/api/campaigns/${campaignId}/comments?${params.toString()}`, { signal });
-    const data = await response.json();
+    const data: any = await response.json();
     if (!response.ok || !data.success) throw new Error(data.message || "Unable to load campaign comments.");
     return data.data; // Return full pagination object
   };
@@ -146,7 +146,7 @@ export default function CampaignComments({ campaignId }: CampaignCommentsProps) 
     try {
       const response = await authFetch(`${WP_API_BASE}/auth/me`, { method: "GET", signal });
       if (response.ok) {
-        const data = await response.json();
+        const data: any = await response.json();
         if (data.success && data.user_id) return data;
       }
     } catch { }
@@ -202,7 +202,7 @@ export default function CampaignComments({ campaignId }: CampaignCommentsProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post_id: campaignId, content: newComment, parent_id: 0, comment_type: "comment" }),
       });
-      const data = await response.json();
+      const data: any = await response.json();
       if (!response.ok || !data.success) throw new Error(data.message || "Failed to post comment.");
       
       setNewComment("");

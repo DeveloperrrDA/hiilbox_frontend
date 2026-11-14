@@ -21,7 +21,7 @@ export default function DashboardAccessGuard({ children }: { children: ReactNode
       let resolvedRole = dashboardRole(saved);
       try {
         const response = await fetch("/api/dashboard/me", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-        const json = await response.json().catch(() => null);
+        const json: any = await response.json().catch(() => null);
         if (response.ok && json?.data) {
           saved = { ...(saved || {}), ...json.data, roles: json.data.roles?.length ? json.data.roles : saved?.roles };
           localStorage.setItem("auth_user", JSON.stringify(saved));

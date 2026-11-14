@@ -95,7 +95,7 @@ if (cached) {
       headers: { Accept: "application/json", "X-API-Key": GROWFUND_API_KEY },
       cache: "no-store",
     });
-    const tokenData = await tokenResponse.json().catch(() => null);
+    const tokenData: any = await tokenResponse.json().catch(() => null);
 
     if (!tokenResponse.ok || !tokenData?.system_access_token) {
       return NextResponse.json(
@@ -121,7 +121,7 @@ if (cached) {
       cache: "no-store",
     });
 
-    const data = await response.json().catch(() => null);
+    const data: any = await response.json().catch(() => null);
     if (!response.ok) {
       return NextResponse.json(
         { success: false, message: data?.message || "Unable to load recent donations." },

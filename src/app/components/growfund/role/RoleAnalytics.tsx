@@ -192,7 +192,7 @@ export default function RoleAnalytics(){
   useEffect(()=>setRole(dashboardRole(savedDashboardUser())),[]);
   useEffect(()=>{if(!["fundraiser","admin"].includes(role))return;void (async()=>{setLoading(true);setError("");try{const token=localStorage.getItem("access_token")||"";const headers={Authorization:`Bearer ${token}`};if(role==="fundraiser"){
       const [dr,cr]=await Promise.all([fetch("/api/dashboard/fundraiser-donations",{headers,cache:"no-store"}),fetch("/api/dashboard/campaigns",{headers,cache:"no-store"})]);
-      const [dj,cj]=await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");
+      const [dj,cj]: [any, any] = await Promise.all([dr.json(),cr.json()]);if(!dr.ok)throw new Error(dj?.message||"Unable to load donations.");if(!cr.ok)throw new Error(cj?.message||"Unable to load campaigns.");
       const paidForNetCheck = rows(dj).filter(isSuccessful);
 
 console.log("NET DONATION FIELD CHECK", {
@@ -247,7 +247,7 @@ async function fetchAdminCampaignsByStatus(campaignStatus: string) {
       }
     );
 
-    const data = await response.json().catch(() => null);
+    const data: any = await response.json().catch(() => null);
 
     if (!response.ok) {
       throw new Error(
@@ -366,7 +366,7 @@ const fetchCampaignDonations = async (c: any) => {
       }
     );
 
-    const j = await r.json().catch(() => null);
+    const j: any = await r.json().catch(() => null);
 
     if (!r.ok) {
       throw new Error(

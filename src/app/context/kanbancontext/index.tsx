@@ -49,7 +49,7 @@ export const KanbanDataContextProvider: React.FC<KanbanDataContextProps> = ({
     isLoading: isTodosLoading,
     error: todoError,
     mutate,
-  } = useSWR("/api/kanban", getFetcher);
+  }: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR("/api/kanban", getFetcher);
   useEffect(() => {
     if (todosData) {
       setTodoCategories(todosData.data);

@@ -21,7 +21,7 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
-    const { data: invoiceData, isLoading: isInvoiceLoading, error: invoiceError, mutate } = useSWR("/api/invoice", getFetcher);
+    const { data: invoiceData, isLoading: isInvoiceLoading, error: invoiceError, mutate }: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR("/api/invoice", getFetcher);
 
     useEffect(() => {
         if (invoiceData) {

@@ -54,7 +54,7 @@ if (cachedCampaign && Date.now() < cachedCampaign.expiresAt) {
       cache: "no-store",
     });
 
-    const tokenData = await tokenResponse.json().catch(() => null);
+    const tokenData: any = await tokenResponse.json().catch(() => null);
 
     if (!tokenResponse.ok || !tokenData?.system_access_token) {
       return NextResponse.json(
@@ -76,7 +76,7 @@ if (cachedCampaign && Date.now() < cachedCampaign.expiresAt) {
       cache: "no-store",
     });
 
-    const data = await response.json().catch(() => ({
+    const data: any = await response.json().catch(() => ({
       success: false,
       message: "Invalid campaign response from WordPress.",
     }));

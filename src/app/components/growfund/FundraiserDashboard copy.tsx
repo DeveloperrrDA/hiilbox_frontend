@@ -50,7 +50,7 @@ export default function FundraiserDashboard() {
       fetch("/api/dashboard/me", { headers, cache: "no-store" }),
     ])
       .then(async ([campaignResponse, meResponse]) => {
-        const [campaignJson, meJson] = await Promise.all([campaignResponse.json(), meResponse.json()]);
+        const [campaignJson, meJson]: [any, any] = await Promise.all([campaignResponse.json(), meResponse.json()]);
         if (!campaignResponse.ok) throw new Error(campaignJson?.message || "Unable to load dashboard campaigns.");
         setCampaigns(Array.isArray(campaignJson?.data) ? campaignJson.data : []);
         if (meResponse.ok && meJson?.data) {

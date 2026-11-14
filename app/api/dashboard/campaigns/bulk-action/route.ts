@@ -4,7 +4,7 @@ import { apiBase, getOwnedCampaign, growfundJson, requireUser } from "../_server
 export async function POST(req: NextRequest) {
   const auth = await requireUser(req);
   if ("error" in auth) return auth.error;
-  const body = await req.json().catch(() => null);
+  const body: any = await req.json().catch(() => null);
   const ids = Array.isArray(body?.ids) ? body.ids.map(Number).filter(Boolean) : [];
   if (!ids.length) return NextResponse.json({ success:false, message:"No campaign IDs were supplied." }, { status:400 });
   for (const id of ids) {

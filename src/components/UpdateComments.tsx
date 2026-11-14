@@ -41,7 +41,7 @@ function UpdateCommentItem({ comment, updateId, level = 0 }: { comment: Campaign
         page: String(nextPage), per_page: "5", comment_type: "update_comment", parent_id: String(comment.id)
       });
       const response = await fetch(`/api/campaigns/${updateId}/comments?${params.toString()}`);
-      const data = await response.json();
+      const data: any = await response.json();
       if (data.success && data.data) {
         setLocalReplies((prev) => [...prev, ...(data.data.results || [])]);
         setReplyPage(nextPage);
@@ -120,7 +120,7 @@ export default function UpdateComments({ updateId }: { updateId: number }) {
   const fetchComments = async (pageNum: number, signal?: AbortSignal) => {
     const params = new URLSearchParams({ page: String(pageNum), per_page: "3", comment_type: "update_comment" });
     const response = await fetch(`/api/campaigns/${updateId}/comments?${params.toString()}`, { signal });
-    const data = await response.json();
+    const data: any = await response.json();
     if (!response.ok || !data.success) throw new Error(data.message || "Unable to load comments.");
     return data.data;
   };
@@ -130,7 +130,7 @@ export default function UpdateComments({ updateId }: { updateId: number }) {
     async function initialize() {
       setLoading(true);
       try {
-        const [commentsData, userRes] = await Promise.all([
+        const [commentsData, userRes]: [any, any] = await Promise.all([
           fetchComments(1, controller.signal),
           authFetch(`${WP_API_BASE}/auth/me`, { method: "GET", signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(() => null)
         ]);

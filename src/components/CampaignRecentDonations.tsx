@@ -44,7 +44,7 @@ export default function CampaignRecentDonations({
       try {
         const response = await fetch(`/api/campaigns/${campaignId}/donations`, { signal: controller.signal });
         if (!response.ok) throw new Error("Unable to load donations");
-        const result = await response.json();
+        const result: any = await response.json();
         if (result.success && Array.isArray(result.data)) {
           setDonations(result.data);
         }

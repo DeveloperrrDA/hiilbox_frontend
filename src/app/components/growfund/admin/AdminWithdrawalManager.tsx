@@ -237,7 +237,7 @@ export default function AdminWithdrawalManager() {
         cache: "no-store",
       });
       
-      const result = await response.json();
+      const result: any = await response.json();
       if (!response.ok) {
         throw new Error(result.message || "Unable to load Total Payable.");
       }

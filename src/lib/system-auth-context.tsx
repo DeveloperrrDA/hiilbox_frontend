@@ -50,7 +50,7 @@ export const SystemAuthProvider: React.FC<SystemAuthProviderProps> = ({
           },
         });
 
-        const data = await response.json();
+        const data: any = await response.json();
 
         if (!response.ok) {
           throw new Error(

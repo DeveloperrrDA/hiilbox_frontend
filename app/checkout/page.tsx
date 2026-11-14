@@ -144,7 +144,7 @@ const [loadingGateways, setLoadingGateways] =
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
-        const payload = await response.json().catch(() => null);
+        const payload: any = await response.json().catch(() => null);
         const raw = payload?.data;
         if (!response.ok || !raw) throw new Error("Campaign not found.");
 
@@ -243,7 +243,7 @@ useEffect(() => {
         }
       );
 
-      const payload = await response.json();
+      const payload: any = await response.json();
 
       if (
         !cancelled &&

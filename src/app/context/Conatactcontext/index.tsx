@@ -41,7 +41,7 @@ export const ContactContextProvider: React.FC<{ children: ReactNode }> = ({ chil
 
 
   // Fetch contacts data from the API on component mount
-  const {data:contactsData,isLoading:isContactsLoading,error:contactsError,mutate} = useSWR('/api/contacts',getFetcher);
+  const {data:contactsData,isLoading:isContactsLoading,error:contactsError,mutate}: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR('/api/contacts',getFetcher);
 
   useEffect(() => {
     

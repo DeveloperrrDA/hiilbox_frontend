@@ -1,46 +1,46 @@
 {
-"$schema": "node_modules/wrangler/config-schema.json",
-"name": "hiilboxfrontend",
-"main": ".open-next/worker.js",
-"compatibility_date": "2026-08-13",
-"compatibility_flags": [
-"nodejs_compat"
-
-],
-
-"assets": {
-"directory": ".open-next/assets",
-"binding": "ASSETS"
-},
-"kv_namespaces": [
-{
-"binding": "HIILBOX_CACHE",
-"id": "1d68922f529541ce84bbe4ecb9dfcf9b"
-}
-],
-
-"vars": {
-"NEXT_PUBLIC_SITE_URL": "https://hiilboxfrontend.mohamoud-ali15.workers.dev",
-"NEXT_PUBLIC_WORDPRESS_URL": "https://cms.hiilbox.com",
-"NEXT_PUBLIC_WORDPRESS_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1",
-"NEXT_PUBLIC_GFCM_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
-
-},
-"observability": {
-"logs": {
-"enabled": true,
-"head_sampling_rate": 1,
-"invocation_logs": true,
-"persist": true
-},
-"traces": {
-"enabled": false,
-"head_sampling_rate": 1,
-"persist": true
-},
-    "issue_detection": {
-      "enabled": false
-    }
-   
-}
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "hiilboxfrontend",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-08-13",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "HIILBOX_CACHE",
+			"id": "1d68922f529541ce84bbe4ecb9dfcf9b"
+		}
+	],
+	"vars": {
+		"NEXT_PUBLIC_SITE_URL": "https://hiilboxfrontend.mohamoud-ali15.workers.dev",
+		"NEXT_PUBLIC_WORDPRESS_URL": "https://cms.hiilbox.com",
+		"NEXT_PUBLIC_WORDPRESS_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1",
+		"NEXT_PUBLIC_GFCM_API_URL": "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
+	},
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true,
+			"persist": true
+		},
+		"traces": {
+			"enabled": false,
+			"head_sampling_rate": 1,
+			"persist": true
+		}
+	},
+	"d1_databases": [
+		{
+			"binding": "growfund_db",
+			"database_name": "growfund-db",
+			"database_id": "2dadd84e-4a2c-4552-acd7-733d6ea538aa",
+			"remote": true
+		}
+	]
 }

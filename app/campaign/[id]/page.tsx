@@ -70,7 +70,7 @@ export default async function CampaignPage({
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const donationResponse = await fetch(`${baseUrl}/api/campaigns/${campaign.id}/donations`, { cache: "no-store" });
-    const donationData = await donationResponse.json();
+    const donationData: any = await donationResponse.json();
     if (donationResponse.ok && donationData?.success) {
       totalDonations = Number(donationData.completed_count ?? 0);
     } else {

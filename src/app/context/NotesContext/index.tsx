@@ -40,7 +40,7 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [selectedNoteId, setSelectedNoteId] = useState<number>(initialContext.selectedNoteId);
 
     // Fetch notes from the server
-    const {data:notesData , isLoading:isNotesLoading , error:notesError,mutate} = useSWR("/api/notes" , getFetcher)
+    const {data:notesData , isLoading:isNotesLoading , error:notesError,mutate}: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR("/api/notes" , getFetcher)
     useEffect(() => {
         if(notesData){
             setNotes(notesData.data);

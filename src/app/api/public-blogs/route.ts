@@ -11,7 +11,7 @@ export async function GET() {
       { next: { revalidate: 60 } }
     );
 
-    const result = await response.json();
+    const result: any = await response.json();
 
     if (!response.ok || !result.success) {
       return NextResponse.json(

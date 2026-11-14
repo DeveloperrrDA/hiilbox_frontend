@@ -13,7 +13,7 @@ export default function FundraiserKycNotice(){
     let cancelled=false;
     const check=async()=>{
       try{
-        const response=await dashboardApi("fundraiser/kyc");
+        const response: any=await dashboardApi("fundraiser/kyc");
         if(cancelled)return;
         const nextStatus=String(response?.status||"not_started").toLowerCase();
         setStatus(nextStatus);

@@ -167,7 +167,7 @@ Promise.all([
     headers,
     cache: "no-store",
   }).then(async (response) => {
-    const data = await response.json();
+    const data: any = await response.json();
 
     if (!response.ok) {
       throw new Error(
@@ -205,7 +205,7 @@ Promise.all([
     categoryResponse,
     locationResponse,
     collaboratorResponse,
-  ]) => {
+  ]: any[]) => {
         const campaign = campaignResponse?.data || {};
 
 setCampaignStatus(
@@ -710,7 +710,7 @@ async function uploadMedia(
       }
     );
 
-    const data = await response
+    const data: any = await response
       .json()
       .catch(() => null);
 
@@ -1047,7 +1047,7 @@ async function uploadMedia(
       }
     );
 
-    const data = await response.json();
+    const data: any = await response.json();
 
     if (!response.ok) {
       if (
@@ -1123,7 +1123,7 @@ async function campaignAction(
       }
     );
 
-    const data = await response
+    const data: any = await response
       .json()
       .catch(() => null);
 
@@ -1196,7 +1196,7 @@ async function deleteCampaign() {
       }
     );
 
-    const data = await response
+    const data: any = await response
       .json()
       .catch(() => null);
 

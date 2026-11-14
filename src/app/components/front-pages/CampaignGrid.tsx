@@ -46,7 +46,7 @@ export default function CampaignGrid() {
                     }
                   );
 
-                  const donationData = await donationResponse.json();
+                  const donationData: any = await donationResponse.json();
 
                   if (donationResponse.ok && donationData?.success) {
                     return {

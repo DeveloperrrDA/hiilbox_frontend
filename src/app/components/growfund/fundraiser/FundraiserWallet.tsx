@@ -234,7 +234,7 @@ const available = useMemo(
     setNotice("");
 
     try {
-      const data = await dashboardApi(
+      const data: any = await dashboardApi(
         "fundraiser/withdrawal/request/create",
         {
           method: "POST",

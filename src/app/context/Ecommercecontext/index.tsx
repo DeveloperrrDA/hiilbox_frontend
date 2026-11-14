@@ -73,7 +73,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 
     // Fetch products data from the API 
-    const { data: productsData, isLoading: isProductsLoading, error: productsError, mutate } = useSWR('/api/eCommerce', getFetcher);
+    const { data: productsData, isLoading: isProductsLoading, error: productsError, mutate }: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR('/api/eCommerce', getFetcher);
 
     useEffect(() => {
         if (productsData) {
@@ -88,7 +88,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [productsData, productsError]);
 
     // Fetch products data from the API 
-    const { data: cartsData, isLoading: isCartsLoading, error: cartsError, mutate: cartMutate } = useSWR('/api/eCommerce/carts', getFetcher);
+    const { data: cartsData, isLoading: isCartsLoading, error: cartsError, mutate: cartMutate }: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR('/api/eCommerce/carts', getFetcher);
 
     useEffect(() => {
         if (cartsData) {

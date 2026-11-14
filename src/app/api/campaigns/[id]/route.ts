@@ -38,7 +38,7 @@ export async function GET(
       cache: "no-store",
     });
 
-    const tokenData = await tokenResponse.json().catch(() => null);
+    const tokenData: any = await tokenResponse.json().catch(() => null);
 
     if (!tokenResponse.ok || !tokenData?.system_access_token) {
       return NextResponse.json(

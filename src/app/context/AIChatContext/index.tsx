@@ -40,7 +40,7 @@ export const ChatAIProvider = ({ children }: { children: ReactNode }) => {
     const [error, setError] = useState("");
     const [typing, setTyping] = useState(false);
     const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-    const { data, error: swrError, mutate } = useSWR("/api/chat-ai", getFetcher);
+    const { data, error: swrError, mutate }: any = useSWR("/api/chat-ai", getFetcher);
 
     // On fetch success
     useEffect(() => {
@@ -97,7 +97,7 @@ export const ChatAIProvider = ({ children }: { children: ReactNode }) => {
                 saveSession(text, aiResponse);
                 setChatList((prev) => [...prev, aiMessage]);
             } else {
-                const response = await postFetcher("/api/chat-ai", { text });
+                const response: any = await postFetcher("/api/chat-ai", { text });
 
                 const [userMsg, aiReply] = response.data;
 

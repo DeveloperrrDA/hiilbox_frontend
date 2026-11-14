@@ -28,7 +28,7 @@ export async function GET(
       headers: { "Accept": "application/json", "X-API-Key": apiKey },
       cache: "no-store",
     });
-    const tokenData = await tokenRes.json();
+    const tokenData: any = await tokenRes.json();
     const token = tokenData?.system_access_token;
 
     if (!token) throw new Error("System token failed");
@@ -51,7 +51,7 @@ export async function GET(
       cache: "no-store",
     });
 
-    const data = await wpResponse.json();
+    const data: any = await wpResponse.json();
     
     if (!wpResponse.ok) {
       return NextResponse.json({ success: false, message: data.message || "Failed" }, { status: wpResponse.status });

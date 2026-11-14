@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
           }
         );
 
-        const tokenData = await tokenRes.json().catch(() => null);
+        const tokenData: any = await tokenRes.json().catch(() => null);
         const systemToken = tokenData?.system_access_token;
 
         if (!tokenRes.ok || !systemToken) {

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
     if (!response.ok) return NextResponse.json({ message: "Order could not be verified." }, { status: 502 });
-    const order = await response.json();
+    const order: any = await response.json();
     if (order.order_key !== key || !/shalo|sifalo|card_pay/i.test(String(order.payment_method ?? ""))) {
       return NextResponse.json({ message: "Payment reference does not match a card order." }, { status: 403 });
     }

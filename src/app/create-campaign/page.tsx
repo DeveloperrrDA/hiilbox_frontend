@@ -110,7 +110,7 @@ export default function CreateCampaignPage() {
       authFetch("/api/campaigns/categories", {
         cache: "no-store",
       }).then(async (response) => {
-        const data = await response.json();
+        const data: any = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -131,7 +131,7 @@ export default function CreateCampaignPage() {
           cache: "no-store",
         }
       ).then(async (response) => {
-        const data = await response.json();
+        const data: any = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -400,7 +400,7 @@ export default function CreateCampaignPage() {
           }
         );
 
-      const data =
+      const data: any =
         await response.json();
 
       if (!response.ok) {
@@ -625,7 +625,7 @@ const response = await authFetch(
   }
 );
 
-const data = await response.json();
+const data: any = await response.json();
 
 console.log(
   "[create-campaign] Next API response:",

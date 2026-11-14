@@ -20,7 +20,7 @@ export async function systemToken(): Promise<string> {
     headers: { Accept: "application/json", "X-API-Key": apiKey },
     cache: "no-store",
   });
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
   if (!response.ok || !data?.system_access_token) throw new Error(data?.message ?? "Unable to obtain Growfund system token.");
   return data.system_access_token;
 }

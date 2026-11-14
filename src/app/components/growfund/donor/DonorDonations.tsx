@@ -93,7 +93,7 @@ const [statusFilter, setStatusFilter] = useState("all");
         );
       }
 
-     const [donationsData, statsData] = await Promise.all([
+     const [donationsData, statsData]: [any, any] = await Promise.all([
   dashboardApi(
     `donor/${id}/donations?page=1&per_page=100&orderby=id&order=desc`
   ),
@@ -191,7 +191,7 @@ setStats(statsData?.data ?? statsData ?? null);
     setNotice("");
 
     try {
-      const response = await dashboardApi(
+      const response: any = await dashboardApi(
         `donation/${id}/update-status`,
         {
           method: "POST",

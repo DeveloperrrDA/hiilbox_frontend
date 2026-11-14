@@ -34,7 +34,7 @@ const ChatAiListing = ({ setShowChatWindow }: ChatSidebarProps) => {
     async function fetchSidebar() {
       try {
         const res = await fetch("/api/chat-ai/chat-history");
-        const json = await res.json();
+        const json: any = await res.json();
         if (res.ok) {
           setSidebarData(json.data);
         } else {

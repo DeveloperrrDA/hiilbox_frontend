@@ -82,7 +82,7 @@ export async function createCheckout(
     }),
   });
 
-  const result = await response.json().catch(() => null);
+  const result: any = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(

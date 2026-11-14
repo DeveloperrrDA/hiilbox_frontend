@@ -70,7 +70,7 @@ export async function ownedCampaigns(
       status: "all",
     });
 
-    const { response, data } = await growfundJson(
+    const { response, data } : { response: Response; data: any } = await growfundJson(
       `${apiBase}/campaigns?${qs.toString()}`,
       {
         method: "GET",

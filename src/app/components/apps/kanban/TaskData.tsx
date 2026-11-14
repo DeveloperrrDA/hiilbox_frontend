@@ -42,7 +42,7 @@ const TaskData: React.FC<TaskDataProps> = ({
 
   const handleSaveEditedTask = async (editedTaskData: { id: any }) => {
     try {
-      const response = await mutate(
+      const response: any = await mutate(
         "/api/kanban",
         patchFetcher("/api/kanban/edit-task", {
           taskId: editedTaskData.id,

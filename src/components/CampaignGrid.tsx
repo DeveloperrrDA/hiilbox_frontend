@@ -37,7 +37,7 @@ const response = await getCampaigns({
               }
             );
 
-            const donationData =
+            const donationData: any =
               await donationResponse.json();
 
             if (

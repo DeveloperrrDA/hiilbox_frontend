@@ -11,6 +11,7 @@ const ALLOWED = [
   /^fundraisers(?:\/|$)/,
   /^fundraiser(?:\/|$)/,
   /^users(?:\/|$)/,
+  /^analytics(?:\/|$)/, // Restored from your live version
   /^media(?:\/|$)/,
 ];
 
@@ -28,28 +29,48 @@ async function proxy(
     return NextResponse.json({ success: false, message: "Unsupported admin endpoint." }, { status: 404 });
   }
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT (EDGE SPEED)
+  // ==========================================
+  if (method === "GET" && backendPath === "campaigns") {
+    try {
+      // OpenNext injects Cloudflare bindings into process.env
+      const db = process.env.growfund_db as any; 
+      
+      if (db) {
+        console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
+        // Query the D1 database
+        const { results } = await db.prepare("SELECT * FROM campaigns ORDER BY id DESC").all();
+        
+        // Return instantly, bypassing WordPress entirely
+        return NextResponse.json({ success: true, data: results }, { status: 200 });
+      } else {
+        console.log("⚠️ D1 Binding not found. Falling back to WordPress...");
+      }
+    } catch (error) {
+      console.error("🔥 D1 INTERCEPT CRASHED:", error);
+      // If the table doesn't exist yet or the query fails, we intentionally 
+      // let it fall through to the WordPress proxy below!
+    }
+  }
+  // ==========================================
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
+  // Restored your secure API key fallback
   const apiKey = process.env.GROWFUND_CLIENT_API_KEY || process.env.NEXT_PUBLIC_GROWFUND_CLIENT_API_KEY || "";
   const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: auth.authorization,
   };
 
-  // Campaign GET routes use GFCM_Combined_Auth_Middleware. That middleware
-  // expects the GrowFund *system* bearer token + X-API-Key, not the user's JWT.
-  // We still call requireUser() above so this proxy remains admin/authenticated-only.
-const needsSystemToken =
-  (
-method === "GET" &&
-/^(campaigns|donations)(?:\/|$)/.test(backendPath)  ) ||
-  (
-    method === "POST" &&
-    /^campaign\/\d+\/(?:update-status|update-secondary-status|delete|restore)$/.test(
-      backendPath
-    )
-  ); if (needsSystemToken) {
+  // Restored your specific System Token logic
+  const needsSystemToken =
+    method === "GET" &&
+    /^(campaigns|users)(?:\/|$)/.test(backendPath);
+
+  if (needsSystemToken) {
     if (!apiKey) {
       return NextResponse.json(
         { success: false, message: "GrowFund API key is not configured on the frontend server. Set GROWFUND_CLIENT_API_KEY in the deployment environment." },
@@ -85,7 +106,6 @@ method === "GET" &&
       );
     }
   } else if (apiKey) {
-    // Harmless for JWT-only endpoints and required by any other combined route.
     headers["X-API-Key"] = apiKey;
   }
 
@@ -96,7 +116,7 @@ method === "GET" &&
   }
 
   try {
-    const { response, data } = await growfundJson(target.toString(), {
+    const { response, data } : { response: any; data: any } = await growfundJson(target.toString(), {
       method,
       headers,
       body: body || undefined,
@@ -106,8 +126,7 @@ method === "GET" &&
       return NextResponse.json(
         {
           ...data,
-          message:
-            "GrowFund API key is not configured on the frontend server. Set GROWFUND_CLIENT_API_KEY in the deployment environment.",
+          message: "GrowFund API key is not configured on the frontend server. Set GROWFUND_CLIENT_API_KEY in the deployment environment.",
         },
         { status: response.status },
       );
@@ -115,6 +134,7 @@ method === "GET" &&
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
+    console.error("🔥 PROXY CRASHED:", error);
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Admin request failed." },
       { status: 500 },

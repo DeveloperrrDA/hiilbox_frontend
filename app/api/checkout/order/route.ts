@@ -10,7 +10,7 @@ const money = (valueInCents: number) => (valueInCents / 100).toFixed(2);
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: any = await request.json();
     const originalAmount = Number(body.amount);
     const originalTip = Number(body.tip_amount ?? 0);
     const originalCurrency = String(body.currency || "USD").trim().toUpperCase();
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(payload),
       cache: "no-store",
     });
-    const data = await response.json().catch(() => null);
+    const data: any = await response.json().catch(() => null);
     if (!response.ok) {
       return NextResponse.json(
         { message: data?.message ?? "WooCommerce could not create the order.", details: data },

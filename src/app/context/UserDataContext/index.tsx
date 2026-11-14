@@ -67,17 +67,17 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({
     isLoading: isPostsLoading,
     error: postsError,
     mutate,
-  } = useSWR("/api/userprofile", getFetcher);
+  }: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR("/api/userprofile", getFetcher);
   const {
     data: usersData,
     isLoading: isUsersLoading,
     error: usersError,
-  } = useSWR("/api/userprofile/get-users", getFetcher);
+  }: { data: any; isLoading: boolean; error: any } = useSWR("/api/userprofile/get-users", getFetcher);
   const {
     data: galleryData,
     isLoading: isGalleryLoading,
     error: galleryError,
-  } = useSWR("/api/userprofile/get-gallery", getFetcher);
+  }: { data: any; isLoading: boolean; error: any } = useSWR("/api/userprofile/get-gallery", getFetcher);
 
   useEffect(() => {
     if (postsData && usersData && galleryData) {

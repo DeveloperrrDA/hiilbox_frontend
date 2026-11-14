@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      const data = result.data;
+      const data: any = result.data;
       const batch =
         data?.data?.results ??
         data?.data?.data ??
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 
       const amounts = await Promise.all(
         batch.map(async (id) => {
-          const result = await growfundJson(
+          const result: any = await growfundJson(
             `${apiBase}/fundraiser/wallet/info?fundraiser_id=${id}`,
             { headers: { Authorization: auth.authorization } }
           );

@@ -265,7 +265,7 @@ const [trashingCampaign, setTrashingCampaign] = useState(false);
       }
     );
 
-    const data = await response.json().catch(() => null);
+    const data: any = await response.json().catch(() => null);
 
     if (!response.ok || data?.success === false) {
       throw new Error(
@@ -332,7 +332,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
         }
       );
 
-      const data = await response.json();
+      const data: any = await response.json();
 
       if (!response.ok) {
         throw new Error(data?.message || "Unable to load campaigns.");
@@ -425,7 +425,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
       const response = await fetch(`/api/dashboard/campaigns/${id}/${path}`, {
         method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data: any = await response.json();
       if (!response.ok) throw new Error(data?.message || "Campaign action failed.");
       setNotice(data?.message || "Campaign updated successfully.");
       await load();
@@ -459,7 +459,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
       }
     );
 
-    const data = await response
+    const data: any = await response
       .json()
       .catch(() => null);
 
@@ -493,12 +493,12 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
   async function uploadUpdateImage(files: FileList | null) {
     if (!files?.length) return; const accessToken=token(); if(!accessToken)return;
     setUploadingImage(true); setError("");
-    try { const form=new FormData(); Array.from(files).forEach(file=>form.append("images[]",file)); const res=await fetch("/api/campaigns/media",{method:"POST",headers:{Authorization:`Bearer ${accessToken}`},body:form}); const json=await res.json().catch(()=>null); if(!res.ok)throw new Error(json?.message||"Image upload failed."); const uploaded=Array.isArray(json?.images)?json.images:Array.isArray(json?.data?.images)?json.data.images:[]; setUpdateImages(current=>[...current,...uploaded]); } catch(e){setError(e instanceof Error?e.message:"Image upload failed.")} finally{setUploadingImage(false)}
+    try { const form=new FormData(); Array.from(files).forEach(file=>form.append("images[]",file)); const res=await fetch("/api/campaigns/media",{method:"POST",headers:{Authorization:`Bearer ${accessToken}`},body:form}); const json: any=await res.json().catch(()=>null); if(!res.ok)throw new Error(json?.message||"Image upload failed."); const uploaded=Array.isArray(json?.images)?json.images:Array.isArray(json?.data?.images)?json.data.images:[]; setUpdateImages(current=>[...current,...uploaded]); } catch(e){setError(e instanceof Error?e.message:"Image upload failed.")} finally{setUploadingImage(false)}
   }
   async function submitPostUpdate(){
     if(!updateCampaign)return; const title=updateTitle.trim(),description=updateDescription.trim(); if(!title||!description){setError("Title and description are required.");return} const accessToken=token(); if(!accessToken)return;
     setPostingUpdate(true);setError("");setNotice("");
-    try{const slug=title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const res=await fetch("/api/admin/growfund/campaign/update/create",{method:"POST",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({campaign_id:updateCampaign.id,title,slug,description,image:updateImages})});const json=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Unable to post campaign update.");setNotice(json?.message||"Campaign update posted successfully.");setUpdateCampaign(null);setUpdateImages([])}catch(e){setError(e instanceof Error?e.message:"Unable to post campaign update.")}finally{setPostingUpdate(false)}
+    try{const slug=title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const res=await fetch("/api/admin/growfund/campaign/update/create",{method:"POST",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({campaign_id:updateCampaign.id,title,slug,description,image:updateImages})});const json: any=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Unable to post campaign update.");setNotice(json?.message||"Campaign update posted successfully.");setUpdateCampaign(null);setUpdateImages([])}catch(e){setError(e instanceof Error?e.message:"Unable to post campaign update.")}finally{setPostingUpdate(false)}
   }
 
   async function openUpdates(c: Campaign) {
@@ -506,7 +506,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     try {
       const qs=new URLSearchParams({page:"1",per_page:"100",campaign_id:String(c.id)});
       const res=await fetch(`/api/campaigns/updates?${qs.toString()}`,{cache:"no-store"});
-      const json=await res.json().catch(()=>null);
+      const json: any=await res.json().catch(()=>null);
       if(!res.ok)throw new Error(json?.message||"Unable to load campaign updates.");
       const list=Array.isArray(json?.data?.results)?json.data.results:Array.isArray(json?.paginated?.results)?json.paginated.results:Array.isArray(json?.data)?json.data:Array.isArray(json?.results)?json.results:[];
       setCampaignUpdates(list);
@@ -521,7 +521,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     setError("");setNotice("");
     try{
       const res=await fetch("/api/dashboard/campaigns/bulk-action",{method:"POST",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({ids,action:actionName})});
-      const json=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Campaign action failed.");
+      const json: any=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Campaign action failed.");
       setNotice(json?.message||"Campaigns updated successfully.");await load();
     }catch(e){setError(e instanceof Error?e.message:"Campaign action failed.");}
   }
@@ -532,7 +532,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     setError("");setNotice("");
     try{
       const res=await fetch("/api/dashboard/campaigns?status=trash",{headers:{Authorization:`Bearer ${accessToken}`},cache:"no-store"});
-      const json=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Unable to load trash.");
+      const json: any=await res.json().catch(()=>null);if(!res.ok)throw new Error(json?.message||"Unable to load trash.");
       const trashed=(Array.isArray(json?.data)?json.data:[]).filter((c:any)=>["trash","trashed"].includes(String(c?.status??"").toLowerCase()));
       const ids=trashed.map((c:any)=>Number(c?.id)).filter(Boolean);
       if(!ids.length){setNotice("Trash is already empty.");return;}
@@ -547,7 +547,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
     setWorkingId(c.id); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/admin/growfund/campaign/${c.id}/duplicate`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: "{}" });
-      const data = await response.json().catch(() => null);
+      const data: any = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.message || "Unable to duplicate campaign.");
       setNotice(data?.message || "Campaign duplicated successfully.");
       await load();
@@ -566,7 +566,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [id], action: "delete" }),
       });
-      const data = await response.json();
+      const data: any = await response.json();
       if (!response.ok) throw new Error(data?.message || "Unable to permanently delete campaign.");
       setNotice(data?.message || "Campaign permanently deleted.");
       await load();
@@ -664,7 +664,7 @@ async function fetchCampaigns(status: string): Promise<Campaign[]> {
           }
         );
 
-        const json = await response.json().catch(() => null);
+        const json: any = await response.json().catch(() => null);
 
         if (!response.ok) {
           return [c.id, 0] as const;
@@ -740,7 +740,7 @@ useEffect(() => {
           }
         );
 
-        const json = await response.json().catch(() => null);
+        const json: any = await response.json().catch(() => null);
 
         if (!response.ok) {
           return [c.id, null] as const;

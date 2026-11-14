@@ -45,7 +45,7 @@ const [error, setError] = useState("");
 const [dateRange, setDateRange] = useState<DateRangeKey>("all");
 const [startDate, setStartDate] = useState("");
 const [endDate, setEndDate] = useState("");
-const [page, setPage] = useState(1);  const load=useCallback(async()=>{setLoading(true);setError("");try{const token=localStorage.getItem("access_token")||"";const q=new URLSearchParams();if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);if(campaignFilter)q.set("campaign_id",campaignFilter);const res=await fetch(`/api/dashboard/fundraiser-donors?${q}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});const json=await res.json();if(!res.ok)throw new Error(json?.message||"Unable to load donors.");setRows(Array.isArray(json?.data)?json.data:[]);
+const [page, setPage] = useState(1);  const load=useCallback(async()=>{setLoading(true);setError("");try{const token=localStorage.getItem("access_token")||"";const q=new URLSearchParams();if(startDate)q.set("start_date",startDate);if(endDate)q.set("end_date",endDate);if(campaignFilter)q.set("campaign_id",campaignFilter);const res=await fetch(`/api/dashboard/fundraiser-donors?${q}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});const json: any=await res.json();if(!res.ok)throw new Error(json?.message||"Unable to load donors.");setRows(Array.isArray(json?.data)?json.data:[]);
   }catch(e){setError(e instanceof Error?e.message:"Unable to load donors.");}finally{setLoading(false);}},[startDate,endDate,campaignFilter]);
   useEffect(()=>{void load();},[load]);
 useEffect(() => {
@@ -94,7 +94,7 @@ useEffect(() => {
     cache: "no-store",
   })
     .then((r) => r.json())
-    .then((x) => setCampaigns(Array.isArray(x?.data) ? x.data : []))
+    .then((x: any) => setCampaigns(Array.isArray(x?.data) ? x.data : []))
     .catch(() => {});
 }, []);
 

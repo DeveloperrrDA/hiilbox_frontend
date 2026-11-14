@@ -89,7 +89,7 @@ async function uploadDocument(file: File) {
   const body = new FormData();
   body.append("images[]", file);
   const response = await fetch("/api/campaigns/media", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body });
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.message || "Unable to upload KYC document.");
   const image = Array.isArray(data?.images) ? data.images[0] : null;
   return image?.url || image?.id || "";
@@ -108,7 +108,7 @@ export default function FundraiserKycPage() {
     let cancelled = false;
     (async () => {
       try {
-        const response = await dashboardApi("fundraiser/kyc");
+        const response: any = await dashboardApi("fundraiser/kyc");
         if (cancelled) return;
         setStatus(String(response?.status || "not_started"));
         const data = response?.data || {};
@@ -145,7 +145,7 @@ export default function FundraiserKycPage() {
       for (const [key, file] of Object.entries(files) as [FileKey, File][]) {
         if (file) payload[key] = await uploadDocument(file);
       }
-      const response = await dashboardApi("fundraiser/kyc", { method: "POST", body: JSON.stringify(payload) });
+      const response: any = await dashboardApi("fundraiser/kyc", { method: "POST", body: JSON.stringify(payload) });
       setStatus(String(response?.status || "submitted"));
       window.dispatchEvent(new Event("hiilbox-kyc-changed"));
       router.push("/dashboard/fundraiser-wallet");

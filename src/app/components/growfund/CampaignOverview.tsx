@@ -321,7 +321,7 @@ const [overviewResponse, campaignResponse, donationResponse] =
     }),
   ]);
 
-const [overviewJson, campaignJson, firstDonationJson] =
+const [overviewJson, campaignJson, firstDonationJson]: [any, any, any] =
   await Promise.all([
     overviewResponse.json(),
     campaignResponse.json(),

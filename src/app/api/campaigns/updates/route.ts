@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (!API_KEY) return NextResponse.json({ success:false, message:"GROWFUND_CLIENT_API_KEY is not configured" }, { status:500 });
   try {
     const tokenRes = await fetch(`${WORDPRESS_API}/auth/system-token`, { method:"POST", headers:{Accept:"application/json","Content-Type":"application/json","X-API-Key":API_KEY}, cache:"no-store" });
-    const tokenData = await tokenRes.json().catch(()=>null);
+    const tokenData: any = await tokenRes.json().catch(()=>null);
     const systemToken = tokenData?.system_access_token;
     if (!tokenRes.ok || !systemToken) return NextResponse.json(tokenData || {success:false,message:"Unable to obtain system token"},{status:tokenRes.ok?502:tokenRes.status});
     const target = new URL(`${WORDPRESS_API}/campaign/updates/paginated`);

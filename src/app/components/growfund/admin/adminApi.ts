@@ -23,7 +23,7 @@ export async function adminApi(path: string, init: RequestInit = {}) {
     },
   });
 
-  const data = await response.json().catch(() => null);
+  const data: any = await response.json().catch(() => null);
   const authMessage = String(data?.message || data?.data?.message || data?.error || "").toLowerCase();
  const isUsersRequest = path.replace(/^\//, "").startsWith("users/");
 

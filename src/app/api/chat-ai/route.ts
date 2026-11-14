@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 // POST: Add new user message & generate AI response
 export async function POST(req: NextRequest) {
   try {
-    const userMsg = await req.json();
+    const userMsg: any = await req.json();
 
     const newId = ChatList.length + 1;
 

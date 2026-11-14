@@ -31,7 +31,7 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [error , setError] = useState<any>(null);
 
     // Fetch tickets from the API when the component mounts using useEffect
-    const {data:ticketsData , isLoading:isTicketsLoading , error:ticketsError, mutate} = useSWR("/api/ticket" , getFetcher,{revalidateOnMount:true})
+    const {data:ticketsData , isLoading:isTicketsLoading , error:ticketsError, mutate}: { data: any; isLoading: boolean; error: any; mutate: any } = useSWR("/api/ticket" , getFetcher,{revalidateOnMount:true})
     useEffect(() => {
         if(ticketsData){
             setTickets(ticketsData.data);

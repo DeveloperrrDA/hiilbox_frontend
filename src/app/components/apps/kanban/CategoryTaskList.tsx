@@ -76,7 +76,7 @@ function CategoryTaskList({ id }: { id: string }) {
     updatedName: SetStateAction<string | any>
   ) => {
     try {
-      const response = await mutate(
+      const response: any = await mutate(
         "/api/kanban",
         postFetcher("/api/kanban/add-category", {
           categoryId: id,
@@ -117,7 +117,7 @@ function CategoryTaskList({ id }: { id: string }) {
     };
 
     try {
-      const response = await mutate(
+      const response: any = await mutate(
         "/api/kanban",
         postFetcher("/api/kanban", {
           categoryId: id,
