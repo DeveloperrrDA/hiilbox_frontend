@@ -1,3 +1,4 @@
+console.log("📂 ROUTE.TS MODULE LOADED SUCCESSFULLY");
 import { NextRequest, NextResponse } from "next/server";
 import { apiBase, growfundJson, requireUser } from "@/app/api/dashboard/campaigns/_server";
 
@@ -11,12 +12,9 @@ const ALLOWED = [
   /^fundraisers(?:\/|$)/,
   /^fundraiser(?:\/|$)/,
   /^users(?:\/|$)/,
-  /^analytics(?:\/|$)/,
+  /^analytics(?:\/|$)/, // Restored from your live version
   /^media(?:\/|$)/,
 ];
-
-// Force route to edge for D1 access
-export const runtime = "edge";
 
 async function proxy(
   req: NextRequest,
@@ -32,102 +30,47 @@ async function proxy(
     return NextResponse.json({ success: false, message: "Unsupported admin endpoint." }, { status: 404 });
   }
 
-  // =========================================================================
-  // D1 DATABASE INTERCEPT: Serve GET /campaigns instantly from Cloudflare D1
-  // =========================================================================
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT (EDGE SPEED)
+  // ==========================================
   if (method === "GET" && backendPath === "campaigns") {
-    const db = process.env.growfund_db as any; 
-    console.log("IS LOCAL D1 BINDING ACTIVE?:", !!db); 
-    
-    if (db) {
-      try {
-        const searchParams = req.nextUrl.searchParams;
-        const status = searchParams.get("status") || "all";
-        const search = searchParams.get("search") || "";
-        const limit = Number(searchParams.get("per_page")) || 100;
-        const page = Number(searchParams.get("page")) || 1;
-        const offset = (page - 1) * limit;
-
-        let sql = "SELECT * FROM campaigns";
-        let countSql = "SELECT COUNT(*) as total FROM campaigns";
-        const params: any[] = [];
-        const conditions: string[] = [];
-
-        if (status !== "all") {
-          if (status === "trash") {
-            conditions.push("status IN ('trash', 'trashed')");
-          } else {
-            conditions.push("status = ?");
-            params.push(status);
-          }
-        }
-
-        if (search) {
-          conditions.push("(title LIKE ? OR id = ?)");
-          params.push(`%${search}%`, Number(search) || 0);
-        }
-
-        if (conditions.length > 0) {
-          const whereClause = " WHERE " + conditions.join(" AND ");
-          sql += whereClause;
-          countSql += whereClause;
-        }
-
-        sql += " ORDER BY id DESC LIMIT ? OFFSET ?";
-
-        const [totalResult, results] = await Promise.all([
-          db.prepare(countSql).bind(...params).first(),
-          db.prepare(sql).bind(...params, limit, offset).all()
-        ]);
-
-        const parsedData = results.results.map((row: any) => ({
-          ...row,
-          images: JSON.parse(row.images || "[]"),
-          video: JSON.parse(row.video || "{}"),
-          author: JSON.parse(row.author || "{}"),
-          fundraiser: JSON.parse(row.fundraiser || "{}"),
-          tags: JSON.parse(row.tags || "[]"),
-          collaborators: JSON.parse(row.collaborators || "[]"),
-          suggested_options: JSON.parse(row.suggested_options || "[]"),
-          faqs: JSON.parse(row.faqs || "[]"),
-          rewards: JSON.parse(row.rewards || "[]"),
-          tribute_options: JSON.parse(row.tribute_options || "[]"),
-          default_fund: JSON.parse(row.default_fund || "{}"),
-          fund_choices: JSON.parse(row.fund_choices || "[]"),
-          extra_data: JSON.parse(row.extra_data || "{}")
-        }));
-
-        return NextResponse.json({
-          success: true,
-          data: parsedData,
-          paginated: {
-            total: totalResult?.total || 0,
-            count: parsedData.length,
-            current_page: page,
-            per_page: limit,
-            has_more: (offset + parsedData.length) < (totalResult?.total || 0),
-            results: parsedData
-          }
-        });
-      } catch (err) {
-        console.error("D1 Fetch failed, falling back to WP:", err);
-        // If D1 fails for any reason, code naturally falls through to hit WP below!
+    try {
+      // OpenNext injects Cloudflare bindings into process.env
+      const db = process.env.growfund_db as any; 
+      
+      if (db) {
+        console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
+        // Query the D1 database
+        const { results } = await db.prepare("SELECT * FROM campaigns ORDER BY id DESC").all();
+        
+        // Return instantly, bypassing WordPress entirely
+        return NextResponse.json({ success: true, data: results }, { status: 200 });
+      } else {
+        console.log("⚠️ D1 Binding not found. Falling back to WordPress...");
       }
+    } catch (error) {
+      console.error("🔥 D1 INTERCEPT CRASHED:", error);
+      // If the table doesn't exist yet or the query fails, we intentionally 
+      // let it fall through to the WordPress proxy below!
     }
   }
-  // =========================================================================
+  // ==========================================
 
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
+  // Restored your secure API key fallback
   const apiKey = process.env.GROWFUND_CLIENT_API_KEY || process.env.NEXT_PUBLIC_GROWFUND_CLIENT_API_KEY || "";
   const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: auth.authorization,
   };
 
-  const needsSystemToken = method === "GET" && /^(campaigns|users)(?:\/|$)/.test(backendPath);
-  
+  // Restored your specific System Token logic
+  const needsSystemToken =
+    method === "GET" &&
+    /^(campaigns|users)(?:\/|$)/.test(backendPath);
+
   if (needsSystemToken) {
     if (!apiKey) {
       return NextResponse.json(
@@ -138,7 +81,11 @@ async function proxy(
     try {
       const tokenResponse = await fetch(`${apiBase}/auth/system-token`, {
         method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/json", "X-API-Key": apiKey },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
         cache: "no-store",
       });
       const tokenRaw = await tokenResponse.text();
@@ -170,27 +117,25 @@ async function proxy(
   }
 
   try {
-    const { response, data } = await growfundJson(target.toString(), {
+    const { response, data } : { response: any; data: any } = await growfundJson(target.toString(), {
       method,
       headers,
       body: body || undefined,
     });
 
-    // CAST `data` to `any` to fix TypeScript "Property message does not exist on type {}"
-    const responseData: any = data;
-
-    if (!response.ok && /api key/i.test(String(responseData?.message || responseData?.data?.message || "")) && !apiKey) {
+    if (!response.ok && /api key/i.test(String(data?.message || data?.data?.message || "")) && !apiKey) {
       return NextResponse.json(
         {
-          ...responseData,
+          ...data,
           message: "GrowFund API key is not configured on the frontend server. Set GROWFUND_CLIENT_API_KEY in the deployment environment.",
         },
         { status: response.status },
       );
     }
 
-    return NextResponse.json(responseData, { status: response.status });
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
+    console.error("🔥 PROXY CRASHED:", error);
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Admin request failed." },
       { status: 500 },
@@ -199,11 +144,29 @@ async function proxy(
 }
 
 export async function GET(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "GET");
+  console.log("🚀 GET ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "GET");
+  } catch (error) {
+    console.error("💥 FATAL GET ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
 export async function POST(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "POST");
+  console.log("🚀 POST ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "POST");
+  } catch (error) {
+    console.error("💥 FATAL POST ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
 export async function DELETE(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "DELETE");
+  console.log("🚀 DELETE ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "DELETE");
+  } catch (error) {
+    console.error("💥 FATAL DELETE ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
