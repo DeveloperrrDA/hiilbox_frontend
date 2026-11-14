@@ -30,14 +30,20 @@ async function proxy(
     return NextResponse.json({ success: false, message: "Unsupported admin endpoint." }, { status: 404 });
   }
 
-  // ==========================================
+ // ==========================================
   // ⚡ D1 DATABASE INTERCEPT (EDGE SPEED)
   // ==========================================
   if (method === "GET" && backendPath === "campaigns") {
     try {
-      // Trick Next.js static substitution by using a dynamic string
       const bindingName = "growfund_db";
-      const db = (process.env as any)[bindingName] || (globalThis as any)[bindingName]; 
+      
+      // Hunt for the binding in all possible OpenNext / Cloudflare injection points
+      const db = 
+        (process.env as any)[bindingName] || 
+        (globalThis as any)[bindingName] || 
+        (globalThis as any)?.env?.[bindingName] ||
+        (req as any)?.env?.[bindingName] || 
+        (context as any)?.env?.[bindingName];
       
       if (db) {
         console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
@@ -45,6 +51,9 @@ async function proxy(
         return NextResponse.json({ success: true, data: results }, { status: 200 });
       } else {
         console.log("⚠️ D1 Binding not found. Falling back to WordPress...");
+        // DIAGNOSTIC: Log available keys to see where Cloudflare is putting it
+        const envKeys = Object.keys(process.env || {}).filter(k => !k.startsWith("npm_") && !k.startsWith("NEXT"));
+        console.log("🔍 Available env keys:", envKeys.join(", "));
       }
     } catch (error) {
       console.error("🔥 D1 INTERCEPT CRASHED:", error);
