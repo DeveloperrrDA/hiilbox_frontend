@@ -1,10 +1,15 @@
 import Link from "next/link";
+
 import {
-  getCampaign,
-  getCampaigns,
   getCampaignRecentDonations,
-  getCampaignUpdates
+  getCampaignUpdates,
 } from "@/lib/campaigns";
+
+import {
+  getPublicCampaign as getCampaign,
+  getPublicCampaigns as getCampaigns,
+} from "@/lib/server/public-campaigns";
+
 import ShareCampaign from "@/components/ShareCampaign";
 import ThemeShell from "@/components/theme/ThemeShell";
 import CampaignMediaSlider from "@/components/CampaignMediaSlider";

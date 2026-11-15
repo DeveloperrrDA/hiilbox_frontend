@@ -1,3 +1,7 @@
+import {
+  getD1Campaigns,
+  getD1Campaign,
+} from "@/lib/server/campaigns-d1";
 export interface CampaignImageSize {
   height: number;
   width: number;
@@ -392,7 +396,7 @@ function normalizeRecentDonations(raw: any): CampaignDonation[] {
  * Normalize a raw campaign from the WordPress/GrowFund API
  * into the structure expected by the Next.js frontend.
  */
-function normalizeCampaign(raw: any): Campaign {
+export function normalizeCampaign(raw: any): Campaign {
   const normalizedImages = normalizeCampaignImages(raw);
 
   const fundraiser =

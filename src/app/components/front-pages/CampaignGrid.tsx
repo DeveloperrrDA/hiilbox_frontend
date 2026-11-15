@@ -11,93 +11,56 @@ export default function CampaignGrid() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  
+useEffect(() => {
+  let cancelled = false;
 
-    async function loadCampaigns() {
-      try {
-        setIsLoading(true);
-        setError(null);
+  async function loadCampaigns() {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const response = await getCampaigns({
-          page: 1,
-          per_page: 9,
-          status: "launched-and-beyond",
-        });
+      const response = await getCampaigns({
+        page: 1,
+        per_page: 9,
+        status: "launched-and-beyond",
+      });
 
-        if (!cancelled) {
-          if (response.success) {
-            setCampaigns(
-              response.data.map((campaign) => ({
-                ...campaign,
-                number_of_contributions: -1,
-              }))
-            );
-            setIsLoading(false);
+      if (cancelled) return;
 
-            const campaignsWithCompletedCounts = await Promise.all(
-              response.data.map(async (campaign) => {
-                try {
-                  const donationResponse = await fetch(
-                    `/api/campaigns/${campaign.id}/donations`,
-                    {
-                      method: "GET",
-                      cache: "no-store",
-                    }
-                  );
+      if (!response.success) {
+        setCampaigns([]);
+        setError("Failed to load campaigns.");
+        return;
+      }
 
-                  const donationData: any = await donationResponse.json();
+      // Use counts already included in the campaign response.
+      // No additional donation API requests.
+      setCampaigns(response.data);
+    } catch (err) {
+      if (cancelled) return;
 
-                  if (donationResponse.ok && donationData?.success) {
-                    return {
-                      ...campaign,
-                      number_of_contributions: Number(
-                        donationData.completed_count ?? 0
-                      ),
-                    };
-                  }
-                } catch (error) {
-                  console.error(
-                    `Failed to load completed donation count for campaign ${campaign.id}:`,
-                    error
-                  );
-                }
-
-                return campaign;
-              })
-            );
-
-            if (!cancelled) {
-              setCampaigns(campaignsWithCompletedCounts);
-            }
-          } else {
-            setCampaigns([]);
-            setError("Failed to load campaigns.");
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to fetch campaigns:", err);
-          setCampaigns([]);
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load campaigns."
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+      console.error("Failed to fetch campaigns:", err);
+      setCampaigns([]);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load campaigns."
+      );
+    } finally {
+      if (!cancelled) {
+        setIsLoading(false);
       }
     }
+  }
 
-    loadCampaigns();
+  loadCampaigns();
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
 
   if (isLoading) {
     return (

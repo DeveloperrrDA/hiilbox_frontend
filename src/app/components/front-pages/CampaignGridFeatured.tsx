@@ -13,84 +13,42 @@ export default function CampaignGridFeatured() {
   // State to track the current slide (chunk of 5)
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCampaigns() {
+    async function loadFeaturedCampaigns() {
       try {
         setIsLoading(true);
         setError(null);
 
-        // Fetching up to 15 campaigns (3 slides of 5)
         const response = await getCampaigns({
           page: 1,
-          per_page: 15, 
+          per_page: 15,
           status: "launched-and-beyond",
           is_featured: true,
         });
 
-        if (!cancelled) {
-          if (response.success) {
-          // STEP 1: Show campaigns immediately
-setCampaigns(
-  response.data.map((campaign) => ({
-    ...campaign,
-    number_of_contributions: -1,
-  }))
-);
-setIsLoading(false);
+        if (cancelled) return;
 
-// STEP 2: Fetch donation counts in the background
-const campaignsWithCompletedCounts = await Promise.all(
-  response.data.map(async (campaign) => {
-    try {
-      const donationResponse = await fetch(
-        `/api/campaigns/${campaign.id}/donations`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
-
-      // Keep your existing donation processing code here.
-
-                  const donationData: any = await donationResponse.json();
-
-                  if (donationResponse.ok && donationData?.success) {
-                    return {
-                      ...campaign,
-                      number_of_contributions: Number(
-                        donationData.completed_count ?? 0
-                      ),
-                    };
-                  }
-                } catch (error) {
-                  console.error(
-                    `Failed to load completed donation count for campaign ${campaign.id}:`,
-                    error
-                  );
-                }
-
-                return campaign;
-              })
-            );
-
-            if (!cancelled) {
-              setCampaigns(campaignsWithCompletedCounts);
-            }
-          } else {
-            setCampaigns([]);
-            setError("Failed to load campaigns.");
-          }
+        if (response.success) {
+          // Donation counts come from the campaign response.
+          // No separate donation requests.
+          setCampaigns(response.data);
+        } else {
+          setCampaigns([]);
+          setError("Failed to load featured campaigns.");
         }
       } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to fetch campaigns:", err);
-          setCampaigns([]);
-          setError(
-            err instanceof Error ? err.message : "Failed to load campaigns."
-          );
-        }
+        if (cancelled) return;
+
+        console.error("Failed to fetch featured campaigns:", err);
+        setCampaigns([]);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load featured campaigns."
+        );
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -98,12 +56,13 @@ const campaignsWithCompletedCounts = await Promise.all(
       }
     }
 
-    loadCampaigns();
+    loadFeaturedCampaigns();
 
     return () => {
       cancelled = true;
     };
   }, []);
+
 
   if (isLoading) {
     return (

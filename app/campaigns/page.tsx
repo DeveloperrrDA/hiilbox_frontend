@@ -11,7 +11,11 @@ import CampaignCards from "./CampaignCards";
 
 import ThemeShell from "@/components/theme/ThemeShell";
 
-import { getCampaigns, type CampaignsResponse } from "@/lib/campaigns";
+
+import type { CampaignsResponse } from "@/lib/campaigns";
+import {
+  getPublicCampaigns as getCampaigns,
+} from "@/lib/server/public-campaigns";
 
 
 
