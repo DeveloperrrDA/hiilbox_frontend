@@ -67,18 +67,32 @@ function decodeRow(row: CampaignRow): CampaignRow {
   return result;
 }
 
+
 async function getDB(): Promise<any | null> {
   if (process.env.CAMPAIGNS_D1_ENABLED !== "true") {
+    console.warn("[D1] Campaign D1 access is disabled");
     return null;
   }
 
   try {
-    const { env } = await getCloudflareContext();
-    return (env as any).growfund_db ?? null;
-  } catch {
+    const { env } = await getCloudflareContext({
+      async: true,
+    });
+
+    const db = (env as any).growfund_db;
+
+    if (!db) {
+      console.error("[D1] growfund_db binding is missing");
+      return null;
+    }
+
+    return db;
+  } catch (error) {
+    console.error("[D1] Failed to access database:", error);
     return null;
   }
 }
+
 
 export async function getD1Campaigns(
   query: D1CampaignQuery = {}
