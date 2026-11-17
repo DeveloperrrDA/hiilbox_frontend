@@ -26,6 +26,50 @@ export async function GET(request: NextRequest) {
         search: params.get("search") || undefined,
         category_slug: params.get("category_slug") || undefined,
         status: params.get("status") || undefined,
+        is_featured: params.has("is_featured")
+          ? params.get("is_featured") === "true"
+          : undefined,
+        orderby: params.get("orderby") || undefined,
+        order: params.get("order") === "asc" ? "asc" : "desc",
+      });
+
+      if (d1Result) {
+        return NextResponse.json(d1Result, {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+            "X-Hiilbox-Source": "D1",
+          },
+        });
+      }
+
+      console.error(
+        "[Campaigns] D1 enabled but no D1 result was returned"
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "D1 campaign data temporarily unavailable",
+        },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Hiilbox-Source": "D1-UNAVAILABLE",
+          },
+        }
+      );
+    }
+
+    if (process.env.CAMPAIGNS_D1_ENABLED === "true") {
+      const params = request.nextUrl.searchParams;
+
+      const d1Result = await readPublicCampaigns({
+        page: Number(params.get("page") || 1),
+        per_page: Number(params.get("per_page") || 10),
+        search: params.get("search") || undefined,
+        category_slug: params.get("category_slug") || undefined,
+        status: params.get("status") || undefined,
         is_featured:
           params.has("is_featured")
             ? params.get("is_featured") === "true"
