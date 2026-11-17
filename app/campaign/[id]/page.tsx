@@ -70,22 +70,10 @@ export default async function CampaignPage({
   const campaign = response.data;
   const extractedUpdates = campaignUpdatesResponse.data;
 
-  // --- Fetch Accurate Completed Donations Count ---
-  let totalDonations = 0;
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const donationResponse = await fetch(`${baseUrl}/api/campaigns/${campaign.id}/donations`, { cache: "no-store" });
-    const donationData: any = await donationResponse.json();
-    if (donationResponse.ok && donationData?.success) {
-      totalDonations = Number(donationData.completed_count ?? 0);
-    } else {
-      totalDonations = Number(campaign.number_of_contributions ?? 0);
-    }
-  } catch (error) {
-    console.error(`Failed to load completed donation count for campaign ${campaign.id}:`, error);
-    totalDonations = Number(campaign.number_of_contributions ?? 0);
-  }
-
+  // Get completed and paid donation count directly from D1.
+const totalDonations = Number(
+  campaign.number_of_contributions ?? 0
+);
   let relatedCampaigns: Awaited<ReturnType<typeof getCampaigns>>["data"] = [];
   try {
     const relatedResponse = relatedResult;
