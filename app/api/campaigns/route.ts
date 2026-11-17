@@ -91,7 +91,10 @@ export async function GET(request: NextRequest) {
 
     // CHECK CAMPAIGN CACHE FIRST
     const cacheKey = request.nextUrl.searchParams.toString();
-    const cached = campaignCache.get(cacheKey);
+   const cached =
+  process.env.CAMPAIGNS_D1_ENABLED === "true"
+    ? undefined
+    : campaignCache.get(cacheKey);
 
     if (cached && Date.now() < cached.expiresAt) {
       return NextResponse.json(cached.data, {
