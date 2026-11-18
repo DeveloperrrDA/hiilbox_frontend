@@ -1,20 +1,41 @@
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
 import {
   apiBase,
   growfundJson,
   requireUser,
 } from "@/app/api/dashboard/campaigns/_server";
+
 import { isAdminUser } from "@/app/api/dashboard/_owned";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type MetadataRow = {
+  value: string | null;
+  last_synced_at: string | null;
+};
+
+type CountRow = {
+  total: number;
+};
+
 export async function GET(req: NextRequest) {
+  // Require authenticated user
   const auth = await requireUser(req);
-  if ("error" in auth) return auth.error;
+
+  if ("error" in auth) {
+    return auth.error;
+  }
 
   try {
-    // Verify the user against WordPress, not just the local role.
+    // Verify WordPress administrator permissions
     const me = await growfundJson(`${apiBase}/auth/me`, {
-      headers: { Authorization: auth.authorization },
+      headers: {
+        Authorization: auth.authorization,
+      },
     });
 
     if (!me.response.ok) {
@@ -30,98 +51,93 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const ids = new Set<number>();
-
-    for (let page = 1; page <= 100; page++) {
-      const q = new URLSearchParams({
-        page: String(page),
-        per_page: "100",
-      });
-
-      const result = await growfundJson(
-        `${apiBase}/fundraisers/paginated?${q}`,
-        { headers: { Authorization: auth.authorization } }
-      );
-
-      if (!result.response.ok) {
-        return NextResponse.json(result.data, {
-          status: result.response.status,
-        });
-      }
-
-      const data: any = result.data;
-      const batch =
-        data?.data?.results ??
-        data?.data?.data ??
-        data?.data?.items ??
-        data?.data ??
-        data?.results ??
-        [];
-
-      if (!Array.isArray(batch)) {
-        throw new Error("Unexpected fundraiser response.");
-      }
-
-      for (const person of batch) {
-        const id = Number(
-          person?.id ?? person?.user_id ?? person?.fundraiser_id
-        );
-        if (id > 0) ids.add(id);
-      }
-
-      if (batch.length < 100) break;
-      if (page === 100) {
-        throw new Error("Fundraiser pagination limit reached.");
-      }
-    }
-
-    let total = 0;
-
-    // Small batches avoid overloading WordPress.
-    const fundraiserIds = [...ids];
-    for (let i = 0; i < fundraiserIds.length; i += 10) {
-      const batch = fundraiserIds.slice(i, i + 10);
-
-      const amounts = await Promise.all(
-        batch.map(async (id) => {
-          const result: any = await growfundJson(
-            `${apiBase}/fundraiser/wallet/info?fundraiser_id=${id}`,
-            { headers: { Authorization: auth.authorization } }
-          );
-
-          if (!result.response.ok) {
-            throw new Error(`Wallet lookup failed for fundraiser ${id}.`);
-          }
-
-          const value = Number(
-            result.data?.data?.available_withdraw_amount
-          );
-
-          if (!Number.isFinite(value) || value < 0) {
-            throw new Error(`Invalid wallet balance for fundraiser ${id}.`);
-          }
-
-          return value;
-        })
-      );
-
-      total += amounts.reduce((sum, amount) => sum + amount, 0);
-    }
-
-    return NextResponse.json({
-      success: true,
-      total_payable: Math.round(total * 100) / 100,
-      fundraiser_count: ids.size,
+    // Connect to Cloudflare D1
+    const { env } = await getCloudflareContext({
+      async: true,
     });
+
+   
+const db = (
+  env as typeof env & {
+    growfund_db: {
+      prepare: (query: string) => {
+        bind: (...values: (string | number | null)[]) => {
+          first: <T>() => Promise<T | null>;
+        };
+        first: <T>() => Promise<T | null>;
+      };
+    };
+  }
+).growfund_db;
+
+
+    if (!db) {
+      throw new Error("Cloudflare D1 binding unavailable.");
+    }
+
+    // Fetch total payable from metadata
+    const metadata = await db
+      .prepare(
+        `SELECT value, last_synced_at
+         FROM metadata
+         WHERE key = ?
+         LIMIT 1`
+      )
+      .bind("total_payable")
+      .first<MetadataRow>();
+
+    if (!metadata || metadata.value === null) {
+      throw new Error("Total payable metadata not found.");
+    }
+
+    const rawValue = metadata.value.trim();
+
+    if (!rawValue) {
+      throw new Error("Total payable metadata is empty.");
+    }
+
+    const totalPayable = Number(rawValue);
+
+    if (!Number.isFinite(totalPayable) || totalPayable < 0) {
+      throw new Error("Invalid total payable value in D1.");
+    }
+
+    // Fetch total fundraiser count
+    const count = await db
+      .prepare(
+        `SELECT COUNT(*) AS total
+         FROM fundraisers`
+      )
+      .first<CountRow>();
+
+    return NextResponse.json(
+      {
+        success: true,
+        total_payable: Math.round(totalPayable * 100) / 100,
+        fundraiser_count: count?.total ?? 0,
+        last_synced_at: metadata.last_synced_at,
+        source: "cloudflare_d1",
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+        },
+      }
+    );
   } catch (error) {
+    console.error("[Total Payable D1]", error);
+
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error
-          ? error.message
-          : "Unable to calculate Total Payable.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to retrieve total payable.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
