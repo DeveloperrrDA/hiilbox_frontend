@@ -266,6 +266,8 @@ async function proxy(
           };
         });
 
+        console.log("📂 SUCCESS - D1 WITHDRAWALS INTERCEPT", { count: hydratedRows.length, total });
+
         return NextResponse.json(
           {
             success: true,

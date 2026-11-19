@@ -55,6 +55,8 @@ export async function GET(req: NextRequest) {
               .prepare(`SELECT COUNT(*) as total FROM fundraisers`)
               .first();
 
+              console.log("📂 SUCCESS - D1 TOTAL PAYABLE INTERCEPT", { total: Math.round(parsedTotal * 100) / 100, count: Number(countRow?.total || 0) });
+
             return NextResponse.json(
               {
                 success: true,
