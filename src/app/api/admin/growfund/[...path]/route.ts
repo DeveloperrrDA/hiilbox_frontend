@@ -82,6 +82,7 @@ async function proxy(
 
   if (d1Enabled && d1Listing) {
     try {
+      const startedAt = Date.now();
       // Preserve administrator authorization.
       const me = await growfundJson(
         `${apiBase}/auth/me`,
@@ -91,6 +92,12 @@ async function proxy(
           },
         }
       );
+      const authDuration = Date.now() - startedAt;
+
+console.info("[Admin D1] Authentication completed", {
+  listing: d1Listing,
+  durationMs: authDuration,
+});
 
       if (!me.response.ok) {
         return NextResponse.json(me.data, {
@@ -109,18 +116,31 @@ async function proxy(
       }
 
       // Read the requested listing from D1.
-      const result = await readAdminD1(
-        d1Listing,
-        req.nextUrl.searchParams
-      );
+     const d1StartedAt = Date.now();
 
-      return NextResponse.json(result, {
-        status: 200,
-        headers: {
-          "Cache-Control": "private, no-store",
-          "X-Data-Source": "cloudflare-d1",
-        },
-      });
+const result = await readAdminD1(
+  d1Listing,
+  req.nextUrl.searchParams
+);
+
+const d1Duration = Date.now() - d1StartedAt;
+
+console.info("[Admin D1] Query completed", {
+  listing: d1Listing,
+  authMs: authDuration,
+  d1Ms: d1Duration,
+  totalMs: Date.now() - startedAt,
+});
+
+return NextResponse.json(result, {
+  status: 200,
+  headers: {
+    "Cache-Control": "private, no-store",
+    "X-Data-Source": "cloudflare-d1",
+    "Server-Timing":
+      `wp-auth;dur=${authDuration}, d1;dur=${d1Duration}`,
+  },
+});
     } catch (error) {
       console.error(
         "[Admin D1] Falling back to WordPress:",
