@@ -388,6 +388,111 @@ async function proxy(
     }
   }
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN FUNDRAISERS
+  // ==========================================
+  if (method === "GET" && backendPath === "fundraisers/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const offset = (page - 1) * perPage;
+
+        const status = sp.get("status")?.trim().toLowerCase();
+        const search = sp.get("search")?.trim();
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (status && status !== "all") {
+          const statusGroups: Record<string, string[]> = {
+            pending: ["pending", "review", "submitted", "inactive"],
+            approved: ["approved", "active"],
+            declined: ["inactive", "declined", "rejected", "denied"],
+            trash: ["trash", "trashed"],
+          };
+
+          const allowed = statusGroups[status] ?? [status];
+          const placeholders = allowed.map(() => "?").join(",");
+          conditions.push(`LOWER(COALESCE(status, 'pending')) IN (${placeholders})`);
+          bindings.push(...allowed);
+        }
+
+        if (search) {
+          const like = `%${search}%`;
+          conditions.push(`(
+            CAST(id AS TEXT) LIKE ? OR
+            COALESCE(first_name, '') LIKE ? OR
+            COALESCE(last_name, '') LIKE ? OR
+            COALESCE(email, '') LIKE ? OR
+            COALESCE(username, '') LIKE ? OR
+            COALESCE(phone, '') LIKE ?
+          )`);
+          bindings.push(like, like, like, like, like, like);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM fundraisers ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`
+            SELECT * FROM fundraisers
+            ${whereClause}
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const hydratedRows = (results || []).map((row: any) => ({
+          ...row,
+          image: safeParse(row.image),
+          decline_reason: safeParse(row.decline_reason),
+        }));
+
+        console.log("📂 SUCCESS - D1 FUNDRAISERS INTERCEPT", { count: hydratedRows.length, total });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: hydratedRows,
+            pagination: {
+              page,
+              per_page: perPage,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / perPage)),
+            },
+          },
+          {
+            status: 200,
+            headers: { "X-Hiilbox-Source": "D1-Edge" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 FUNDRAISERS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
