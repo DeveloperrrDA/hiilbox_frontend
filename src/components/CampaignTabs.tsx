@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import CampaignComments from "./CampaignComments";
 import UpdateComments from "./UpdateComments";
 
 export default function CampaignTabs({ 
   campaign,
-  campaignUpdates,
   hideStoryTab = false 
 }: { 
   campaign: any;
-  campaignUpdates: any[];
   hideStoryTab?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState(hideStoryTab ? "updates" : "story");
   
+  // Lazy-loaded updates state
+  const [campaignUpdates, setCampaignUpdates] = useState<any[]>([]);
+  const [loadingUpdates, setLoadingUpdates] = useState(false);
+  const [hasFetchedUpdates, setHasFetchedUpdates] = useState(false);
+  
   const [expandedUpdates, setExpandedUpdates] = useState<Record<number, boolean>>({});
   
-  // Slice state for limiting updates on initial load
   const [visibleUpdatesCount, setVisibleUpdatesCount] = useState(3);
   const visibleUpdates = campaignUpdates?.slice(0, visibleUpdatesCount) || [];
   const hasMoreUpdates = campaignUpdates?.length > visibleUpdatesCount;
@@ -26,6 +28,30 @@ export default function CampaignTabs({
   const toggleUpdateComments = (id: number) => {
     setExpandedUpdates((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  // Fetch updates when the tab is clicked for the first time
+  useEffect(() => {
+    if (activeTab === "updates" && !hasFetchedUpdates) {
+      const loadUpdates = async () => {
+        setLoadingUpdates(true);
+        try {
+          // Adjust this route to match your internal Next.js API endpoint for campaign updates
+          const res = await fetch(`/api/campaigns/updates?campaign_id=${campaign.id}&page=1&per_page=20`);
+          if (res.ok) {
+            const data: any = await res.json();
+            setCampaignUpdates(data?.data || []);
+          }
+        } catch (error) {
+          console.error("Failed to load campaign updates:", error);
+        } finally {
+          setLoadingUpdates(false);
+          setHasFetchedUpdates(true);
+        }
+      };
+      
+      loadUpdates();
+    }
+  }, [activeTab, hasFetchedUpdates, campaign.id]);
 
   return (
     <div className="w-full">
@@ -71,52 +97,58 @@ export default function CampaignTabs({
               <span className="rounded bg-gray-100 px-2 py-0.5 text-sm font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">{campaignUpdates?.length || 0}</span>
             </div>
             
-            <div className="space-y-12">
-              {visibleUpdates.map((update) => (
-                <div key={update.id} className="flex w-full flex-col max-w-full">
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
-                      {update.created_by_image ? (
-                        <img src={update.created_by_image} alt={update.created_by_name} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="font-bold uppercase text-gray-500">{update.created_by_name?.charAt(0) || "U"}</span>
-                      )}
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-dark dark:text-white">{new Date(update.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            {loadingUpdates ? (
+              <div className="flex justify-center py-10">
+                <Icon icon="eos-icons:loading" className="text-3xl text-[#01A14B]" />
+              </div>
+            ) : (
+              <div className="space-y-12">
+                {visibleUpdates.map((update) => (
+                  <div key={update.id} className="flex w-full flex-col max-w-full">
+                    <div className="mb-5 flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                        {update.created_by_image ? (
+                          <img src={update.created_by_image} alt={update.created_by_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="font-bold uppercase text-gray-500">{update.created_by_name?.charAt(0) || "U"}</span>
+                        )}
                       </div>
-                      <div className="truncate text-sm text-[#5a6a85] dark:text-gray-400">
-                        {update.created_by_name} <span className="mx-1">•</span> {update.created_by_role === "growfund_fundraiser" ? "Fundraiser" : update.created_by_role}
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-dark dark:text-white">{new Date(update.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                        <div className="truncate text-sm text-[#5a6a85] dark:text-gray-400">
+                          {update.created_by_name} <span className="mx-1">•</span> {update.created_by_role === "growfund_fundraiser" ? "Fundraiser" : update.created_by_role}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <h3 className="mb-3 break-words text-lg font-bold text-[#111c2d] dark:text-white">{update.title}</h3>
-                  <div className="w-full text-base leading-8 text-[#5a6a85] dark:text-gray-400">
-                    <p className="line-clamp-4 break-words whitespace-pre-line">{update.description}</p>
-                  </div>
-                  
-                  <div className="mt-4 flex items-center gap-6 border-t border-gray-100 dark:border-gray-800 pt-4">
-                    <button 
-                      onClick={() => toggleUpdateComments(update.id)} 
-                      className="flex items-center gap-2 text-[14px] font-bold text-[#5a6a85] dark:text-gray-400 hover:text-[#01A14B] dark:hover:text-[#01A14B] transition-colors"
-                    >
-                      <Icon icon={expandedUpdates[update.id] ? "solar:chat-round-line-bold" : "solar:chat-round-line-duotone"} className="text-xl" />
-                      {update.comments || 0} {update.comments === 1 ? "Comment" : "Comments"}
-                    </button>
-                  </div>
+                    
+                    <h3 className="mb-3 break-words text-lg font-bold text-[#111c2d] dark:text-white">{update.title}</h3>
+                    <div className="w-full text-base leading-8 text-[#5a6a85] dark:text-gray-400">
+                      <p className="line-clamp-4 break-words whitespace-pre-line">{update.description}</p>
+                    </div>
+                    
+                    <div className="mt-4 flex items-center gap-6 border-t border-gray-100 dark:border-gray-800 pt-4">
+                      <button 
+                        onClick={() => toggleUpdateComments(update.id)} 
+                        className="flex items-center gap-2 text-[14px] font-bold text-[#5a6a85] dark:text-gray-400 hover:text-[#01A14B] dark:hover:text-[#01A14B] transition-colors"
+                      >
+                        <Icon icon={expandedUpdates[update.id] ? "solar:chat-round-line-bold" : "solar:chat-round-line-duotone"} className="text-xl" />
+                        {update.comments || 0} {update.comments === 1 ? "Comment" : "Comments"}
+                      </button>
+                    </div>
 
-                  {expandedUpdates[update.id] && (
-                    <div className="mt-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-100 dark:border-gray-800">
-                      <UpdateComments updateId={update.id} />
-                    </div>
-                  )}
-                </div>
-              ))}
-              
-              {(!campaignUpdates || campaignUpdates.length === 0) && <p className="pt-4 text-[#5a6a85] dark:text-gray-400">No updates posted yet.</p>}
-            </div>
+                    {expandedUpdates[update.id] && (
+                      <div className="mt-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-100 dark:border-gray-800">
+                        <UpdateComments updateId={update.id} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {(!campaignUpdates || campaignUpdates.length === 0) && <p className="pt-4 text-[#5a6a85] dark:text-gray-400">No updates posted yet.</p>}
+              </div>
+            )}
 
             {hasMoreUpdates && (
               <div className="mt-12 flex justify-center border-t border-gray-100 dark:border-gray-800 pt-8">
@@ -132,7 +164,7 @@ export default function CampaignTabs({
           </div>
         )}
 
-        {/* COMMENTS TAB */}
+        {/* COMMENTS TAB (API called conditionally on mount via CampaignComments) */}
         {activeTab === "comments" && (
           <div className="w-full border-t border-[#e0e6eb] pt-6 dark:border-gray-800 animate-in fade-in duration-300">
             <h2 className="text-2xl font-bold text-[#111c2d] dark:text-white">Comments</h2>

@@ -1,10 +1,5 @@
 import Link from "next/link";
-
-import {
-  getCampaignRecentDonations,
-  getCampaignUpdates,
-} from "@/lib/campaigns";
-
+import { getCampaignRecentDonations } from "@/lib/campaigns";
 import {
   getPublicCampaign as getCampaign,
   getPublicCampaigns as getCampaigns,
@@ -22,10 +17,7 @@ interface CampaignPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function CampaignPage({
-  params,
-}: CampaignPageProps) {
-
+export default async function CampaignPage({ params }: CampaignPageProps) {
   const { id } = await params;
   const campaignId = Number(id);
 
@@ -35,19 +27,13 @@ export default async function CampaignPage({
     finally { console.log(`[CAMPAIGN PERFORMANCE] ${name}: ${Math.round(performance.now() - start)}ms`); }
   };
 
-  const [response, updatesResult, relatedResult] = await Promise.all([
+  // 1. Fetch only the core campaign and related campaigns (both from D1)
+  const [response, relatedResult] = await Promise.all([
     timed("Campaign Details", getCampaign(campaignId)),
-    timed("Campaign Updates", getCampaignUpdates({ page: 1, per_page: 10, campaign_id: campaignId }).catch(() => null)),
     timed("Related Campaigns", getCampaigns({ page: 1, per_page: 24, status: "launched-and-beyond" }).catch(() => null)),
   ]);
 
   const recentDonations: Awaited<ReturnType<typeof getCampaignRecentDonations>> = [];
-  
-  const campaignUpdatesResponse = updatesResult ?? {
-    success: true,
-    data: [],
-    pagination: { page: 1, per_page: 10 },
-  };
 
   if (!response.success || !response.data) {
     return (
@@ -68,37 +54,30 @@ export default async function CampaignPage({
   }
 
   const campaign = response.data;
-  const extractedUpdates = campaignUpdatesResponse.data;
-
-  // Get completed and paid donation count directly from D1.
-const totalDonations = Number(
-  campaign.number_of_contributions ?? 0
-);
+  const totalDonations = Number(campaign.number_of_contributions ?? 0);
+  
   let relatedCampaigns: Awaited<ReturnType<typeof getCampaigns>>["data"] = [];
   try {
     const relatedResponse = relatedResult;
-    if (!relatedResponse?.success || !Array.isArray(relatedResponse.data)) {
-      throw new Error("Related campaigns unavailable");
+    if (relatedResponse?.success && Array.isArray(relatedResponse.data)) {
+      const eligible = relatedResponse.data.filter(
+        (item) => item.id !== campaign.id && item.id > 0 && !item.is_hidden && !item.is_paused && !item.is_ended
+      );
+
+      relatedCampaigns = eligible
+        .sort((a, b) => {
+          const aMatch = Boolean(campaign.category) && a.category === campaign.category ? 1 : 0;
+          const bMatch = Boolean(campaign.category) && b.category === campaign.category ? 1 : 0;
+          return bMatch - aMatch;
+        })
+        .slice(0, 4)
+        .map((c) => ({ ...c, number_of_contributions: -1 })); 
     }
-
-    const eligible = relatedResponse.data.filter(
-      (item) => item.id !== campaign.id && item.id > 0 && !item.is_hidden && !item.is_paused && !item.is_ended
-    );
-
-    relatedCampaigns = eligible
-      .sort((a, b) => {
-        const aMatch = Boolean(campaign.category) && a.category === campaign.category ? 1 : 0;
-        const bMatch = Boolean(campaign.category) && b.category === campaign.category ? 1 : 0;
-        return bMatch - aMatch;
-      })
-      .slice(0, 4)
-      .map((c) => ({ ...c, number_of_contributions: -1 })); 
   } catch (error) {
     console.error("Unable to load related campaigns:", error);
   }
 
   const progress = campaign.goal > 0 ? Math.min(100, Math.round((campaign.raised_amount / campaign.goal) * 100)) : 0;
-  
   const size = 100;
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
@@ -108,13 +87,13 @@ const totalDonations = Number(
   const deadline = campaign.deadline ? new Date(campaign.deadline).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null;
   const fundraiserName = campaign.fundraiser_name?.trim() || "Anonymous fundraiser";
   const fundraiserInitial = fundraiserName.charAt(0).toUpperCase();
-  const imageUrl = campaign.image_url || campaign.images?.[0]?.url || campaign.images?.[0]?.sizes?.medium?.url || campaign.images?.[0]?.sizes?.woocommerce_thumbnail?.url || "";
+  const imageUrl = campaign.image_url || campaign.images?.[0]?.url || campaign.images?.[0]?.sizes?.medium?.url || "";
 
   return (
     <ThemeShell>
       <main className="min-h-screen bg-white dark:bg-darkgray transition-colors duration-300">
         
-        {/* ================= TOP BACK BUTTON ================= */}
+        {/* BACK BUTTON */}
         <div className="bg-white dark:bg-darkgray">
           <div className="mx-auto max-w-[1218px] px-6 py-4">
             <Link href="/campaigns" className="text-sm font-medium text-[#5a6a85] transition-colors hover:text-[#01A14B] dark:text-gray-300">
@@ -123,14 +102,11 @@ const totalDonations = Number(
           </div>
         </div>
 
-        {/* ================= MAIN CONTENT ================= */}
+        {/* MAIN CONTENT */}
         <div className="mx-auto max-w-[1218px] px-6 pb-10 pt-4 lg:pt-10">
-          
           <div className="grid gap-12 lg:grid-cols-[1fr_380px]">
             
-            {/* ================= LEFT COLUMN (Story, Media, Mobile Flow) ================= */}
             <div className="min-w-0">
-              
               <h1 className="mb-4 lg:mb-6 text-2xl lg:text-xl font-extrabold lg:font-bold leading-tight tracking-tight text-[#111c2d] dark:text-white sm:text-2xl">
                 {campaign.title}
               </h1>
@@ -139,7 +115,6 @@ const totalDonations = Number(
                 <CampaignMediaSlider video={campaign.video} images={campaign.images} title={campaign.title} fallbackImage={imageUrl} />
               </div>
 
-              {/* Organizer & Share (Desktop unified style, Mobile order explicitly split below) */}
               <div className="hidden lg:flex mb-6 mt-10 flex-wrap items-center gap-y-5 sm:justify-between">
                 <div className="flex basis-full flex-wrap items-center gap-3 md:basis-1/2">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-lightprimary dark:bg-primary/20 text-sm font-bold text-primary">
@@ -155,9 +130,7 @@ const totalDonations = Number(
                 </div>
               </div>
 
-              {/* ================= MOBILE ONLY FLOW ================= */}
               <div className="block lg:hidden min-w-0">
-                
                 <div className="mb-6 flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lightprimary dark:bg-primary/20 text-sm font-bold text-primary">
                     {fundraiserInitial}
@@ -205,21 +178,16 @@ const totalDonations = Number(
                   <CampaignRecentDonations campaignId={campaignId} initialDonations={recentDonations} totalCount={totalDonations} />
                 </div>
 
-                {/* Mobile Tabs Wrapper (Story Hidden, Updates Default) */}
                 <div className="border-t border-gray-100 dark:border-gray-800 pt-6">
-                   <CampaignTabs campaign={campaign} campaignUpdates={extractedUpdates} hideStoryTab={true} />
+                   <CampaignTabs campaign={campaign} hideStoryTab={true} />
                 </div>
-
               </div>
 
-              {/* ================= DESKTOP ONLY TABS ================= */}
               <div className="hidden lg:block py-10">
-                <CampaignTabs campaign={campaign} campaignUpdates={extractedUpdates} />
+                <CampaignTabs campaign={campaign} />
               </div>
-
             </div>
 
-            {/* ================= RIGHT COLUMN (Desktop Sidebar) ================= */}
             <aside id="desktop-donate-section" className="hidden lg:block min-w-0">
               <div className="sticky top-28 dark:bg-darkgray">
                 <div className="rounded-[20px] bg-white dark:bg-dark p-6 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -261,11 +229,9 @@ const totalDonations = Number(
           </div>
         </div>
 
-        {/* ================= RELATED CAMPAIGNS ================= */}
         {relatedCampaigns.length > 0 && (
           <section className="border-t border-[#e0e6eb] dark:border-gray-800 bg-[#FAFAFA] dark:bg-dark py-12 md:py-16">
             <div className="mx-auto max-w-[1218px] px-6">
-              
               <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-[#111c2d] dark:text-white">
@@ -279,13 +245,11 @@ const totalDonations = Number(
                   View all campaigns →
                 </Link>
               </div>
-
               <div className="grid grid-cols-1 gap-4 sm:gap-6 md:gap-10 sm:grid-cols-2 lg:grid-cols-4">
                 {relatedCampaigns.map((item) => (
                   <CampaignCard key={item.id} campaign={item as any} />
                 ))}
               </div>
-
             </div>
           </section>
         )}
