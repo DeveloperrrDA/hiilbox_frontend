@@ -1,10 +1,13 @@
 
 import "server-only";
+
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 type D1Statement = {
   bind: (...values: (string | number | null)[]) => D1Statement;
-  all: () => Promise<{ results?: Record<string, unknown>[] }>;
+  all: () => Promise<{
+    results?: Record<string, unknown>[];
+  }>;
   first: <T>() => Promise<T | null>;
 };
 
@@ -17,16 +20,30 @@ type Listing = "donors" | "fundraisers" | "withdrawals";
 const definitions = {
   donors: {
     table: "donors",
-    search: ["first_name", "last_name", "email", "username", "phone"],
+    search: [
+      "first_name",
+      "last_name",
+      "email",
+      "username",
+      "phone",
+    ],
     json: ["image", "billing_address"],
     boolean: ["is_verified", "is_fundraiser"],
   },
+
   fundraisers: {
     table: "fundraisers",
-    search: ["first_name", "last_name", "email", "username", "phone"],
+    search: [
+      "first_name",
+      "last_name",
+      "email",
+      "username",
+      "phone",
+    ],
     json: ["image", "decline_reason"],
     boolean: ["is_verified"],
   },
+
   withdrawals: {
     table: "withdrawal_requests",
     search: ["note", "method"],
@@ -39,7 +56,7 @@ function decode(
   row: Record<string, unknown>,
   jsonFields: readonly string[],
   booleanFields: readonly string[]
-) {
+): Record<string, unknown> {
   const result = { ...row };
 
   for (const field of jsonFields) {
@@ -49,15 +66,46 @@ function decode(
       try {
         result[field] = JSON.parse(value);
       } catch {
-        // Preserve original data if it isn't valid JSON.
+        // Preserve the original value if not valid JSON.
       }
     }
   }
 
   for (const field of booleanFields) {
-    if (result[field] !== null && result[field] !== undefined) {
-      result[field] = Boolean(result[field]);
+    const value = result[field];
+
+    if (value !== null && value !== undefined) {
+      result[field] =
+        value === true ||
+        value === 1 ||
+        value === "1" ||
+        value === "true";
     }
+  }
+
+  // WordPress returns record IDs as strings.
+  if (result.id !== null && result.id !== undefined) {
+    result.id = String(result.id);
+  }
+
+  // Match the nested fundraiser ID format.
+  if (
+    result.fundraiser &&
+    typeof result.fundraiser === "object" &&
+    !Array.isArray(result.fundraiser)
+  ) {
+    const fundraiser = {
+      ...(result.fundraiser as Record<string, unknown>),
+    };
+
+    if (
+      fundraiser.id !== null &&
+      fundraiser.id !== undefined
+    ) {
+      fundraiser.id = String(fundraiser.id);
+    }
+
+    result.fundraiser = fundraiser;
   }
 
   return result;
@@ -67,15 +115,25 @@ export async function readAdminD1(
   listing: Listing,
   params: URLSearchParams
 ) {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext({
+    async: true,
+  });
 
   const db = (
-    env as typeof env & { growfund_db?: D1Connection }
+    env as typeof env & {
+      growfund_db?: D1Connection;
+    }
   ).growfund_db;
 
-  if (!db) throw new Error("D1 binding unavailable");
+  if (!db) {
+    throw new Error("D1 binding unavailable");
+  }
 
   const config = definitions[listing];
+
+  // ==========================================
+  // PAGINATION
+  // ==========================================
 
   const page = Math.max(
     1,
@@ -84,18 +142,41 @@ export async function readAdminD1(
 
   const perPage = Math.min(
     100,
-    Math.max(1, Math.floor(Number(params.get("per_page")) || 20))
+    Math.max(
+      1,
+      Math.floor(Number(params.get("per_page")) || 100)
+    )
   );
 
+  // ==========================================
+  // FILTERS
+  // ==========================================
+
   const where: string[] = [];
+
   const bindings: (string | number | null)[] = [];
 
   const status = params.get("status")?.trim();
 
-  if (status && status.toLowerCase() !== "all") {
+  // Donors and fundraisers exclude trash
+  // from the default WordPress listing.
+  if (listing === "donors" || listing === "fundraisers") {
+    if (!status || status.toLowerCase() === "all") {
+      where.push("status != ?");
+      bindings.push("trash");
+    } else {
+      where.push("status = ?");
+      bindings.push(status);
+    }
+  } else if (status && status.toLowerCase() !== "all") {
+    // Preserve withdrawal status filtering.
     where.push("status = ?");
     bindings.push(status);
   }
+
+  // ==========================================
+  // SEARCH
+  // ==========================================
 
   const search = params.get("search")?.trim();
 
@@ -103,7 +184,11 @@ export async function readAdminD1(
     const fields = config.search;
 
     where.push(
-      "(" + fields.map((field) => `${field} LIKE ?`).join(" OR ") + ")"
+      "(" +
+        fields
+          .map((field) => `${field} LIKE ?`)
+          .join(" OR ") +
+        ")"
     );
 
     for (const _field of fields) {
@@ -111,10 +196,19 @@ export async function readAdminD1(
     }
   }
 
-  if (listing === "withdrawals") {
-    const fundraiserId = Number(params.get("fundraiser_id"));
+  // ==========================================
+  // WITHDRAWAL FUNDRAISER FILTER
+  // ==========================================
 
-    if (Number.isSafeInteger(fundraiserId) && fundraiserId > 0) {
+  if (listing === "withdrawals") {
+    const fundraiserId = Number(
+      params.get("fundraiser_id")
+    );
+
+    if (
+      Number.isSafeInteger(fundraiserId) &&
+      fundraiserId > 0
+    ) {
       where.push("fundraiser_id = ?");
       bindings.push(fundraiserId);
     }
@@ -123,6 +217,10 @@ export async function readAdminD1(
   const whereSql = where.length
     ? `WHERE ${where.join(" AND ")}`
     : "";
+
+  // ==========================================
+  // COUNT FILTERED RECORDS
+  // ==========================================
 
   const countResult = await db
     .prepare(
@@ -134,7 +232,12 @@ export async function readAdminD1(
     .first<{ total: number }>();
 
   const total = Number(countResult?.total ?? 0);
+
   const offset = (page - 1) * perPage;
+
+  // ==========================================
+  // FETCH RECORDS
+  // ==========================================
 
   const result = await db
     .prepare(
@@ -151,12 +254,33 @@ export async function readAdminD1(
     decode(row, config.json, config.boolean)
   );
 
+  // ==========================================
+  // COUNT ALL RECORDS
+  // ==========================================
+
+  const overallResult = await db
+    .prepare(
+      `SELECT COUNT(*) AS total
+       FROM ${config.table}`
+    )
+    .first<{ total: number }>();
+
+  const overall = Number(overallResult?.total ?? 0);
+
+  // ==========================================
+  // WORDPRESS-COMPATIBLE RESPONSE
+  // ==========================================
+
   return {
     success: true,
-    data: rows,
-    total,
-    page,
-    per_page: perPage,
-    total_pages: Math.ceil(total / perPage),
+    data: {
+      results: rows,
+      count: rows.length,
+      total,
+      current_page: page,
+      per_page: perPage,
+      has_more: page * perPage < total,
+      overall,
+    },
   };
 }
