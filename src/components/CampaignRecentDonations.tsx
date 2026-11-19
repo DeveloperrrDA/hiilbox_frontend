@@ -32,6 +32,7 @@ export default function CampaignRecentDonations({
 }) {
   const [popupMode, setPopupMode] = useState<PopupMode>(null);
   const [donations, setDonations] = useState<Donation[]>(initialDonations);
+  const [donationCount, setDonationCount] = useState(totalCount);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -45,9 +46,12 @@ export default function CampaignRecentDonations({
         const response = await fetch(`/api/campaigns/${campaignId}/donations`, { signal: controller.signal });
         if (!response.ok) throw new Error("Unable to load donations");
         const result: any = await response.json();
-        if (result.success && Array.isArray(result.data)) {
-          setDonations(result.data);
-        }
+if (result.success && Array.isArray(result.data)) {
+  setDonations(result.data);
+  setDonationCount(
+    Number(result.completed_count ?? result.data.length)
+  );
+}
       } catch (error) {
         if (!controller.signal.aborted) console.error("Unable to load donations:", error);
       } finally {
@@ -99,7 +103,7 @@ export default function CampaignRecentDonations({
         {/* Header */}
         <div className="flex items-center justify-between p-6 pb-2">
           <h2 className="text-2xl font-extrabold text-[#111c2d] dark:text-white flex items-center gap-2">
-            Donations <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-bold text-gray-700 dark:text-gray-300">{totalCount}</span>
+            Donations <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-bold text-gray-700 dark:text-gray-300">{donationCount}</span>
           </h2>
           <button type="button" onClick={() => setPopupMode(null)} className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <Icon icon="tabler:x" className="text-xl" />
@@ -213,7 +217,7 @@ export default function CampaignRecentDonations({
               <Icon icon="tabler:trending-up" className="text-2xl" />
             </div>
             <p className="text-base font-bold text-[#111c2d] dark:text-white">
-              {loading ? "Loading donations..." : `${totalCount.toLocaleString()} donations`}
+              {loading ? "Loading donations..." : `${donationCount.toLocaleString()} donations`}
             </p>
           </div>
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { readPublicCampaign } from "@/lib/server/public-campaigns";
+
 const WORDPRESS_API = (
   process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
   "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
@@ -27,6 +29,20 @@ export async function GET(
         { status: 400 }
       );
     }
+    
+    if (process.env.CAMPAIGNS_D1_ENABLED === "true") {
+      const d1Campaign = await readPublicCampaign(campaignId);
+
+      if (d1Campaign) {
+        return NextResponse.json(d1Campaign, {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "X-Hiilbox-Source": "D1",
+          },
+        });
+      }
+    }
+
 // Check whether this campaign is already cached
 const cachedCampaign = campaignDetailsCache.get(campaignId);
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { readPublicCampaigns } from "@/lib/server/public-campaigns";
+
 const WORDPRESS_API =
   process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
   "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1";
@@ -14,9 +16,85 @@ const campaignCache = new Map<
 const CACHE_TTL = 10 * 60 * 1000;
 export async function GET(request: NextRequest) {
   try {
+    
+    if (process.env.CAMPAIGNS_D1_ENABLED === "true") {
+      const params = request.nextUrl.searchParams;
+
+      const d1Result = await readPublicCampaigns({
+        page: Number(params.get("page") || 1),
+        per_page: Number(params.get("per_page") || 10),
+        search: params.get("search") || undefined,
+        category_slug: params.get("category_slug") || undefined,
+        status: params.get("status") || undefined,
+        is_featured: params.has("is_featured")
+          ? params.get("is_featured") === "true"
+          : undefined,
+        orderby: params.get("orderby") || undefined,
+        order: params.get("order") === "asc" ? "asc" : "desc",
+      });
+
+      if (d1Result) {
+        return NextResponse.json(d1Result, {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+            "X-Hiilbox-Source": "D1",
+          },
+        });
+      }
+
+      console.error(
+        "[Campaigns] D1 enabled but no D1 result was returned"
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "D1 campaign data temporarily unavailable",
+        },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Hiilbox-Source": "D1-UNAVAILABLE",
+          },
+        }
+      );
+    }
+
+    if (process.env.CAMPAIGNS_D1_ENABLED === "true") {
+      const params = request.nextUrl.searchParams;
+
+      const d1Result = await readPublicCampaigns({
+        page: Number(params.get("page") || 1),
+        per_page: Number(params.get("per_page") || 10),
+        search: params.get("search") || undefined,
+        category_slug: params.get("category_slug") || undefined,
+        status: params.get("status") || undefined,
+        is_featured:
+          params.has("is_featured")
+            ? params.get("is_featured") === "true"
+            : undefined,
+        orderby: params.get("orderby") || undefined,
+        order:
+          params.get("order") === "asc" ? "asc" : "desc",
+      });
+
+      if (d1Result) {
+        return NextResponse.json(d1Result, {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "X-Hiilbox-Source": "D1",
+          },
+        });
+      }
+    }
+
     // CHECK CAMPAIGN CACHE FIRST
     const cacheKey = request.nextUrl.searchParams.toString();
-    const cached = campaignCache.get(cacheKey);
+   const cached =
+  process.env.CAMPAIGNS_D1_ENABLED === "true"
+    ? undefined
+    : campaignCache.get(cacheKey);
 
     if (cached && Date.now() < cached.expiresAt) {
       return NextResponse.json(cached.data, {

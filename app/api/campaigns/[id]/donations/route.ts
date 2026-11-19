@@ -1,152 +1,73 @@
+
 import { NextRequest, NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const WORDPRESS_API = (
-  process.env.NEXT_PUBLIC_WORDPRESS_API_URL ||
-  "https://cms.hiilbox.com/wp-json/growfund-currency-manager/v1"
-).replace(/\/$/, "");
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const GROWFUND_API_KEY = process.env.GROWFUND_CLIENT_API_KEY;
-// Cache public completed donations for 30 seconds.
-const DONATIONS_CACHE_MS = 30 * 1000;
-
-type DonationsResult = {
-  success: true;
-  data: ReturnType<typeof normalizeDonation>[];
-  completed_count: number;
+type DonationRow = {
+  id: number;
+  uid: string | null;
+  donor: string | null;
+  amount: number | null;
+  is_anonymous: number | null;
+  created_at: string | null;
+  status: string | null;
+  payment_status: string | null;
 };
 
-const donationsCache = new Map<
-  number,
-  { result: DonationsResult; expiresAt: number }
->();
+function getDonorName(value: string | null): string {
+  if (!value) return "Supporter";
 
-const pendingDonations = new Map<number, Promise<DonationsResult>>();
-function pickArray(value: any): any[] {
-  const candidates = [
-    value?.data?.results,
-    value?.data?.items,
-    value?.data?.data,
-    value?.data,
-    value?.paginated?.results,
-    value?.results,
-    value?.items,
-    value,
-  ];
-  return candidates.find(Array.isArray) ?? [];
+  let donor: unknown = value;
+
+  try {
+    donor = JSON.parse(value);
+  } catch {
+    return value.trim() || "Supporter";
+  }
+
+  if (typeof donor === "string") {
+    return donor.trim() || "Supporter";
+  }
+
+  if (!donor || typeof donor !== "object") {
+    return "Supporter";
+  }
+
+  const d = donor as Record<string, unknown>;
+
+  const fullName = [
+    d.first_name,
+    d.last_name
+  ]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" ");
+
+  const name =
+  fullName ||
+  d.display_name ||
+  d.donor_name ||
+  d.name;
+
+  return typeof name === "string" && name.trim()
+    ? name.trim()
+    : "Supporter";
 }
 
-function normalizeDonation(item: any, index: number) {
-  const donor = item?.donor ?? item?.user ?? item?.contributor ?? {};
-  const anonymous = Boolean(
-    item?.is_anonymous ?? item?.anonymous ?? item?.hide_name ?? item?.donor_anonymous
-  );
-  const donorName = anonymous
-    ? "Anonymous"
-    : String(
-        item?.donor_name ??
-          item?.contributor_name ??
-          item?.name ??
-          item?.display_name ??
-          donor?.display_name ??
-          [donor?.first_name, donor?.last_name].filter(Boolean).join(" ") ??
-          "Supporter"
-      ).trim() || "Supporter";
-
-  const amount = Number(
-    item?.amount ??
-      item?.donation_amount ??
-      item?.total ??
-      item?.amount_paid ??
-      item?.value ??
-      0
-  );
+function normalizeDonation(row: DonationRow) {
+  const anonymous = Number(row.is_anonymous) === 1;
 
   return {
-    id: String(item?.id ?? item?.uid ?? item?.donation_id ?? index),
-    donor_name: donorName,
-    amount: Number.isFinite(amount) ? amount : 0,
-    currency: String(item?.currency ?? item?.currency_code ?? item?.display_currency ?? "USD").toUpperCase(),
-    created_at: item?.created_at ?? item?.date ?? item?.created ?? item?.donated_at ?? null,
+    id: String(row.uid || row.id),
+    donor_name: anonymous
+      ? "Anonymous"
+      : getDonorName(row.donor),
+    amount: Number(row.amount || 0),
+    currency: "USD",
+    created_at: row.created_at,
     is_anonymous: anonymous,
-    status: String(item?.status ?? item?.payment_status ?? "").toLowerCase(),
-  };
-}
-
-
-async function fetchCampaignDonations(
-  campaignId: number
-): Promise<DonationsResult> {
-  if (!GROWFUND_API_KEY) {
-    throw new Error("GROWFUND_CLIENT_API_KEY is not configured");
-  }
-
-  const tokenResponse = await fetch(
-    `${WORDPRESS_API}/auth/system-token`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "X-API-Key": GROWFUND_API_KEY,
-      },
-      cache: "no-store",
-    }
-  );
-
-  const tokenData: any = await tokenResponse.json().catch(() => null);
-
-  if (!tokenResponse.ok || !tokenData?.system_access_token) {
-    throw new Error(
-      tokenData?.message || "Unable to obtain system access token."
-    );
-  }
-
-  const query = new URLSearchParams({
-    campaign_id: String(campaignId),
-    page: "1",
-    per_page: "100",
-    orderby: "created_at",
-    order: "desc",
-  });
-
-  const response = await fetch(
-    `${WORDPRESS_API}/campaigns/${campaignId}/donation-feed?${query.toString()}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${tokenData.system_access_token}`,
-        "X-API-Key": GROWFUND_API_KEY,
-      },
-      cache: "no-store",
-    }
-  );
-
-  const data: any = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(data?.message || "Unable to load recent donations.");
-  }
-
-  const donations = (
-    Array.isArray(data?.data) ? data.data : pickArray(data)
-  )
-.map(normalizeDonation)
-.filter(
-  (item: ReturnType<typeof normalizeDonation>) =>
-    String(item.status ?? "").trim().toLowerCase() === "completed"
-)
-.sort((
-  a: ReturnType<typeof normalizeDonation>,
-  b: ReturnType<typeof normalizeDonation>
-) => {
-      const aTime = a.created_at ? Date.parse(a.created_at) : 0;
-      const bTime = b.created_at ? Date.parse(b.created_at) : 0;
-      return bTime - aTime || Number(b.id) - Number(a.id);
-    });
-
-  return {
-    success: true,
-    data: donations,
-    completed_count: donations.length,
+    status: "completed",
   };
 }
 
@@ -154,84 +75,100 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const campaignId = Number(id);
+  try {
+    const { id } = await params;
+    const campaignId = Number(id);
 
-  if (!Number.isInteger(campaignId) || campaignId <= 0) {
+    if (
+      !Number.isSafeInteger(campaignId) ||
+      campaignId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: [],
+          completed_count: 0,
+          message: "Invalid campaign ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { env } = await getCloudflareContext({
+      async: true,
+    });
+
+    const db = (env as any).growfund_db;
+
+    if (!db) {
+      throw new Error("D1 binding growfund_db not found");
+    }
+
+    const countResult = await db
+      .prepare(`
+        SELECT COUNT(*) AS total
+        FROM donations
+        WHERE campaign_id = ?
+          AND LOWER(TRIM(status)) = 'completed'
+          AND LOWER(TRIM(payment_status)) = 'paid'
+      `)
+      .bind(campaignId)
+      .first();
+
+    const result = await db
+      .prepare(`
+        SELECT
+          id,
+          uid,
+          donor,
+          amount,
+          is_anonymous,
+          created_at,
+          status,
+          payment_status
+        FROM donations
+        WHERE campaign_id = ?
+          AND LOWER(TRIM(status)) = 'completed'
+          AND LOWER(TRIM(payment_status)) = 'paid'
+        ORDER BY created_at DESC, id DESC
+        LIMIT 100
+      `)
+      .bind(campaignId)
+      .all();
+
+   const donations = (result.results || []).map(
+  (row: any) => normalizeDonation(row as DonationRow)
+);
+
     return NextResponse.json(
-      { success: false, message: "Invalid campaign ID." },
-      { status: 400 }
+      {
+        success: true,
+        data: donations,
+        completed_count: Number(
+          countResult?.total || 0
+        ),
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Hiilbox-Source": "Cloudflare-D1",
+        },
+      }
     );
-  }
+  } catch (error) {
+    console.error(
+      "Recent Donations D1 error:",
+      error
+    );
 
-  if (!GROWFUND_API_KEY) {
     return NextResponse.json(
       {
         success: false,
-        message: "GROWFUND_CLIENT_API_KEY is not configured",
+        data: [],
+        completed_count: 0,
+        message: "Unable to load recent donations",
       },
       { status: 500 }
-    );
-  }
-
-  const cached = donationsCache.get(campaignId);
-
-  if (cached && Date.now() < cached.expiresAt) {
-    return NextResponse.json(cached.result, {
-      headers: {
-        "Cache-Control": "private, no-store",
-        "X-Hiilbox-Cache": "HIT",
-      },
-    });
-  }
-
-  try {
-    let pending = pendingDonations.get(campaignId);
-
-    if (!pending) {
-      pending = fetchCampaignDonations(campaignId);
-      pendingDonations.set(campaignId, pending);
-
-      void pending.finally(() => {
-        pendingDonations.delete(campaignId);
-      }).catch(() => {});
-    }
-
-    const result = await pending;
-
-    donationsCache.set(campaignId, {
-      result,
-      expiresAt: Date.now() + DONATIONS_CACHE_MS,
-    });
-
-    return NextResponse.json(result, {
-      headers: {
-        "Cache-Control": "private, no-store",
-        "X-Hiilbox-Cache": "MISS",
-      },
-    });
-  } catch (error) {
-    console.error("Campaign donations fetch failed:", error);
-
-    // Reuse previously fetched public data if WordPress is unavailable.
-    if (cached) {
-      return NextResponse.json(cached.result, {
-        headers: {
-          "Cache-Control": "private, no-store",
-          "X-Hiilbox-Cache": "STALE",
-        },
-      });
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unable to load recent donations.",
-      },
-      { status: 502 }
     );
   }
 }
