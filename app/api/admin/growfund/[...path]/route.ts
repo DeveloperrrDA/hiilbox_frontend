@@ -199,6 +199,95 @@ async function proxy(
     }
   }
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN WITHDRAWALS
+  // ==========================================
+  if (method === "GET" && backendPath === "fundraiser/withdrawal/requests/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const offset = (page - 1) * perPage;
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM withdrawal_requests`)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`
+            SELECT 
+              w.*,
+              f.first_name AS joined_first_name,
+              f.last_name AS joined_last_name,
+              f.email AS joined_email,
+              f.username AS joined_username
+            FROM withdrawal_requests w
+            LEFT JOIN fundraisers f ON w.fundraiser_id = f.id
+            ORDER BY w.id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(perPage, offset)
+          .all();
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const hydratedRows = (results || []).map((row: any) => {
+          const parsedFundraiser = safeParse(row.fundraiser);
+          const fundraiserObj =
+            parsedFundraiser && typeof parsedFundraiser === "object"
+              ? parsedFundraiser
+              : row.fundraiser_id
+                ? {
+                    id: row.fundraiser_id,
+                    first_name: row.joined_first_name || "",
+                    last_name: row.joined_last_name || "",
+                    email: row.joined_email || "",
+                    username: row.joined_username || "",
+                  }
+                : null;
+
+          return {
+            ...row,
+            withdrawal_request_id: row.id,
+            fundraiser: fundraiserObj,
+          };
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: hydratedRows,
+            pagination: {
+              page,
+              per_page: perPage,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / perPage)),
+            },
+          },
+          {
+            status: 200,
+            headers: { "X-Hiilbox-Source": "D1-Edge" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 WITHDRAWALS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
