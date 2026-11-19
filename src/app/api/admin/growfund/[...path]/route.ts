@@ -1,3 +1,4 @@
+console.log("📂 ROUTE.TS MODULE LOADED SUCCESSFULLY");
 import { NextRequest, NextResponse } from "next/server";
 import { apiBase, growfundJson, requireUser } from "@/app/api/dashboard/campaigns/_server";
 
@@ -143,11 +144,29 @@ async function proxy(
 }
 
 export async function GET(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "GET");
+  console.log("🚀 GET ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "GET");
+  } catch (error) {
+    console.error("💥 FATAL GET ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
 export async function POST(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "POST");
+  console.log("🚀 POST ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "POST");
+  } catch (error) {
+    console.error("💥 FATAL POST ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
 export async function DELETE(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, context, "DELETE");
+  console.log("🚀 DELETE ROUTE HIT! Path:", req.nextUrl.pathname);
+  try {
+    return await proxy(req, context, "DELETE");
+  } catch (error) {
+    console.error("💥 FATAL DELETE ERROR:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
 }
