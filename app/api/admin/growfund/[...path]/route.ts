@@ -55,6 +55,148 @@ async function proxy(
   }
   // ==========================================
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN DONATIONS
+  // ==========================================
+  if (method === "GET" && backendPath === "donations/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(100, Math.max(1, Number(sp.get("per_page") || 10)));
+        const offset = (page - 1) * perPage;
+
+        const status = sp.get("status")?.trim().toLowerCase();
+        const campaignId = sp.get("campaign_id")?.trim();
+        const search = sp.get("search")?.trim();
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (status && status !== "all") {
+          if (status === "completed") {
+            conditions.push(`LOWER(COALESCE(d.payment_status, d.status, '')) IN ('completed', 'paid', 'approved')`);
+          } else {
+            conditions.push(`LOWER(COALESCE(d.payment_status, d.status, '')) = ?`);
+            bindings.push(status);
+          }
+        } else {
+          conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed')`);
+        }
+
+        if (campaignId && Number(campaignId) > 0) {
+          conditions.push(`d.campaign_id = ?`);
+          bindings.push(Number(campaignId));
+        }
+
+        if (search) {
+          const like = `%${search}%`;
+          conditions.push(`(
+            CAST(d.id AS TEXT) LIKE ? OR
+            COALESCE(d.uid, '') LIKE ? OR
+            COALESCE(d.donor, '') LIKE ? OR
+            COALESCE(d.campaign, '') LIKE ? OR
+            COALESCE(c.title, '') LIKE ?
+          )`);
+          bindings.push(like, like, like, like, like);
+        }
+
+        if (startDate) {
+          conditions.push(`d.created_at >= ?`);
+          bindings.push(`${startDate} 00:00:00`);
+        }
+
+        if (endDate) {
+          conditions.push(`d.created_at <= ?`);
+          bindings.push(`${endDate} 23:59:59`);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        // 1. Total matching records
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM donations d LEFT JOIN campaigns c ON d.campaign_id = c.id ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        // 2. Paginated rows joined with campaigns fallback
+        const { results } = await db
+          .prepare(`
+            SELECT 
+              d.*,
+              c.title AS joined_campaign_title,
+              c.images AS joined_campaign_images
+            FROM donations d
+            LEFT JOIN campaigns c ON d.campaign_id = c.id
+            ${whereClause}
+            ORDER BY d.id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const hydratedRows = (results || []).map((row: any) => {
+          const parsedCampaign = safeParse(row.campaign);
+          const joinedImages = safeParse(row.joined_campaign_images);
+
+          const campaignObj =
+            parsedCampaign && typeof parsedCampaign === "object"
+              ? parsedCampaign
+              : row.campaign_id
+                ? {
+                    id: row.campaign_id,
+                    title: row.joined_campaign_title || `Campaign #${row.campaign_id}`,
+                    images: Array.isArray(joinedImages) ? joinedImages : [],
+                  }
+                : null;
+
+          return {
+            ...row,
+            campaign: campaignObj,
+            donor: safeParse(row.donor),
+            fund: safeParse(row.fund),
+            payment_method: safeParse(row.payment_method),
+          };
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: hydratedRows,
+            pagination: {
+              page,
+              per_page: perPage,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / perPage)),
+            },
+          },
+          {
+            status: 200,
+            headers: { "X-Hiilbox-Source": "D1-Edge" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 DONATIONS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
