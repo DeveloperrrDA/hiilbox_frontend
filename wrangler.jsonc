@@ -17,6 +17,8 @@
 		}
 	],
 	"vars": {
+		"ADMIN_FUNDRAISERS_D1_ENABLED": "true",
+		"ADMIN_WITHDRAWALS_D1_ENABLED": "true",
 		"ADMIN_DONORS_D1_ENABLED": "true",
 		"CAMPAIGNS_D1_ENABLED": "true",
 		"NEXT_PUBLIC_SITE_URL": "https://hiilboxfrontend.mohamoud-ali15.workers.dev",
