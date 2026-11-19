@@ -7,39 +7,70 @@ import {
 } from "@/app/api/dashboard/campaigns/_server";
 import { isAdminUser } from "@/app/api/dashboard/_owned";
 
+async function hashToken(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if ("error" in auth) return auth.error;
 
   try {
-    // 1. Verify admin privileges
-    const me: any = await growfundJson(`${apiBase}/auth/me`, {
-      headers: { Authorization: auth.authorization },
-    });
-
-    if (!me.response.ok) {
-      return NextResponse.json(me.data, { status: me.response.status });
-    }
-
-    const capabilities = me.data?.data?.wpbt_capabilities;
-    const isAdministrator =
-      isAdminUser(me.data) ||
-      (Array.isArray(capabilities) &&
-        capabilities.some(
-          (value: unknown) =>
-            typeof value === "string" &&
-            /(?:^|[;{])s:13:"administrator";b:1;/.test(value)
-        ));
-
-    if (!isAdministrator) {
-      return NextResponse.json(
-        { message: "Administrator access required." },
-        { status: 403 }
-      );
-    }
-
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).growfund_db;
+    const cache = (env as any).HIILBOX_CACHE as
+      | {
+          get(key: string): Promise<string | null>;
+          put(key: string, value: string, options: { expirationTtl: number }): Promise<void>;
+        }
+      | undefined;
+
+    // 1. Check KV cache for verified admin status to skip the 5s WordPress /auth/me round-trip
+    const tokenHash = await hashToken(auth.authorization);
+    const authCacheKey = `admin:auth:${tokenHash}`;
+    let isAdministrator = false;
+
+    if (cache) {
+      const cachedAuth = await cache.get(authCacheKey).catch(() => null);
+      if (cachedAuth === "1") {
+        isAdministrator = true;
+      }
+    }
+
+    if (!isAdministrator) {
+      const me: any = await growfundJson(`${apiBase}/auth/me`, {
+        headers: { Authorization: auth.authorization },
+      });
+
+      if (!me.response.ok) {
+        return NextResponse.json(me.data, { status: me.response.status });
+      }
+
+      const capabilities = me.data?.data?.wpbt_capabilities;
+      isAdministrator =
+        isAdminUser(me.data) ||
+        (Array.isArray(capabilities) &&
+          capabilities.some(
+            (value: unknown) =>
+              typeof value === "string" &&
+              /(?:^|[;{])s:13:"administrator";b:1;/.test(value)
+          ));
+
+      if (!isAdministrator) {
+        return NextResponse.json(
+          { message: "Administrator access required." },
+          { status: 403 }
+        );
+      }
+
+      if (cache) {
+        await cache.put(authCacheKey, "1", { expirationTtl: 300 }).catch(() => {});
+      }
+    }
 
     // 2. D1 EDGE INTERCEPT: Read pre-calculated total_payable from metadata table
     if (db) {
@@ -54,8 +85,6 @@ export async function GET(req: NextRequest) {
             const countRow = await db
               .prepare(`SELECT COUNT(*) as total FROM fundraisers`)
               .first();
-
-              console.log("📂 SUCCESS - D1 TOTAL PAYABLE INTERCEPT", { total: Math.round(parsedTotal * 100) / 100, count: Number(countRow?.total || 0) });
 
             return NextResponse.json(
               {
