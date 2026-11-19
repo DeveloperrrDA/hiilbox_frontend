@@ -79,10 +79,12 @@ async function proxy(
         const bindings: any[] = [];
 
         if (status && status !== "all") {
-          if (status === "completed") {
-            conditions.push(`LOWER(COALESCE(d.payment_status, d.status, '')) IN ('completed', 'paid', 'approved')`);
+          if (status === "trash" || status === "trashed") {
+            conditions.push(`LOWER(COALESCE(d.status, '')) IN ('trash', 'trashed')`);
+          } else if (status === "completed") {
+            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND LOWER(COALESCE(d.payment_status, d.status, '')) IN ('completed', 'paid', 'approved')`);
           } else {
-            conditions.push(`LOWER(COALESCE(d.payment_status, d.status, '')) = ?`);
+            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND LOWER(COALESCE(d.payment_status, d.status, '')) = ?`);
             bindings.push(status);
           }
         } else {
