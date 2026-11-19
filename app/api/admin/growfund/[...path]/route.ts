@@ -288,6 +288,104 @@ async function proxy(
     }
   }
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN DONORS
+  // ==========================================
+  if (method === "GET" && backendPath === "donors/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const offset = (page - 1) * perPage;
+
+        const status = sp.get("status")?.trim().toLowerCase();
+        const search = sp.get("search")?.trim();
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (status && status !== "all") {
+          if (status === "trash" || status === "trashed") {
+            conditions.push(`LOWER(COALESCE(status, 'active')) IN ('trash', 'trashed')`);
+          } else {
+            conditions.push(`LOWER(COALESCE(status, 'active')) = ?`);
+            bindings.push(status);
+          }
+        }
+
+        if (search) {
+          const like = `%${search}%`;
+          conditions.push(`(
+            CAST(id AS TEXT) LIKE ? OR
+            COALESCE(first_name, '') LIKE ? OR
+            COALESCE(last_name, '') LIKE ? OR
+            COALESCE(email, '') LIKE ? OR
+            COALESCE(username, '') LIKE ? OR
+            COALESCE(phone, '') LIKE ?
+          )`);
+          bindings.push(like, like, like, like, like, like);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM donors ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`
+            SELECT * FROM donors
+            ${whereClause}
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const hydratedRows = (results || []).map((row: any) => ({
+          ...row,
+          image: safeParse(row.image),
+          billing_address: safeParse(row.billing_address),
+        }));
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: hydratedRows,
+            pagination: {
+              page,
+              per_page: perPage,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / perPage)),
+            },
+          },
+          {
+            status: 200,
+            headers: { "X-Hiilbox-Source": "D1-Edge" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 DONORS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
