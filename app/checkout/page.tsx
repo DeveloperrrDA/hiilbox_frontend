@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -367,7 +367,7 @@ const premierGateway = gatewayById("premier_wallet_pay");
     "064": { name: "Somlink", gatewayId: null },
     "065": { name: "eDahab", gatewayId: "edahab_pay" },
     "066": { name: "eDahab", gatewayId: "edahab_pay" },
-    "067": { name: "Somtelco", gatewayId: null },
+    "067": { name: "Somtelco", gatewayId: "zes_pay" },
     "068": { name: "Jeeb", gatewayId: "zes_pay" },
     "069": { name: "NationLink (Unavailable)", gatewayId: null },
     "090": { name: "Sahal", gatewayId: "zes_pay" },

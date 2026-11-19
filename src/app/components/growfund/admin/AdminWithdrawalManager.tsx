@@ -250,10 +250,18 @@ export default function AdminWithdrawalManager() {
     }
   );
 
-  const rows = fetchResult || [];
-  const totalPayable = totalPayableResult ?? null;
-  const loading = isRowsLoading || isPayableLoading;
-  const isValidating = isRowsValidating || isPayableValidating;
+ const rows = fetchResult ?? [];
+const totalPayable = totalPayableResult ?? null;
+
+// Withdrawal table only waits for withdrawal data.
+const loading = isRowsLoading;
+
+// Keep payable loading separate.
+const payableLoading = isPayableLoading;
+
+// Preserve the existing combined validation state.
+const isValidating =
+  isRowsValidating || isPayableValidating;
   
   // Combine all possible errors for display
   const displayError = actionError || 
@@ -581,7 +589,7 @@ export default function AdminWithdrawalManager() {
               </p>
 
               <h4 className="mt-2 text-2xl font-semibold flex items-center gap-2">
-                {loading
+                {payableLoading
                   ? "…"
                   : totalPayable === null
                     ? "—"
@@ -608,7 +616,7 @@ export default function AdminWithdrawalManager() {
               </p>
 
               <h4 className="mt-2 text-2xl font-semibold">
-                {loading
+                {payableLoading
                   ? "…"
                   : money(
                       withdrawalSummary.totalPending
@@ -633,7 +641,7 @@ export default function AdminWithdrawalManager() {
               </p>
 
               <h4 className="mt-2 text-2xl font-semibold">
-                {loading
+                {payableLoading
                   ? "…"
                   : money(
                       withdrawalSummary.totalApproved
@@ -658,7 +666,7 @@ export default function AdminWithdrawalManager() {
               </p>
 
               <h4 className="mt-2 text-2xl font-semibold">
-                {loading
+                {payableLoading
                   ? "…"
                   : withdrawalSummary.totalPendingFundraisers}
               </h4>
