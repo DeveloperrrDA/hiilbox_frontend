@@ -2,6 +2,7 @@ import {
   getD1Campaigns,
   getD1Campaign,
 } from "@/lib/server/campaigns-d1";
+import { getD1CampaignUpdates } from "@/lib/server/campaign-updates-d1";
 export interface CampaignImageSize {
   height: number;
   width: number;
@@ -1376,122 +1377,73 @@ export async function getCampaignRecentDonations(id: number): Promise<CampaignDo
 export async function getCampaignUpdates(
   params: GetCampaignUpdatesParams = {}
 ): Promise<CampaignUpdatesResponse> {
-  // Build the query safely and natively
+  
+  // 1. TRY D1 DATABASE FIRST (Lightning Fast)
+  if (params.campaign_id) {
+    const d1Result = await getD1CampaignUpdates({
+      campaign_id: params.campaign_id,
+      page: params.page,
+      per_page: params.per_page
+    });
+
+    if (d1Result && d1Result.data.length > 0) {
+      console.log("SERVED CAMPAIGN UPDATES FROM D1 EDGE!");
+      return d1Result;
+    }
+  }
+
+  // 2. FALLBACK TO WORDPRESS API (If D1 fails or is empty)
+  console.log("FALLING BACK TO WORDPRESS FOR UPDATES...");
+  
   const queryParams = new URLSearchParams();
   if (params.page) queryParams.append("page", params.page.toString());
   if (params.per_page) queryParams.append("per_page", params.per_page.toString());
   if (params.campaign_id) queryParams.append("campaign_id", params.campaign_id.toString());
 
   const query = queryParams.toString();
+  const baseUrl = getApiBaseUrl();
+  const endpoint = `/api/campaign/updates/paginated${query ? `?${query}` : ""}`;
 
-  const baseUrl =
-    getApiBaseUrl();
+  const response =
+    typeof window === "undefined"
+      ? await growfundServerFetch(`/campaign/updates/paginated${query ? `?${query}` : ""}`)
+      : await fetch(endpoint, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
 
-const endpoint =
-  `/api/campaign/updates/paginated${query ? `?${query}` : ""}`;
-
-const response =
-  typeof window === "undefined"
-    ? await growfundServerFetch(
-        `/campaign/updates/paginated${query ? `?${query}` : ""}`
-      )
-    : await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
   let data: any = null;
-
   try {
-  data =
-    await response.json();
-} catch {
-  data = null;
-}
-
-console.log(
-  "CAMPAIGN UPDATES DEBUG:",
-  params.campaign_id,
-  JSON.stringify(data, null, 2)
-);
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ??
-        "Failed to load campaign updates."
-    );
+    data = await response.json();
+  } catch {
+    data = null;
   }
 
-  const rawCampaignUpdates =
-    extractCampaignUpdates(data);
+  if (!response.ok) {
+    throw new Error(data?.message ?? "Failed to load campaign updates.");
+  }
 
- const campaignupdates = rawCampaignUpdates
-  .map((update) => {
-    try {
-      return normalizeCampaignUpdate(update);
-    } catch (error) {
-      console.error(
-        "Unable to normalize campaign update:",
-        update?.id,
-        error
-      );
+  const rawCampaignUpdates = extractCampaignUpdates(data);
+  const campaignupdates = rawCampaignUpdates
+    .map((update) => {
+      try {
+        return normalizeCampaignUpdate(update);
+      } catch (error) {
+        return null;
+      }
+    })
+    .filter((update): update is CampaignUpdate => update !== null);
 
-      return null;
-    }
-  })
-  .filter(
-    (update): update is CampaignUpdate =>
-      update !== null
-  );
-
-  /**
-   * Your API currently returns:
-   *
-   * paginated: {
-   *   results: [...],
-   *   count: 4,
-   *   total: 4,
-   *   current_page: 1,
-   *   per_page: 10,
-   *   has_more: false,
-   *   overall: 11
-   * }
-   */
-  const paginated =
-    data?.paginated;
-
-  const pagination: CampaignUpdatePagination = {
-    page:
-      Number(
-        paginated?.current_page ??
-        data?.pagination?.page ??
-        params.page ??
-        1
-      ),
-
-    per_page:
-      Number(
-        paginated?.per_page ??
-        data?.pagination?.per_page ??
-        params.per_page ??
-        campaignupdates.length
-      ),
-
-    
-  };
+  const paginated = data?.paginated;
 
   return {
-    success:
-      Boolean(
-        data?.success ??
-        true
-      ),
-
+    success: Boolean(data?.success ?? true),
     data: campaignupdates,
-
-    pagination,
+    pagination: {
+      page: Number(paginated?.current_page ?? params.page ?? 1),
+      per_page: Number(paginated?.per_page ?? params.per_page ?? campaignupdates.length),
+    },
   };
 }
 

@@ -5,6 +5,7 @@ import { syncDonors } from "./syncDonors";
 import { syncFundraisers } from "./syncFundraisers";
 import { syncWithdrawalRequests } from "./syncWithdrawals";
 import { syncMetadata } from "./syncMetadata";
+import { syncCampaignUpdates } from "./syncCampaignUpdates";
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
@@ -12,8 +13,6 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    // Kick off the sync in the background so the browser returns immediately 
-    // and doesn't throw a 524 Timeout Error after 30 seconds.
     ctx.waitUntil(
       runSequentialSync(env).catch(e => console.error("Background sync failed:", e))
     );
@@ -42,11 +41,12 @@ async function runSequentialSync(env: Env) {
     "X-API-Key": env.GROWFUND_CLIENT_API_KEY
   };
 
-  // Execute strictly one by one
+  // Execute strictly one by one to protect Edge memory and CMS limits
   await syncCampaigns(env, WP_URL, headers);
   await syncDonations(env, WP_URL, headers);
   await syncDonors(env, WP_URL, headers);
   await syncFundraisers(env, WP_URL, headers);
   await syncWithdrawalRequests(env, WP_URL, headers);
   await syncMetadata(env, WP_URL, headers);
+  await syncCampaignUpdates(env, WP_URL, headers); // <--- Added the new Updates worker
 }
