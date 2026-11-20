@@ -44,8 +44,19 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [campaign, setCampaign] =
-    useState<CampaignData | null>(null);
+  const [campaign, setCampaign] = useState<CampaignData | null>(() => {
+  const campaignId = Number(searchParams.get("campaign"));
+
+  if (!campaignId) return null;
+
+  return {
+    id: campaignId,
+    title: searchParams.get("title") || "Campaign",
+    goal: Number(searchParams.get("goal") || 10),
+    raised_amount: Number(searchParams.get("raised_amount") || 5),
+    imageUrl: "",
+  };
+});
 
   // Keep checkout completely empty initially.
   const [amount, setAmount] = useState("");
@@ -587,17 +598,11 @@ const total =
   // LOADING
   // --------------------------------------------------
 
-  if (!campaign) {
-    return (
-      <main className="min-h-screen bg-lightgray px-4 py-12">
-        <div className="mx-auto max-w-3xl rounded-[16px] bg-white p-8 text-center shadow-[0_10px_28px_rgba(17,28,45,0.06)]">
-          <p className="text-sm text-gray-500">
-            Loading checkout...
-          </p>
-        </div>
-      </main>
-    );
-  }
+
+if (!campaign) {
+  return null;
+}
+
 
   const progress =
     campaign.goal > 0

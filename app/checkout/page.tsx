@@ -74,8 +74,24 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [campaign, setCampaign] =
-    useState<CampaignData | null>(null);
+  
+const [campaign, setCampaign] = useState<CampaignData | null>(() => {
+  const campaignId = Number(searchParams.get("campaign"));
+
+  if (!Number.isInteger(campaignId) || campaignId <= 0) {
+    return null;
+  }
+
+  return {
+    id: campaignId,
+    title: searchParams.get("title") || "Campaign",
+    goal: Number(searchParams.get("goal") || 0),
+    raised_amount: Number(searchParams.get("raised_amount") || 0),
+    imageUrl: "",
+    suggestedAmounts: [300, 200, 100, 50, 25, 10],
+    recommendedAmount: 50,
+  };
+});
 
   // Keep checkout completely empty initially.
   const [amount, setAmount] = useState("");
@@ -653,21 +669,12 @@ const total = donationAmount + tipAmount;
     }
   }
 
-  // --------------------------------------------------
-  // LOADING
-  // --------------------------------------------------
 
-  if (!campaign) {
-    return (
-      <main className="min-h-screen bg-[#fafafa] px-4 py-12">
-        <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 text-center shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100">
-          <p className="text-sm text-gray-500">
-            Loading checkout...
-          </p>
-        </div>
-      </main>
-    );
-  }
+
+if (!campaign) {
+  return null;
+}
+
 
 
   // --------------------------------------------------
@@ -1036,11 +1043,46 @@ const total = donationAmount + tipAmount;
                               </div>
                             )}
 
-                            {option.key === "bank" && selected && (
-                              <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
-                                <p className="text-xs text-gray-500">Place an offline WooCommerce order. Follow the bank transfer instructions supplied by HiilBox.</p>
-                              </div>
-                            )}
+{option.key === "bank" && selected && (
+  <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+      <h3 className="mb-3 text-sm font-bold text-gray-900">
+        Bank Transfers and Cash Payments
+      </h3>
+
+      <p className="mb-4 text-sm text-gray-700">
+        Follow the instructions below to make your donation offline.
+      </p>
+
+      <div className="space-y-3 text-sm text-gray-700">
+        <div>
+          <p className="font-semibold">
+            Payment Account / Number
+          </p>
+          <p className="mt-1 rounded-lg bg-white p-3 font-medium">
+            [63XXXXXXX] (EVC Plus, ZAAD, Sahal, Kaashplus, Jeeb, EDahab)
+          </p>
+        </div>
+
+        <div>
+          <p className="font-semibold">
+            Payment Instructions
+          </p>
+          <p className="mt-1">
+            Send your donation to the account above, or contact
+            HiilBox to arrange a cash payment. Keep your
+            transaction receipt for verification.
+          </p>
+        </div>
+
+        <p className="text-xs text-gray-600">
+          Your donation will be confirmed once the
+          organization verifies your payment.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
                           </div>
                         </label>
@@ -1142,42 +1184,7 @@ const total = donationAmount + tipAmount;
                     </>
                   )}
                 </button>
-                {bankGateway && paymentMethod === bankGateway.id && (
-  <div className="mt-3 rounded-[14px] border border-blue-200 bg-blue-50 p-5">
-    <h3 className="mb-3 text-base font-bold text-gray-900">
-      Bank Transfers and Cash Payments
-    </h3>
-
-    <p className="mb-4 text-sm text-gray-700">
-      Please follow the instructions below to make
-      your donation offline.
-    </p>
-
-    <div className="space-y-3 text-sm text-gray-700">
-      <div>
-        <p className="font-semibold">Payment Account / Number</p>
-        <p className="mt-1 rounded-lg bg-white p-3 font-medium">
-          [ENTER YOUR PAYMENT NUMBER]
-        </p>
-      </div>
-
-      <div>
-        <p className="font-semibold">Payment Instructions</p>
-        <p className="mt-1">
-          Send your donation to the account above, or
-          contact the organization to arrange a cash payment.
-          Keep your receipt or transaction reference
-          for verification.
-        </p>
-      </div>
-
-      <p className="text-xs text-gray-600">
-        Your donation will be confirmed once the
-        organization verifies your payment.
-      </p>
-    </div>
-  </div>
-)}
+               
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500 font-medium">
                   <svg className="w-3 h-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
                   Secure payment powered by HiilBox
