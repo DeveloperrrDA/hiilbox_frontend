@@ -32,28 +32,86 @@ async function proxy(
   }
 
  // ==========================================
-  // ⚡ D1 DATABASE INTERCEPT (EDGE SPEED)
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN CAMPAIGNS
   // ==========================================
   if (method === "GET" && backendPath === "campaigns") {
     try {
-      // Fetch the native Cloudflare environment context
-      const { env } = await getCloudflareContext();
-      
-      // Bypass TypeScript's strict type checking for the custom binding
+      const { env } = await getCloudflareContext({ async: true });
       const db = (env as any).growfund_db;
-      
+
       if (db) {
-        console.log("⚡ D1 BINDING FOUND! Querying Edge Database...");
-        const { results } = await db.prepare("SELECT * FROM campaigns ORDER BY id DESC").all();
-        return NextResponse.json({ success: true, data: results }, { status: 200 });
-      } else {
-        console.log("⚠️ D1 Binding not found in Cloudflare Context. Falling back to WordPress...");
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const offset = (page - 1) * perPage;
+
+        const status = sp.get("status")?.trim().toLowerCase();
+        const search = sp.get("search")?.trim();
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (status && status !== "all") {
+          if (status === "trash" || status === "trashed") {
+            conditions.push(`LOWER(COALESCE(status, '')) IN ('trash', 'trashed')`);
+          } else {
+            conditions.push(`LOWER(COALESCE(status, '')) = ?`);
+            bindings.push(status);
+          }
+        } else {
+          conditions.push(`LOWER(COALESCE(status, '')) NOT IN ('trash', 'trashed')`);
+        }
+
+        if (search) {
+          const like = `%${search}%`;
+          conditions.push(`(CAST(id AS TEXT) LIKE ? OR COALESCE(title, '') LIKE ? OR COALESCE(slug, '') LIKE ?)`);
+          bindings.push(like, like, like);
+        }
+
+        if (startDate) {
+          conditions.push(`DATE(start_date) >= DATE(?)`);
+          bindings.push(startDate);
+        }
+
+        if (endDate) {
+          conditions.push(`DATE(start_date) <= DATE(?)`);
+          bindings.push(endDate);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM campaigns ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`SELECT * FROM campaigns ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: results || [],
+            pagination: {
+              page,
+              per_page: perPage,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / perPage)),
+            },
+          },
+          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+        );
       }
     } catch (error) {
-      console.error("🔥 D1 INTERCEPT CRASHED:", error);
+      console.error("🔥 D1 CAMPAIGNS INTERCEPT CRASHED:", error);
     }
   }
-  // ==========================================
 
   // ==========================================
   // ⚡ D1 DATABASE INTERCEPT: ADMIN DONATIONS
@@ -109,18 +167,17 @@ async function proxy(
         }
 
         if (startDate) {
-          conditions.push(`d.created_at >= ?`);
-          bindings.push(`${startDate} 00:00:00`);
+          conditions.push(`DATE(d.created_at) >= DATE(?)`);
+          bindings.push(startDate);
         }
 
         if (endDate) {
-          conditions.push(`d.created_at <= ?`);
-          bindings.push(`${endDate} 23:59:59`);
+          conditions.push(`DATE(d.created_at) <= DATE(?)`);
+          bindings.push(endDate);
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-        // 1. Total matching records
         const countRow = await db
           .prepare(`SELECT COUNT(*) as total FROM donations d LEFT JOIN campaigns c ON d.campaign_id = c.id ${whereClause}`)
           .bind(...bindings)
@@ -128,7 +185,6 @@ async function proxy(
 
         const total = Number(countRow?.total || 0);
 
-        // 2. Paginated rows joined with campaigns fallback
         const { results } = await db
           .prepare(`
             SELECT 
@@ -188,10 +244,7 @@ async function proxy(
               total_pages: Math.max(1, Math.ceil(total / perPage)),
             },
           },
-          {
-            status: 200,
-            headers: { "X-Hiilbox-Source": "D1-Edge" },
-          }
+          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
         );
       }
     } catch (error) {
@@ -306,6 +359,8 @@ async function proxy(
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -317,6 +372,8 @@ async function proxy(
             conditions.push(`LOWER(COALESCE(status, 'active')) = ?`);
             bindings.push(status);
           }
+        } else {
+          conditions.push(`LOWER(COALESCE(status, 'active')) NOT IN ('trash', 'trashed')`);
         }
 
         if (search) {
@@ -332,6 +389,16 @@ async function proxy(
           bindings.push(like, like, like, like, like, like);
         }
 
+        if (startDate) {
+          conditions.push(`DATE(joined_at) >= DATE(?)`);
+          bindings.push(startDate);
+        }
+
+        if (endDate) {
+          conditions.push(`DATE(joined_at) <= DATE(?)`);
+          bindings.push(endDate);
+        }
+
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
         const countRow = await db
@@ -342,12 +409,7 @@ async function proxy(
         const total = Number(countRow?.total || 0);
 
         const { results } = await db
-          .prepare(`
-            SELECT * FROM donors
-            ${whereClause}
-            ORDER BY id DESC
-            LIMIT ? OFFSET ?
-          `)
+          .prepare(`SELECT * FROM donors ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`)
           .bind(...bindings, perPage, offset)
           .all();
 
@@ -377,10 +439,7 @@ async function proxy(
               total_pages: Math.max(1, Math.ceil(total / perPage)),
             },
           },
-          {
-            status: 200,
-            headers: { "X-Hiilbox-Source": "D1-Edge" },
-          }
+          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
         );
       }
     } catch (error) {
@@ -404,6 +463,8 @@ async function proxy(
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -420,6 +481,8 @@ async function proxy(
           const placeholders = allowed.map(() => "?").join(",");
           conditions.push(`LOWER(COALESCE(status, 'pending')) IN (${placeholders})`);
           bindings.push(...allowed);
+        } else {
+          conditions.push(`LOWER(COALESCE(status, 'pending')) NOT IN ('trash', 'trashed')`);
         }
 
         if (search) {
@@ -435,6 +498,16 @@ async function proxy(
           bindings.push(like, like, like, like, like, like);
         }
 
+        if (startDate) {
+          conditions.push(`DATE(joined_at) >= DATE(?)`);
+          bindings.push(startDate);
+        }
+
+        if (endDate) {
+          conditions.push(`DATE(joined_at) <= DATE(?)`);
+          bindings.push(endDate);
+        }
+
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
         const countRow = await db
@@ -445,12 +518,7 @@ async function proxy(
         const total = Number(countRow?.total || 0);
 
         const { results } = await db
-          .prepare(`
-            SELECT * FROM fundraisers
-            ${whereClause}
-            ORDER BY id DESC
-            LIMIT ? OFFSET ?
-          `)
+          .prepare(`SELECT * FROM fundraisers ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`)
           .bind(...bindings, perPage, offset)
           .all();
 
@@ -469,8 +537,6 @@ async function proxy(
           decline_reason: safeParse(row.decline_reason),
         }));
 
-        console.log("📂 SUCCESS - D1 FUNDRAISERS INTERCEPT", { count: hydratedRows.length, total });
-
         return NextResponse.json(
           {
             success: true,
@@ -482,10 +548,7 @@ async function proxy(
               total_pages: Math.max(1, Math.ceil(total / perPage)),
             },
           },
-          {
-            status: 200,
-            headers: { "X-Hiilbox-Source": "D1-Edge" },
-          }
+          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
         );
       }
     } catch (error) {
