@@ -1142,7 +1142,42 @@ const total = donationAmount + tipAmount;
                     </>
                   )}
                 </button>
-                
+                {bankGateway && paymentMethod === bankGateway.id && (
+  <div className="mt-3 rounded-[14px] border border-blue-200 bg-blue-50 p-5">
+    <h3 className="mb-3 text-base font-bold text-gray-900">
+      Bank Transfers and Cash Payments
+    </h3>
+
+    <p className="mb-4 text-sm text-gray-700">
+      Please follow the instructions below to make
+      your donation offline.
+    </p>
+
+    <div className="space-y-3 text-sm text-gray-700">
+      <div>
+        <p className="font-semibold">Payment Account / Number</p>
+        <p className="mt-1 rounded-lg bg-white p-3 font-medium">
+          [ENTER YOUR PAYMENT NUMBER]
+        </p>
+      </div>
+
+      <div>
+        <p className="font-semibold">Payment Instructions</p>
+        <p className="mt-1">
+          Send your donation to the account above, or
+          contact the organization to arrange a cash payment.
+          Keep your receipt or transaction reference
+          for verification.
+        </p>
+      </div>
+
+      <p className="text-xs text-gray-600">
+        Your donation will be confirmed once the
+        organization verifies your payment.
+      </p>
+    </div>
+  </div>
+)}
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500 font-medium">
                   <svg className="w-3 h-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
                   Secure payment powered by HiilBox

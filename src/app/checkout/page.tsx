@@ -1235,6 +1235,42 @@ const total =
                         {bankGateway && <span className="rounded bg-[#eef3ff] px-2 py-1 text-[10px] font-bold text-[#4466d8]">1–3 business days</span>}
                         <span className="text-lg text-darklink">›</span>
                       </button>
+                      {bankGateway && paymentMethod === bankGateway.id && (
+  <div className="mt-3 rounded-[14px] border border-blue-200 bg-blue-50 p-5">
+    <h3 className="mb-3 text-base font-bold text-gray-900">
+      Bank Transfers and Cash Payments
+    </h3>
+
+    <p className="mb-4 text-sm text-gray-700">
+      Please follow the instructions below to make
+      your donation offline.
+    </p>
+
+    <div className="space-y-3 text-sm text-gray-700">
+      <div>
+        <p className="font-semibold">Payment Account / Number</p>
+        <p className="mt-1 rounded-lg bg-white p-3 font-medium">
+          [ENTER YOUR PAYMENT NUMBER]
+        </p>
+      </div>
+
+      <div>
+        <p className="font-semibold">Payment Instructions</p>
+        <p className="mt-1">
+          Send your donation to the account above, or
+          contact the organization to arrange a cash payment.
+          Keep your receipt or transaction reference
+          for verification.
+        </p>
+      </div>
+
+      <p className="text-xs text-gray-600">
+        Your donation will be confirmed once the
+        organization verifies your payment.
+      </p>
+    </div>
+  </div>
+)}
                     </div>
                   </div>
                 </section>
