@@ -42,13 +42,11 @@ async function proxy(
       if (db) {
         const sp = req.nextUrl.searchParams;
         const page = Math.max(1, Number(sp.get("page") || 1));
-        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 100)));
         const offset = (page - 1) * perPage;
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
-        const startDate = sp.get("start_date")?.trim();
-        const endDate = sp.get("end_date")?.trim();
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -70,16 +68,6 @@ async function proxy(
           bindings.push(like, like, like);
         }
 
-        if (startDate) {
-          conditions.push(`DATE(start_date) >= DATE(?)`);
-          bindings.push(startDate);
-        }
-
-        if (endDate) {
-          conditions.push(`DATE(start_date) <= DATE(?)`);
-          bindings.push(endDate);
-        }
-
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
         const countRow = await db
@@ -94,18 +82,46 @@ async function proxy(
           .bind(...bindings, perPage, offset)
           .all();
 
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const hydrated = (results || []).map((row: any) => ({
+          ...row,
+          images: safeParse(row.images) ?? [],
+          author: safeParse(row.author),
+          fundraiser: safeParse(row.fundraiser),
+        }));
+
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+        };
+
         return NextResponse.json(
           {
             success: true,
-            data: results || [],
-            pagination: {
-              page,
-              per_page: perPage,
-              total,
-              total_pages: Math.max(1, Math.ceil(total / perPage)),
-            },
+            data: hydrated,
+            total,
+            pagination: pageMeta,
+            paginated: pageMeta,
           },
-          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
         );
       }
     } catch (error) {
@@ -124,7 +140,7 @@ async function proxy(
       if (db) {
         const sp = req.nextUrl.searchParams;
         const page = Math.max(1, Number(sp.get("page") || 1));
-        const perPage = Math.min(100, Math.max(1, Number(sp.get("per_page") || 10)));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 10)));
         const offset = (page - 1) * perPage;
 
         const status = sp.get("status")?.trim().toLowerCase();
@@ -140,10 +156,10 @@ async function proxy(
           if (status === "trash" || status === "trashed") {
             conditions.push(`LOWER(COALESCE(d.status, '')) IN ('trash', 'trashed')`);
           } else if (status === "completed") {
-            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND LOWER(COALESCE(d.payment_status, d.status, '')) IN ('completed', 'paid', 'approved')`);
+            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND (LOWER(COALESCE(d.status, '')) IN ('completed', 'paid', 'approved') OR LOWER(COALESCE(d.payment_status, '')) = 'completed')`);
           } else {
-            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND LOWER(COALESCE(d.payment_status, d.status, '')) = ?`);
-            bindings.push(status);
+            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND (LOWER(COALESCE(d.status, '')) = ? OR LOWER(COALESCE(d.payment_status, '')) = ?)`);
+            bindings.push(status, status);
           }
         } else {
           conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed')`);
@@ -209,7 +225,8 @@ async function proxy(
           }
         };
 
-        const hydratedRows = (results || []).map((row: any) => {
+        const hydrated = (results || []).map((row: any) => {
+          
           const parsedCampaign = safeParse(row.campaign);
           const joinedImages = safeParse(row.joined_campaign_images);
 
@@ -233,18 +250,30 @@ async function proxy(
           };
         });
 
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+        };
+
         return NextResponse.json(
           {
             success: true,
-            data: hydratedRows,
-            pagination: {
-              page,
-              per_page: perPage,
-              total,
-              total_pages: Math.max(1, Math.ceil(total / perPage)),
-            },
+            data: hydrated,
+            total,
+            pagination: pageMeta,
+            paginated: pageMeta,
           },
-          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
         );
       }
     } catch (error) {
@@ -354,13 +383,11 @@ async function proxy(
       if (db) {
         const sp = req.nextUrl.searchParams;
         const page = Math.max(1, Number(sp.get("page") || 1));
-        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 100)));
         const offset = (page - 1) * perPage;
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
-        const startDate = sp.get("start_date")?.trim();
-        const endDate = sp.get("end_date")?.trim();
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -389,16 +416,6 @@ async function proxy(
           bindings.push(like, like, like, like, like, like);
         }
 
-        if (startDate) {
-          conditions.push(`DATE(joined_at) >= DATE(?)`);
-          bindings.push(startDate);
-        }
-
-        if (endDate) {
-          conditions.push(`DATE(joined_at) <= DATE(?)`);
-          bindings.push(endDate);
-        }
-
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
         const countRow = await db
@@ -422,24 +439,36 @@ async function proxy(
           }
         };
 
-        const hydratedRows = (results || []).map((row: any) => ({
+        const hydrated = (results || []).map((row: any) => ({
           ...row,
           image: safeParse(row.image),
           billing_address: safeParse(row.billing_address),
         }));
 
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+        };
+
         return NextResponse.json(
           {
             success: true,
-            data: hydratedRows,
-            pagination: {
-              page,
-              per_page: perPage,
-              total,
-              total_pages: Math.max(1, Math.ceil(total / perPage)),
-            },
+            data: hydrated,
+            total,
+            pagination: pageMeta,
+            paginated: pageMeta,
           },
-          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
         );
       }
     } catch (error) {
@@ -458,13 +487,11 @@ async function proxy(
       if (db) {
         const sp = req.nextUrl.searchParams;
         const page = Math.max(1, Number(sp.get("page") || 1));
-        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 100)));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 100)));
         const offset = (page - 1) * perPage;
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
-        const startDate = sp.get("start_date")?.trim();
-        const endDate = sp.get("end_date")?.trim();
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -498,16 +525,6 @@ async function proxy(
           bindings.push(like, like, like, like, like, like);
         }
 
-        if (startDate) {
-          conditions.push(`DATE(joined_at) >= DATE(?)`);
-          bindings.push(startDate);
-        }
-
-        if (endDate) {
-          conditions.push(`DATE(joined_at) <= DATE(?)`);
-          bindings.push(endDate);
-        }
-
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
         const countRow = await db
@@ -537,18 +554,30 @@ async function proxy(
           decline_reason: safeParse(row.decline_reason),
         }));
 
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+        };
+
         return NextResponse.json(
           {
             success: true,
             data: hydratedRows,
-            pagination: {
-              page,
-              per_page: perPage,
-              total,
-              total_pages: Math.max(1, Math.ceil(total / perPage)),
-            },
+            total,
+            pagination: pageMeta,
+            paginated: pageMeta,
           },
-          { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
         );
       }
     } catch (error) {
