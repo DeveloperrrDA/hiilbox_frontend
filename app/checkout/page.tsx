@@ -1167,17 +1167,7 @@ const total = donationAmount + tipAmount;
 
 export default function CheckoutPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-[#fafafa] px-4 py-12 font-['Inter',sans-serif]">
-          <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 text-center shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100">
-            <p className="text-sm text-gray-500">
-              Loading checkout...
-            </p>
-          </div>
-        </main>
-      }
-    >
+    <Suspense fallback={null}>
       <CheckoutContent />
     </Suspense>
   );

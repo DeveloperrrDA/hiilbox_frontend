@@ -1403,17 +1403,7 @@ const total =
 
 export default function CheckoutPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-lightgray px-4 py-12">
-          <div className="mx-auto max-w-3xl rounded-[16px] bg-white p-8 text-center shadow-[0_10px_28px_rgba(17,28,45,0.06)]">
-            <p className="text-sm text-gray-500">
-              Loading checkout...
-            </p>
-          </div>
-        </main>
-      }
-    >
+    <Suspense fallback={null}>
       <CheckoutContent />
     </Suspense>
   );
