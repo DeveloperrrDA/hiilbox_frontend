@@ -493,6 +493,171 @@ async function proxy(
     }
   }
 
+  // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN ANALYTICS
+  // ==========================================
+  if (method === "GET" && backendPath === "analytics") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const type = sp.get("type")?.trim();
+        const startDate = sp.get("start_date")?.trim() || "2020-01-01";
+        const endDate = sp.get("end_date")?.trim() || "2099-12-31";
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        // 1. TOP CAMPAIGNS (mirrors get_top_campaigns)
+        if (type === "top-campaigns") {
+          const { results } = await db
+            .prepare(`
+              SELECT
+                c.id,
+                c.title,
+                c.status,
+                c.has_goal,
+                c.goal_type,
+                c.goal_amount,
+                c.images,
+                COUNT(d.id) AS total_no_of_donations,
+                COUNT(DISTINCT COALESCE(
+                  NULLIF(d.donor_id, 0),
+                  NULLIF(json_extract(d.donor, '$.email'), ''),
+                  'anon-' || CAST(d.id AS TEXT)
+                )) AS total_no_of_donors,
+                ROUND(COALESCE(SUM(d.amount), 0), 2) AS total_donation_amount
+              FROM donations d
+              INNER JOIN campaigns c ON d.campaign_id = c.id
+              WHERE LOWER(COALESCE(c.status, '')) IN ('published', 'funded', 'completed')
+                AND LOWER(COALESCE(d.status, '')) = 'completed'
+                AND DATE(d.created_at) BETWEEN DATE(?) AND DATE(?)
+              GROUP BY c.id
+              ORDER BY total_no_of_donations DESC, total_no_of_donors DESC
+              LIMIT 5
+            `)
+            .bind(startDate, endDate)
+            .all();
+
+          const formatted = (results || []).map((row: any) => {
+            const images = safeParse(row.images);
+            return {
+              id: String(row.id),
+              title: String(row.title || ""),
+              status: String(row.status || ""),
+              has_goal: Boolean(row.has_goal),
+              goal_type: String(row.goal_type || "raised-amount"),
+              goal_amount: Number(row.goal_amount || 0),
+              number_of_contributors: String(row.total_no_of_donors || 0),
+              number_of_contributions: Number(row.total_no_of_donations || 0),
+              fund_raised: Number(row.total_donation_amount || 0),
+              images: Array.isArray(images) ? images : [],
+            };
+          });
+
+          return NextResponse.json(
+            {
+              success: true,
+              data: formatted,
+              message: "Analytics Fetched Successfuly.",
+            },
+            {
+              status: 200,
+              headers: { "X-Hiilbox-Source": "D1-Edge" },
+            }
+          );
+        }
+
+        // 2. RECENT CONTRIBUTIONS (mirrors get_recent_contributions -> latest limit 6)
+        if (type === "recent-contributions") {
+          const { results } = await db
+            .prepare(`
+              SELECT
+                d.*,
+                c.title AS joined_campaign_title,
+                c.slug AS joined_campaign_slug,
+                c.status AS joined_campaign_status,
+                c.fund_raised AS joined_campaign_fund_raised,
+                c.goal_type AS joined_campaign_goal_type,
+                c.goal_amount AS joined_campaign_goal_amount,
+                c.images AS joined_campaign_images,
+                c.start_date AS joined_campaign_start_date,
+                c.author AS joined_campaign_author,
+                c.fundraiser AS joined_campaign_fundraiser,
+                c.is_launched AS joined_campaign_is_launched
+              FROM donations d
+              LEFT JOIN campaigns c ON d.campaign_id = c.id
+              WHERE LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed')
+                AND DATE(d.created_at) >= DATE(?)
+                AND DATE(d.created_at) <= DATE(?)
+              ORDER BY d.created_at DESC
+              LIMIT 6
+            `)
+            .bind(startDate, endDate)
+            .all();
+
+          const formatted = (results || []).map((row: any) => {
+            const parsedCampaign = safeParse(row.campaign);
+            const campaignObj =
+              parsedCampaign && typeof parsedCampaign === "object"
+                ? parsedCampaign
+                : row.campaign_id
+                  ? {
+                      id: String(row.campaign_id),
+                      slug: row.joined_campaign_slug || "",
+                      title: row.joined_campaign_title || `Campaign #${row.campaign_id}`,
+                      status: row.joined_campaign_status || "published",
+                      fund_raised: Number(row.joined_campaign_fund_raised || 0),
+                      goal_type: row.joined_campaign_goal_type || "raised-amount",
+                      goal_amount: Number(row.joined_campaign_goal_amount || 0),
+                      images: Array.isArray(safeParse(row.joined_campaign_images))
+                        ? safeParse(row.joined_campaign_images)
+                        : [],
+                      start_date: row.joined_campaign_start_date || null,
+                      author: safeParse(row.joined_campaign_author),
+                      fundraiser: safeParse(row.joined_campaign_fundraiser),
+                      is_launched: Boolean(row.joined_campaign_is_launched),
+                    }
+                  : null;
+
+            return {
+              ...row,
+              id: String(row.id),
+              campaign: campaignObj,
+              fund: safeParse(row.fund),
+              donor: safeParse(row.donor),
+              payment_method: safeParse(row.payment_method),
+              is_anonymous: Boolean(row.is_anonymous),
+              is_manual: Boolean(row.is_manual),
+            };
+          });
+
+          return NextResponse.json(
+            {
+              success: true,
+              data: formatted,
+              message: "Analytics Fetched Successfuly.",
+            },
+            {
+              status: 200,
+              headers: { "X-Hiilbox-Source": "D1-Edge" },
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.error("🔥 D1 ANALYTICS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
   const target = new URL(`${apiBase}/${backendPath}`);
   req.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
