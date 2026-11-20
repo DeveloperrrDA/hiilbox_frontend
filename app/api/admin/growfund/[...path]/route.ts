@@ -107,6 +107,8 @@ async function proxy(
           last_page: Math.max(1, Math.ceil(total / perPage)),
         };
 
+        console.log("📂 SUCCESS - D1 CAMPAIGNS INTERCEPT", { count: hydrated.length, total });
+
         return NextResponse.json(
           {
             success: true,
@@ -258,6 +260,8 @@ async function proxy(
           total_pages: Math.max(1, Math.ceil(total / perPage)),
           last_page: Math.max(1, Math.ceil(total / perPage)),
         };
+
+        console.log("📂 SUCCESS - D1 DONATIONS INTERCEPT", { count: hydrated.length, total });
 
         return NextResponse.json(
           {
@@ -454,6 +458,8 @@ async function proxy(
           last_page: Math.max(1, Math.ceil(total / perPage)),
         };
 
+        console.log("📂 SUCCESS - D1 DONORS INTERCEPT", { count: hydrated.length, total });
+
         return NextResponse.json(
           {
             success: true,
@@ -562,6 +568,8 @@ async function proxy(
           total_pages: Math.max(1, Math.ceil(total / perPage)),
           last_page: Math.max(1, Math.ceil(total / perPage)),
         };
+        
+        console.log("📂 SUCCESS - D1 FUNDRAISERS INTERCEPT", { count: hydratedRows.length, total });
 
         return NextResponse.json(
           {
@@ -731,6 +739,8 @@ async function proxy(
               is_manual: Boolean(row.is_manual),
             };
           });
+
+          console.log("📂 SUCCESS - D1 ANALYTICS TOP CAMPAIGNS / RECENT CONTRIBUTORS INTERCEPT");
 
           return NextResponse.json(
             {
