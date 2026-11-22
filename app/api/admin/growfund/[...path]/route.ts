@@ -594,6 +594,97 @@ async function proxy(
   }
 
   // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN KYC
+  // ==========================================
+  if (method === "GET" && backendPath === "fundraiser/kyc/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 100)));
+        const offset = (page - 1) * perPage;
+
+        const kycStatus = sp.get("kyc_status")?.trim().toLowerCase();
+        const growfundStatus = sp.get("growfund_status")?.trim().toLowerCase();
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (kycStatus && kycStatus !== "all") {
+          conditions.push(`LOWER(COALESCE(kyc_status, '')) = ?`);
+          bindings.push(kycStatus);
+        }
+
+        if (growfundStatus && growfundStatus !== "all") {
+          conditions.push(`LOWER(COALESCE(growfund_status, '')) = ?`);
+          bindings.push(growfundStatus);
+        }
+
+        if (startDate) {
+          conditions.push(`DATE(submitted_date) >= DATE(?)`);
+          bindings.push(startDate);
+        }
+
+        if (endDate) {
+          conditions.push(`DATE(submitted_date) <= DATE(?)`);
+          bindings.push(endDate);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM fundraiser_kyc ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`SELECT * FROM fundraiser_kyc ${whereClause} ORDER BY user_id DESC LIMIT ? OFFSET ?`)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          total,
+          overall: total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+        };
+
+        console.log("📂 SUCCESS - D1 KYC INTERCEPT", { count: results?.length || 0, total });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: results || [],
+            total,
+            overall: total,
+            pagination: pageMeta,
+            paginated: pageMeta,
+          },
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 KYC INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
+  // ==========================================
   // ⚡ D1 DATABASE INTERCEPT: ADMIN ANALYTICS
   // ==========================================
   if (method === "GET" && backendPath === "analytics") {

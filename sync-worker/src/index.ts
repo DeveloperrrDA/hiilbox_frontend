@@ -6,6 +6,8 @@ import { syncFundraisers } from "./syncFundraisers";
 import { syncWithdrawalRequests } from "./syncWithdrawals";
 import { syncMetadata } from "./syncMetadata";
 import { syncCampaignUpdates } from "./syncCampaignUpdates";
+import { syncUsers } from "./syncUsers";
+import { syncFundraiserKyc } from "./syncFundraiserKyc";
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
@@ -48,5 +50,7 @@ async function runSequentialSync(env: Env) {
   await syncFundraisers(env, WP_URL, headers);
   await syncWithdrawalRequests(env, WP_URL, headers);
   await syncMetadata(env, WP_URL, headers);
-  await syncCampaignUpdates(env, WP_URL, headers); // <--- Added the new Updates worker
+  await syncCampaignUpdates(env, WP_URL, headers);
+  await syncUsers(env, WP_URL, headers);
+  await syncFundraiserKyc(env, WP_URL, headers); // <--- Added KYC sync
 }
