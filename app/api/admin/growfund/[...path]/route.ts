@@ -594,6 +594,106 @@ async function proxy(
   }
 
   // ==========================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN USERS
+  // ==========================================
+  if (method === "GET" && backendPath === "users/paginated") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(1000, Math.max(1, Number(sp.get("per_page") || 10)));
+        const offset = (page - 1) * perPage;
+
+        // AdminUserManager.tsx uses "roles[]"
+        const roleParam = sp.getAll("roles[]")[0] || sp.get("role") || "";
+        const startDate = sp.get("start_date")?.trim();
+        const endDate = sp.get("end_date")?.trim();
+        
+        // Map WP sort fields to D1 schema columns
+        const orderbyRaw = sp.get("orderby")?.trim().toLowerCase() || "user_registered";
+        const order = sp.get("order")?.trim().toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+        const orderMap: Record<string, string> = {
+          "id": "id",
+          "user_login": "username",
+          "display_name": "name",
+          "user_email": "email",
+          "user_registered": "registered_date"
+        };
+        const orderColumn = orderMap[orderbyRaw] || "registered_date";
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (roleParam && roleParam !== "all") {
+          conditions.push(`LOWER(COALESCE(role, '')) = ?`);
+          bindings.push(roleParam.toLowerCase());
+        }
+
+        if (startDate) {
+          conditions.push(`DATE(registered_date) >= DATE(?)`);
+          bindings.push(startDate);
+        }
+
+        if (endDate) {
+          conditions.push(`DATE(registered_date) <= DATE(?)`);
+          bindings.push(endDate);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM users ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`SELECT * FROM users ${whereClause} ORDER BY ${orderColumn} ${order} LIMIT ? OFFSET ?`)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          count: results?.length || 0,
+          total,
+          overall: total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+          has_more: page * perPage < total
+        };
+
+        console.log("📂 SUCCESS - D1 USERS INTERCEPT", { count: pageMeta.count, total });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: results || [],
+            ...pageMeta, // Spreads count, total, overall, current_page, per_page, has_more for the component
+            pagination: pageMeta,
+            paginated: pageMeta,
+          },
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 USERS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
+  // ==========================================
   // ⚡ D1 DATABASE INTERCEPT: ADMIN KYC
   // ==========================================
   if (method === "GET" && backendPath === "fundraiser/kyc/paginated") {
