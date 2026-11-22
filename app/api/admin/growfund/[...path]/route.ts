@@ -864,7 +864,7 @@ async function proxy(
   // Restored your specific System Token logic
   const needsSystemToken =
     method === "GET" &&
-    /^(campaigns|users)(?:\/|$)/.test(backendPath);
+    /^(campaigns(?:\/|$)|users$)/.test(backendPath);
 
   if (needsSystemToken) {
     if (!apiKey) {
