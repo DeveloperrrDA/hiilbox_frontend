@@ -509,10 +509,19 @@ const total = donationAmount + tipAmount;
       return "Please select a payment method.";
     }
 
-    const selectedGateway = gateways.find((gateway) => gateway.id === paymentMethod);
-    if (selectedGateway?.requires_account && !["bacs", "cod"].includes(paymentMethod) && !walletNumber.trim()) {
-      return "Please enter the wallet/account number for this payment method.";
-    }
+   
+const selectedGateway = gateways.find(
+  (gateway) => gateway.id === paymentMethod
+);
+
+if (
+  selectedGateway?.requires_account &&
+  paymentGroup !== "bank" &&
+  !["bacs", "cod"].includes(paymentMethod) &&
+  !walletNumber.trim()
+) {
+  return "Please enter the wallet/account number for this payment method.";
+}
 
     return null;
   }
@@ -613,6 +622,29 @@ const total = donationAmount + tipAmount;
         result.status === "processing" ||
         result.status === "completed";
 
+const isOfflinePayment =
+  paymentGroup === "bank" ||
+  ["bacs", "cod"].includes(paymentMethod);
+
+
+if (
+  isOfflinePayment &&
+  result.order_id &&
+  (
+    ["pending", "on-hold"].includes(result.payment_status ?? "") ||
+    ["pending", "on-hold"].includes(result.status ?? "")
+  )
+) {
+
+  const receiptData = buildReceipt(result);
+
+  rememberReceipt(receiptData);
+  setReceipt(receiptData);
+  setReceiptOpen(true);
+  setLoading(false);
+  return;
+}
+
       // Confirmed synchronous payments stay on checkout and open a themed
       // receipt modal instead of navigating to a separate success page.
       if (confirmedPaid && result.order_id) {
@@ -643,11 +675,7 @@ const total = donationAmount + tipAmount;
         return;
       }
 
-      if (result.payment_status === "on-hold" || (result.payment_status === "pending" && ["bacs", "cod"].includes(paymentMethod))) {
-        setError("Your offline donation order has been placed. Payment is pending; please follow HiilBox bank transfer or cash payment instructions. Do not send money without verified instructions.");
-        setLoading(false);
-        return;
-      }
+
 
       if (result.payment_status === "pending") {
         throw new Error(
@@ -1043,46 +1071,6 @@ if (!campaign) {
                               </div>
                             )}
 
-{option.key === "bank" && selected && (
-  <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
-    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-      <h3 className="mb-3 text-sm font-bold text-gray-900">
-        Bank Transfers and Cash Payments
-      </h3>
-
-      <p className="mb-4 text-sm text-gray-700">
-        Follow the instructions below to make your donation offline.
-      </p>
-
-      <div className="space-y-3 text-sm text-gray-700">
-        <div>
-          <p className="font-semibold">
-            Payment Account / Number
-          </p>
-          <p className="mt-1 rounded-lg bg-white p-3 font-medium">
-            [63XXXXXXX] (EVC Plus, ZAAD, Sahal, Kaashplus, Jeeb, EDahab)
-          </p>
-        </div>
-
-        <div>
-          <p className="font-semibold">
-            Payment Instructions
-          </p>
-          <p className="mt-1">
-            Send your donation to the account above, or contact
-            HiilBox to arrange a cash payment. Keep your
-            transaction receipt for verification.
-          </p>
-        </div>
-
-        <p className="text-xs text-gray-600">
-          Your donation will be confirmed once the
-          organization verifies your payment.
-        </p>
-      </div>
-    </div>
-  </div>
-)}
 
                           </div>
                         </label>
@@ -1159,17 +1147,20 @@ if (!campaign) {
 
                 <button 
                   type="submit"
-                  disabled={
-                    loading ||
-                    loadingGateways ||
-                    gateways.length === 0 ||
-                    !paymentMethod ||
-                    Boolean(
-                      gateways.find((gateway) => gateway.id === paymentMethod)?.requires_account &&
-                      !["bacs", "cod"].includes(paymentMethod) &&
-                      !walletNumber.trim()
-                    )
-                  }
+
+disabled={
+  loading ||
+  loadingGateways ||
+  gateways.length === 0 ||
+  !paymentMethod ||
+  Boolean(
+    gateways.find((gateway) => gateway.id === paymentMethod)?.requires_account &&
+    paymentGroup !== "bank" &&
+    !["bacs", "cod"].includes(paymentMethod) &&
+    !walletNumber.trim()
+  )
+}
+
                   className="w-full bg-[#10b981] hover:bg-[#059669] text-white font-bold py-4 rounded-xl transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? (
