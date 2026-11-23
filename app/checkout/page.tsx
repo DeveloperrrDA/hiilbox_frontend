@@ -435,8 +435,10 @@ const premierGateway = gatewayById("premier_wallet_pay");
     gatewayById("card_pay") ||
     gatewayMatching([/card/, /visa/, /mastercard/, /credit/, /debit/]);
 
-  const bankGateway =
-    gatewayById("bacs") || gatewayById("cod") || gatewayMatching([/bank.?transfer/, /bacs/, /cash.?on.?delivery/, /cash/]);
+  
+const bankGateway =
+  gatewayById("bacs") ||
+  gatewayById("cod");
 
   // --------------------------------------------------
   // AMOUNT / TIP
