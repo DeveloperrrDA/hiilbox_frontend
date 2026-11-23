@@ -438,7 +438,12 @@ const premierGateway = gatewayById("premier_wallet_pay");
   
 const bankGateway =
   gatewayById("bacs") ||
-  gatewayById("cod");
+  gatewayById("cod") ||
+  gatewayMatching([
+    /bank.?transfer/,
+    /cash.?payment/,
+    /offline.?payment/,
+  ]);
 
   // --------------------------------------------------
   // AMOUNT / TIP
@@ -998,7 +1003,7 @@ if (!campaign) {
                   ].map((option) => {
                     const selected = option.key === "mobile" ? paymentGroup === "somali-wallets" : paymentGroup === option.key;
                     
-                    if (!option.available) return null;
+                   if (!option.available) return null;
 
                     return (
                       <div key={option.key}>
@@ -1068,10 +1073,12 @@ if (!campaign) {
                             )}
 
                             {option.key === "card" && selected && (
-                              <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
-                                <p className="text-xs text-gray-500">Continue to the secure card payment page provided by your WooCommerce card gateway.</p>
-                              </div>
-                            )}
+  <div className="mt-4 pt-4 border-t border-emerald-100 pl-9">
+    <p className="text-xs text-gray-500">
+      Continue to the secure card payment page provided by Hiilbox card gateway.
+    </p>
+  </div>
+)}
 
 
                           </div>
