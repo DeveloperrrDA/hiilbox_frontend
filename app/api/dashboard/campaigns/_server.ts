@@ -26,26 +26,96 @@ export async function growfundJson(url: string, init: RequestInit) {
   }
 }
 
+
 export async function requireUser(req: NextRequest) {
   const authorization = bearer(req);
-  if (!authorization) return { error: NextResponse.json({ success:false, message:"Authentication required." }, { status:401 }) } as const;
 
-  // Every admin/dashboard request already carries the signed JWT and the GrowFund target
-  // endpoint validates it. Decoding its claims locally avoids an extra /auth/me round trip
-  // for every request, which was multiplying CMS traffic and causing connect timeouts.
+  if (!authorization) {
+    return {
+      error: NextResponse.json(
+        { success: false, message: "Authentication required." },
+        { status: 401 }
+      ),
+    } as const;
+  }
+
   try {
-    const token = authorization.replace(/^Bearer\s+/i, "");
-    const payloadPart = token.split(".")[1] || "";
-    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-    const payload = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-    const userId = Number(payload?.user_id ?? payload?.data?.user_id ?? payload?.id ?? payload?.sub ?? 0);
-    if (!userId) return { error: NextResponse.json({ success:false, message:"Unable to identify the authenticated user." }, { status:401 }) } as const;
-    return { authorization, userId, user: payload } as const;
+    const { response, data } = await growfundJson(
+      `${apiBase}/auth/me`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: authorization,
+        },
+      }
+    );
+console.log("GROWFUND AUTH DIAGNOSTIC", {
+  status: response.status,
+  success: (data as { success?: boolean })?.success,
+  hasRoles: Array.isArray(
+    (data as { roles?: unknown })?.roles
+  ),
+  roles: (data as { roles?: unknown })?.roles,
+  role: (data as { role?: unknown })?.role,
+});
+
+    if (!response.ok) {
+      return {
+        error: NextResponse.json(
+          {
+            success: false,
+            message:
+              response.status === 401 || response.status === 403
+                ? "Invalid or expired login session."
+                : "Unable to verify login session.",
+          },
+          {
+            status:
+              response.status === 401 || response.status === 403
+                ? 401
+                : 503,
+          }
+        ),
+      } as const;
+    }
+
+    const userId = Number((data as { user_id?: number | string })?.user_id ?? 0);
+
+    if (
+      (data as { success?: boolean })?.success !== true ||
+      !Number.isSafeInteger(userId) ||
+      userId <= 0
+    ) {
+      return {
+        error: NextResponse.json(
+          {
+            success: false,
+            message: "Invalid user verification response.",
+          },
+          { status: 401 }
+        ),
+      } as const;
+    }
+
+    return {
+      authorization,
+      userId,
+      user: data,
+    } as const;
   } catch {
-    return { error: NextResponse.json({ success:false, message:"The user token could not be read." }, { status:401 }) } as const;
+    return {
+      error: NextResponse.json(
+        {
+          success: false,
+          message: "Authentication service unavailable.",
+        },
+        { status: 503 }
+      ),
+    } as const;
   }
 }
+
 
 export async function getSystemToken(_origin?: string) {
   if (!apiKey) throw new Error("GROWFUND_CLIENT_API_KEY is not configured.");

@@ -1,49 +1,160 @@
+
 "use client";
+
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { dashboardRole, savedDashboardUser, type DashboardRole } from "@/lib/dashboard/roles";
+import {
+  dashboardRole,
+  type DashboardRole,
+} from "@/lib/dashboard/roles";
 import FundraiserKycNotice from "./FundraiserKycNotice";
 
-export default function DashboardAccessGuard({ children }: { children: ReactNode }) {
+export default function DashboardAccessGuard({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [role, setRole] = useState<DashboardRole>("guest");
+
+  const [access, setAccess] = useState<{
+    pathname: string;
+    role: DashboardRole;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
     async function resolveUser() {
-      setReady(false);
-      const token = localStorage.getItem("access_token") || "";
-      if (!token) { router.replace(`/login?next=${encodeURIComponent(pathname)}`); return; }
+      setAccess(null);
 
-      let saved = savedDashboardUser();
-      let resolvedRole = dashboardRole(saved);
+      const loginUrl = `/login?next=${encodeURIComponent(pathname)}`;
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        router.replace(loginUrl);
+        return;
+      }
+
       try {
-        const response = await fetch("/api/dashboard/me", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-        const json: any = await response.json().catch(() => null);
-        if (response.ok && json?.data) {
-          saved = { ...(saved || {}), ...json.data, roles: json.data.roles?.length ? json.data.roles : saved?.roles };
-          localStorage.setItem("auth_user", JSON.stringify(saved));
-          resolvedRole = dashboardRole(saved);
-          window.dispatchEvent(new Event("hiilbox-auth-changed"));
-        }
-      } catch { /* use the saved login payload */ }
-      if (cancelled) return;
-      setRole(resolvedRole);
+        const response = await fetch("/api/dashboard/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
 
-      const adminOnly = ["/dashboard/fundraisers", "/dashboard/withdrawals"];
-      const fundraiserOnly = ["/dashboard/fundraiser-wallet", "/dashboard/campaigns", "/dashboard/donations", "/dashboard/donors", "/dashboard/analytics", "/dashboard/my-giving"];
-      const donorOnly = ["/dashboard/my-donations"];
-      if (adminOnly.some((p) => pathname.startsWith(p)) && resolvedRole !== "admin") { router.replace("/dashboard"); return; }
-      if (fundraiserOnly.some((p) => pathname.startsWith(p)) && !["fundraiser", "admin"].includes(resolvedRole)) { router.replace("/dashboard"); return; }
-      if (donorOnly.some((p) => pathname.startsWith(p)) && !["donor", "admin"].includes(resolvedRole)) { router.replace("/dashboard"); return; }
-      setReady(true);
+        if (!response.ok) {
+          if (!cancelled) {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("auth_user");
+            router.replace(loginUrl);
+          }
+          return;
+        }
+
+        const json: unknown = await response.json();
+
+        if (
+          !json ||
+          typeof json !== "object" ||
+          !("data" in json) ||
+          !json.data ||
+          typeof json.data !== "object"
+        ) {
+          throw new Error("Invalid authentication response");
+        }
+
+        if (cancelled) return;
+
+        const user = json.data;
+        const resolvedRole = dashboardRole(user);
+
+        if (resolvedRole === "guest") {
+          router.replace(loginUrl);
+          return;
+        }
+
+        const adminOnly = [
+          "/dashboard/fundraisers",
+          "/dashboard/withdrawals",
+        ];
+
+        const fundraiserOnly = [
+          "/dashboard/fundraiser-wallet",
+          "/dashboard/campaigns",
+          "/dashboard/donations",
+          "/dashboard/donors",
+          "/dashboard/analytics",
+          "/dashboard/my-giving",
+        ];
+
+        const donorOnly = [
+          "/dashboard/my-donations",
+        ];
+
+        const matchesRoute = (route: string) =>
+          pathname === route || pathname.startsWith(`${route}/`);
+
+        if (
+          adminOnly.some(matchesRoute) &&
+          resolvedRole !== "admin"
+        ) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        if (
+          fundraiserOnly.some(matchesRoute) &&
+          !["fundraiser", "admin"].includes(resolvedRole)
+        ) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        if (
+          donorOnly.some(matchesRoute) &&
+          !["donor", "admin"].includes(resolvedRole)
+        ) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        localStorage.setItem("auth_user", JSON.stringify(user));
+
+        window.dispatchEvent(new Event("hiilbox-auth-changed"));
+
+        setAccess({
+          pathname,
+          role: resolvedRole,
+        });
+      } catch {
+        if (!cancelled) {
+          router.replace(loginUrl);
+        }
+      }
     }
+
     void resolveUser();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, router]);
 
-  if (!ready) return <div className="py-12 text-center text-sm text-darklink">Loading dashboard…</div>;
-  return <>{children}{role === "fundraiser" && <FundraiserKycNotice />}</>;
+  if (!access || access.pathname !== pathname) {
+    return (
+      <div className="py-12 text-center text-sm text-darklink">
+        Checking access…
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {children}
+      {access.role === "fundraiser" && <FundraiserKycNotice />}
+    </>
+  );
 }
