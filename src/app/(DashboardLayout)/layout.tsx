@@ -16,8 +16,9 @@ export default function Layout({
   const { activeLayout, isLayout, isCollapse } = useContext(CustomizerContext);
   
   return (
-    <SidebarProvider>
-      <div className="flex w-full min-h-screen">
+   <SidebarProvider>
+  <DashboardAccessGuard>
+    <div className="flex w-full min-h-screen">
         <Activity mode={activeLayout === "vertical" ? "visible" : "hidden"}>
           <div className="xl:block hidden">
             <Sidebar />
@@ -51,11 +52,12 @@ export default function Layout({
             } ${activeLayout === "horizontal" ? "xl:mt-3" : ""}
           `}
           >
-            <DashboardAccessGuard>{children}</DashboardAccessGuard>
+            {children}
           </div>
           <Customizer />
         </div>
       </div>
-    </SidebarProvider>
+  </DashboardAccessGuard>
+</SidebarProvider>
   );
 }
