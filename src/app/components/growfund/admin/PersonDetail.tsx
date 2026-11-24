@@ -450,7 +450,15 @@ return <div className="space-y-5">
       </p>
     </div>
   </div>
-</CardBox><CardBox><h3 className="text-lg font-semibold">{kind==="donor"?"Donor Activities":"Activity Logs"}</h3><div className="mt-5 divide-y divide-ld">{sorted.length?sorted.slice(0,10).map((d,i)=><div key={d.id||d.donation_id||i} className="py-3"><p className="font-medium">{kind==="donor"?"Donation":"Donation received"} #{d.id||d.donation_id||"—"}</p><p className="mt-1 text-sm text-darklink">{d.campaign?.title||d.campaign_title||`Campaign #${d.campaign?.id||d.campaign_id||"—"}`} · ${donationAmount(d).toFixed(2)} · {donationDate(d)?.toLocaleDateString()||"—"}</p></div>):<p className="py-10 text-center text-darklink">No activities found.</p>}</div></CardBox></div></>}
+</CardBox>
+<CardBox>
+  <h3 className="text-lg font-semibold">
+    {kind==="donor"?"Donor Activities":"Activity Logs"}
+  </h3>
+  <div className="mt-5 divide-y divide-ld">
+    {sorted.length?sorted.slice(0,10).map((d,i)=><div key={d.id||d.donation_id||i} className="py-3"><p className="font-medium">{kind==="donor"?"Donation":"Donation received"} #{d.id||d.donation_id||"—"}</p><p className="mt-1 text-sm text-darklink">{d.campaign?.title||d.campaign_title||`Campaign #${d.campaign?.id||d.campaign_id||"—"}`} · ${donationAmount(d).toFixed(2)} · {donationDate(d)?.toLocaleDateString()||"—"}</p></div>):<p className="py-10 text-center text-darklink">No activities found.</p>}
+  </div>
+</CardBox></div></>}
  {tab === "campaigns" && kind === "fundraiser" && (
   <CardBox>
     <div className="flex items-center justify-between">
