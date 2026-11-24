@@ -2,12 +2,14 @@ import { Env } from "./utils";
 import { syncCampaigns } from "./syncCampaigns";
 import { syncDonations } from "./syncDonations";
 import { syncDonors } from "./syncDonors";
+import { syncDonorMeta } from "./syncDonorMeta";
 import { syncFundraisers } from "./syncFundraisers";
 import { syncWithdrawalRequests } from "./syncWithdrawals";
 import { syncMetadata } from "./syncMetadata";
 import { syncCampaignUpdates } from "./syncCampaignUpdates";
 import { syncUsers } from "./syncUsers";
 import { syncFundraiserKyc } from "./syncFundraiserKyc";
+import { syncFundraiserMeta } from "./syncFundraiserMeta";
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
@@ -47,7 +49,9 @@ async function runSequentialSync(env: Env) {
   await syncCampaigns(env, WP_URL, headers);
   await syncDonations(env, WP_URL, headers);
   await syncDonors(env, WP_URL, headers);
+  await syncDonorMeta(env);
   await syncFundraisers(env, WP_URL, headers);
+  await syncFundraiserMeta(env);
   await syncWithdrawalRequests(env, WP_URL, headers);
   await syncMetadata(env, WP_URL, headers);
   await syncCampaignUpdates(env, WP_URL, headers);
