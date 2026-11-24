@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if ("error" in auth) return auth.error;
 
-  const top = auth.user ?? {};
+  const top: any = auth.user ?? {};
   const meta = top?.data && typeof top.data === "object" ? top.data : {};
   const roles = [
     ...list(top?.roles), ...list(top?.user_roles), ...list(top?.role), ...list(top?.user_role), ...list(top?.user_type),
