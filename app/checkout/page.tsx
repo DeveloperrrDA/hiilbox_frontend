@@ -1055,7 +1055,27 @@ if (!campaign) {
                                   placeholder="063XXXXXXX" 
                                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary outline-none text-sm bg-white placeholder-gray-400"
                                 />
-                                {!detectedMobileProvider && walletNumber.trim() && <p className="mt-2 text-[11px] text-gray-500">Enter a supported mobile prefix.</p>}
+                                
+{detectedMobileProvider ? (
+  <p
+    className={`mt-2 text-sm font-semibold ${
+      detectedMobileGateway
+        ? "text-emerald-600"
+        : "text-amber-600"
+    }`}
+  >
+    {detectedMobileGateway
+      ? `Payment method: ${detectedMobileProvider.name}`
+      : `${detectedMobileProvider.name} — currently unavailable`}
+  </p>
+) : (
+  walletNumber.trim() && (
+    <p className="mt-2 text-xs text-gray-500">
+      Enter a supported mobile prefix.
+    </p>
+  )
+)}
+
                               </div>
                             )}
 
