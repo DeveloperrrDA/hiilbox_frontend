@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         { key: "custom_fude_campaign_id", value: campaignId },
         { key: "_growfund_tip_amount", value: money(tipCents) },
         { key: "_gfcm_original_currency", value: originalCurrency },
-        { key: "_gfcm_original_amount", value: originalAmount.toFixed(2) },
+{ key: "_gfcm_original_amount", value: (originalAmount + originalTip).toFixed(2) },
         { key: "_gfcm_original_donation_amount", value: originalAmount.toFixed(2) },
         { key: "_gfcm_original_tip_amount", value: originalTip.toFixed(2) },
         { key: "_gfcm_exchange_rate", value: selectedCurrency.rate.toString() },
