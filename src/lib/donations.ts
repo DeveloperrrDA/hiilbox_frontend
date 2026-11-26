@@ -118,21 +118,7 @@ export async function processCheckout(input: CheckoutInput): Promise<CheckoutRes
     };
   }
 
-  // WooCommerce offline gateways create an on-hold order, not an immediate charge.
-  if (["bacs", "cod"].includes(input.payment_method)) {
-    return {
-      success: true,
-      order_id: order.id,
-      order_key: order.order_key,
-      transaction_id: null,
-      payment_method: input.payment_method,
-      status: "on-hold",
-      payment_status: "on-hold",
-      user_id: input.user_id ?? null,
-      donation_id: null,
-      redirect: null,
-    };
-  }
+  
 
   // Payment is delegated to the registered WooCommerce gateway. Next.js never calls Sifalo.
   const paymentResponse = await fetch("/api/checkout/pay", {
