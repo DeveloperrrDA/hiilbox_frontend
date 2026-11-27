@@ -47,6 +47,7 @@ async function proxy(
 
         const status = sp.get("status")?.trim().toLowerCase();
         const search = sp.get("search")?.trim();
+        const fundraiserId = Number(sp.get("fundraiser_id") || 0);
 
         const conditions: string[] = [];
         const bindings: any[] = [];
@@ -60,6 +61,14 @@ async function proxy(
           }
         } else {
           conditions.push(`LOWER(COALESCE(status, '')) NOT IN ('trash', 'trashed')`);
+        }
+
+        if (fundraiserId > 0) {
+          conditions.push(`CAST(COALESCE(
+            NULLIF(json_extract(fundraiser, '$.id'), ''),
+            NULLIF(json_extract(author, '$.id'), '')
+          ) AS INTEGER) = ?`);
+          bindings.push(fundraiserId);
         }
 
         if (search) {
@@ -147,6 +156,8 @@ async function proxy(
 
         const status = sp.get("status")?.trim().toLowerCase();
         const campaignId = sp.get("campaign_id")?.trim();
+        const campaignIdsRaw = sp.get("campaign_ids")?.trim();
+        const userId = Number(sp.get("user_id") || sp.get("donor_id") || 0);
         const search = sp.get("search")?.trim();
         const startDate = sp.get("start_date")?.trim();
         const endDate = sp.get("end_date")?.trim();
@@ -158,7 +169,13 @@ async function proxy(
           if (status === "trash" || status === "trashed") {
             conditions.push(`LOWER(COALESCE(d.status, '')) IN ('trash', 'trashed')`);
           } else if (status === "completed") {
-            conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND (LOWER(COALESCE(d.status, '')) IN ('completed', 'paid', 'approved') OR LOWER(COALESCE(d.payment_status, '')) = 'completed')`);
+            conditions.push(`
+              LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed')
+              AND (
+                LOWER(COALESCE(d.status, '')) IN ('completed', 'complete', 'paid', 'approved', 'success', 'successful')
+                OR LOWER(COALESCE(d.payment_status, '')) IN ('completed', 'complete', 'paid', 'approved', 'success', 'successful')
+              )
+            `);
           } else {
             conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed') AND (LOWER(COALESCE(d.status, '')) = ? OR LOWER(COALESCE(d.payment_status, '')) = ?)`);
             bindings.push(status, status);
@@ -167,9 +184,32 @@ async function proxy(
           conditions.push(`LOWER(COALESCE(d.status, '')) NOT IN ('trash', 'trashed')`);
         }
 
-        if (campaignId && Number(campaignId) > 0) {
+        if (campaignIdsRaw) {
+          const ids = campaignIdsRaw
+            .split(",")
+            .map((v) => Number(v.trim()))
+            .filter((n) => Number.isFinite(n) && n > 0);
+          if (ids.length > 0) {
+            conditions.push(`d.campaign_id IN (${ids.map(() => "?").join(",")})`);
+            bindings.push(...ids);
+          } else {
+            conditions.push(`1 = 0`);
+          }
+        } else if (campaignId && Number(campaignId) > 0) {
           conditions.push(`d.campaign_id = ?`);
           bindings.push(Number(campaignId));
+        }
+
+        if (userId > 0) {
+          conditions.push(`(
+            d.donor_id = ?
+            OR CAST(COALESCE(
+              NULLIF(json_extract(d.donor, '$.id'), ''),
+              NULLIF(json_extract(d.donor, '$.ID'), ''),
+              NULLIF(json_extract(d.donor, '$.user_id'), '')
+            ) AS INTEGER) = ?
+          )`);
+          bindings.push(userId, userId);
         }
 
         if (search) {
@@ -228,7 +268,6 @@ async function proxy(
         };
 
         const hydrated = (results || []).map((row: any) => {
-          
           const parsedCampaign = safeParse(row.campaign);
           const joinedImages = safeParse(row.joined_campaign_images);
 
@@ -590,6 +629,119 @@ async function proxy(
       }
     } catch (error) {
       console.error("🔥 D1 FUNDRAISERS INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
+  // ==============================================================
+  // ⚡ D1 DATABASE INTERCEPT: PERSON OVERVIEW (FUNDRAISER & DONOR)
+  // ==============================================================
+  const overviewMatch = backendPath.match(/^(fundraiser|donor)\/(\d+)\/overview$/);
+  if (method === "GET" && overviewMatch) {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const kind = overviewMatch[1] as "fundraiser" | "donor";
+        const personId = Number(overviewMatch[2]);
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const tableName = kind === "fundraiser" ? "fundraisers" : "donors";
+        let personRow = await db
+          .prepare(`SELECT * FROM ${tableName} WHERE id = ? LIMIT 1`)
+          .bind(personId)
+          .first();
+
+        // Fallback to users table if the user hasn't been synced into fundraisers/donors yet
+        if (!personRow) {
+          const userRow = await db
+            .prepare(`SELECT * FROM users WHERE id = ? LIMIT 1`)
+            .bind(personId)
+            .first();
+
+          if (userRow) {
+            const parts = String(userRow.name || "").trim().split(/\s+/);
+            personRow = {
+              id: userRow.id,
+              username: userRow.username,
+              email: userRow.email,
+              first_name: parts[0] || "",
+              last_name: parts.slice(1).join(" ") || "",
+              display_name: userRow.name || "",
+              joined_at: userRow.registered_date || null,
+            };
+          }
+        }
+
+        if (personRow) {
+          const hydratedPerson = {
+            ...personRow,
+            image: safeParse(personRow.image),
+            billing_address: safeParse(personRow.billing_address),
+            decline_reason: safeParse(personRow.decline_reason),
+          };
+
+          const metaTable = kind === "fundraiser" ? "fundraiser_meta" : "donor_meta";
+          const idCol = kind === "fundraiser" ? "fundraiser_id" : "donor_id";
+
+          const { results: metaRows } = await db
+            .prepare(`SELECT key, value FROM ${metaTable} WHERE ${idCol} = ?`)
+            .bind(personId)
+            .all();
+
+          const metaMap: Record<string, string> = {};
+          for (const m of metaRows || []) {
+            if (m?.key) metaMap[String(m.key)] = String(m.value ?? "0");
+          }
+
+          const kpis =
+            kind === "fundraiser"
+              ? {
+                  total_raised: Number(metaMap.total_raised ?? 0),
+                  average_donation: Number(metaMap.average_donation ?? 0),
+                  total_campaigns: Number(metaMap.total_campaigns ?? 0),
+                  donations_received: Number(metaMap.donations_received ?? 0),
+                }
+              : {
+                  total_donated: Number(metaMap.total_donated ?? 0),
+                  total_given: Number(metaMap.total_donated ?? 0),
+                  average_donation: Number(metaMap.average_donation ?? 0),
+                  donated_campaigns: Number(metaMap.donated_campaigns ?? 0),
+                  total_donations: Number(metaMap.total_donations ?? 0),
+                };
+
+          console.log(`📂 SUCCESS - D1 ${kind.toUpperCase()} OVERVIEW INTERCEPT`, { id: personId, kpis });
+
+          return NextResponse.json(
+            {
+              success: true,
+              data: {
+                ...hydratedPerson,
+                [kind]: hydratedPerson,
+                meta: metaMap,
+                ...kpis,
+              },
+            },
+            {
+              status: 200,
+              headers: {
+                "Cache-Control": "private, no-store",
+                "X-Hiilbox-Source": "D1-Edge",
+              },
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.error("🔥 D1 OVERVIEW INTERCEPT FAILED, FALLING BACK TO WP:", error);
     }
   }
 
