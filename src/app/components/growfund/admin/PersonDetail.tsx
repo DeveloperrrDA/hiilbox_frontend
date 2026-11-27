@@ -1,6 +1,7 @@
 "use client";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { Icon } from "@iconify/react";
 import CardBox from "@/app/components/shared/CardBox";
 import { adminApi, dataFrom, rowsFrom } from "./adminApi";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,432 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { dashboardRole, savedDashboardUser } from "@/lib/dashboard/roles";
+
+/* -------------------------------------------------------------------------- */
+/*                              Activity Constants                            */
+/* -------------------------------------------------------------------------- */
+
+const ACTIVITY_TYPES = {
+  TIMELINE: "timeline",
+  CAMPAIGN_SUBMITTED_FOR_REVIEW: "campaign-submitted-for-review",
+  CAMPAIGN_RE_SUBMITTED_FOR_REVIEW: "campaign-re-submitted-for-review",
+  CAMPAIGN_DECLINED: "campaign-declined",
+  CAMPAIGN_APPROVED_AND_PUBLISHED: "campaign-approved-and-published",
+  CAMPAIGN_SET_DEADLINE: "campaign-set-deadline",
+  CAMPAIGN_REMOVED_DEADLINE: "campaign-removed-deadline",
+  CAMPAIGN_EXTENDED_DEADLINE: "campaign-extended-deadline",
+  CAMPAIGN_MARKED_AS_COMPLETED: "campaign-marked-as-completed",
+  CAMPAIGN_POST_UPDATE: "campaign-post-update",
+  CAMPAIGN_GOAL_REACHED: "campaign-goal-reached",
+  CAMPAIGN_COMMENT: "commented-on-the-campaign",
+  DONATION_CREATION: "donation-created",
+  DONATION_CANCELLED: "donation-cancelled",
+  DONATION_FAILED: "donation-failed",
+  DONATION_COMPLETED: "donation-completed",
+} as const;
+
+type ActivityTone = "success" | "primary" | "warning" | "error" | "neutral";
+
+interface ActivityVisual {
+  icon: string;
+  tone: ActivityTone;
+  badgeLabel: string;
+  message: ReactNode;
+}
+
+const TONE_STYLES: Record<
+  ActivityTone,
+  { ring: string; badge: string; highlight: string }
+> = {
+  success: {
+    ring: "bg-emerald-500/10 text-emerald-600 ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-400",
+    badge:
+      "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    highlight: "font-semibold text-emerald-600 dark:text-emerald-400",
+  },
+  primary: {
+    ring: "bg-primary/10 text-primary ring-primary/20",
+    badge: "bg-primary/10 text-primary",
+    highlight: "font-semibold text-primary",
+  },
+  warning: {
+    ring: "bg-amber-500/10 text-amber-600 ring-amber-500/20 dark:bg-amber-500/15 dark:text-amber-400",
+    badge:
+      "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    highlight: "font-semibold text-amber-600 dark:text-amber-400",
+  },
+  error: {
+    ring: "bg-rose-500/10 text-rose-600 ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-400",
+    badge:
+      "bg-rose-500/10 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+    highlight: "font-semibold text-rose-600 dark:text-rose-400",
+  },
+  neutral: {
+    ring: "bg-slate-500/10 text-slate-600 ring-slate-500/20 dark:bg-slate-400/15 dark:text-slate-300",
+    badge:
+      "bg-slate-500/10 text-slate-700 dark:bg-slate-400/15 dark:text-slate-300",
+    highlight: "font-semibold text-foreground",
+  },
+};
+
+function parseActivityDate(raw?: string | null): Date | null {
+  if (!raw) return null;
+  const normalized = raw.includes(" ") ? raw.replace(" ", "T") : raw;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatRelativeTime(date: Date | null): string {
+  if (!date) return "—";
+  const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000);
+  const absSeconds = Math.abs(diffSeconds);
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (absSeconds < 60) return "Just now";
+  const mins = Math.round(diffSeconds / 60);
+  if (Math.abs(mins) < 60) return rtf.format(mins, "minute");
+  const hours = Math.round(diffSeconds / 3600);
+  if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+  const days = Math.round(diffSeconds / 86400);
+  if (Math.abs(days) < 7) return rtf.format(days, "day");
+  const weeks = Math.round(diffSeconds / (86400 * 7));
+  if (Math.abs(weeks) < 5) return rtf.format(weeks, "week");
+  const months = Math.round(diffSeconds / (86400 * 30.44));
+  if (Math.abs(months) < 12) return rtf.format(months, "month");
+  const years = Math.round(diffSeconds / (86400 * 365.25));
+  return rtf.format(years, "year");
+}
+
+function formatReadableDate(raw?: string | null): string {
+  if (!raw) return "";
+  const d = parseActivityDate(raw);
+  if (!d) return String(raw);
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatCentsUsd(rawCents: any): string | null {
+  const num = Number(rawCents);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  const dollars = num / 100;
+  return `$${dollars.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function buildActivityVisual(
+  activity: any,
+  kind: "donor" | "fundraiser",
+  campaignTitleMap: Map<number, string>
+): ActivityVisual {
+  const type = String(activity?.type ?? "").trim().toLowerCase();
+  const payload =
+    typeof activity?.data === "string"
+      ? (() => {
+          try {
+            return JSON.parse(activity.data);
+          } catch {
+            return null;
+          }
+        })()
+      : activity?.data ?? {};
+
+  const cid = Number(activity?.campaign_id ?? 0);
+  const campaignTitle =
+    activity?.campaign_title ||
+    payload?.campaign_title ||
+    (cid > 0 ? campaignTitleMap.get(cid) : null) ||
+    (cid > 0 ? `Campaign #${cid}` : "a campaign");
+
+  const quotedCampaign = (
+    <span className="font-semibold text-foreground">“{campaignTitle}”</span>
+  );
+
+  const formattedAmount = formatCentsUsd(
+    payload?.donation_amount ?? payload?.amount
+  );
+
+  const deadlineText = formatReadableDate(
+    payload?.new_end_date ?? payload?.end_date ?? payload?.deadline
+  );
+
+  switch (type) {
+    case ACTIVITY_TYPES.CAMPAIGN_APPROVED_AND_PUBLISHED:
+      return {
+        icon: "solar:verified-check-bold-duotone",
+        tone: "success",
+        badgeLabel: "Published",
+        message: (
+          <>
+            Campaign {quotedCampaign} was{" "}
+            <span className={TONE_STYLES.primary.highlight}>
+              approved and published
+            </span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_SUBMITTED_FOR_REVIEW:
+      return {
+        icon: "solar:document-add-bold-duotone",
+        tone: "warning",
+        badgeLabel: "In Review",
+        message: (
+          <>
+            Submitted campaign {quotedCampaign}{" "}
+            <span className={TONE_STYLES.warning.highlight}>for review</span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_RE_SUBMITTED_FOR_REVIEW:
+      return {
+        icon: "solar:refresh-circle-bold-duotone",
+        tone: "warning",
+        badgeLabel: "Resubmitted",
+        message: (
+          <>
+            Resubmitted campaign {quotedCampaign}{" "}
+            <span className={TONE_STYLES.warning.highlight}>for review</span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_DECLINED:
+      return {
+        icon: "solar:close-circle-bold-duotone",
+        tone: "error",
+        badgeLabel: "Declined",
+        message: (
+          <>
+            Campaign {quotedCampaign} was{" "}
+            <span className={TONE_STYLES.error.highlight}>declined</span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_SET_DEADLINE:
+      return {
+        icon: "solar:calendar-mark-bold-duotone",
+        tone: "primary",
+        badgeLabel: "Deadline Set",
+        message: (
+          <>
+            Set deadline for {quotedCampaign}
+            {deadlineText ? (
+              <>
+                {" "}
+                to{" "}
+                <span className={TONE_STYLES.primary.highlight}>
+                  {deadlineText}
+                </span>
+              </>
+            ) : null}
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_EXTENDED_DEADLINE:
+      return {
+        icon: "solar:calendar-add-bold-duotone",
+        tone: "primary",
+        badgeLabel: "Extended",
+        message: (
+          <>
+            Extended deadline for {quotedCampaign}
+            {deadlineText ? (
+              <>
+                {" "}
+                to{" "}
+                <span className={TONE_STYLES.primary.highlight}>
+                  {deadlineText}
+                </span>
+              </>
+            ) : null}
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_REMOVED_DEADLINE:
+      return {
+        icon: "solar:calendar-minimalistic-bold-duotone",
+        tone: "neutral",
+        badgeLabel: "Deadline Removed",
+        message: <>Removed deadline from campaign {quotedCampaign}</>,
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_MARKED_AS_COMPLETED:
+      return {
+        icon: "solar:flag-2-bold-duotone",
+        tone: "success",
+        badgeLabel: "Completed",
+        message: (
+          <>
+            Campaign {quotedCampaign} was{" "}
+            <span className={TONE_STYLES.success.highlight}>
+              marked as completed
+            </span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_POST_UPDATE:
+      return {
+        icon: "solar:megaphone-bold-duotone",
+        tone: "primary",
+        badgeLabel: "Update",
+        message: <>Posted a new update on {quotedCampaign}</>,
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_GOAL_REACHED:
+      return {
+        icon: "solar:cup-star-bold-duotone",
+        tone: "success",
+        badgeLabel: "Goal Reached",
+        message: (
+          <>
+            Campaign {quotedCampaign}{" "}
+            <span className={TONE_STYLES.success.highlight}>
+              reached its fundraising goal!
+            </span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.CAMPAIGN_COMMENT:
+      return {
+        icon: "solar:chat-round-dots-bold-duotone",
+        tone: "primary",
+        badgeLabel: "Comment",
+        message: <>New comment posted on {quotedCampaign}</>,
+      };
+
+    case ACTIVITY_TYPES.DONATION_CREATION:
+      return {
+        icon: "solar:hand-heart-bold-duotone",
+        tone: "success",
+        badgeLabel: kind === "donor" ? "Donated" : "New Donation",
+        message:
+          kind === "donor" ? (
+            <>
+              Contributed{" "}
+              {formattedAmount ? (
+                <span className={TONE_STYLES.success.highlight}>
+                  {formattedAmount}
+                </span>
+              ) : (
+                "a donation"
+              )}{" "}
+              to {quotedCampaign}
+            </>
+          ) : (
+            <>
+              Received a{" "}
+              {formattedAmount ? (
+                <span className={TONE_STYLES.success.highlight}>
+                  {formattedAmount}
+                </span>
+              ) : (
+                "new"
+              )}{" "}
+              donation for {quotedCampaign}
+            </>
+          ),
+      };
+
+    case ACTIVITY_TYPES.DONATION_COMPLETED:
+      return {
+        icon: "solar:wallet-money-bold-duotone",
+        tone: "success",
+        badgeLabel: "Completed",
+        message:
+          kind === "donor" ? (
+            <>
+              Donation
+              {formattedAmount ? (
+                <>
+                  {" "}
+                  of{" "}
+                  <span className={TONE_STYLES.success.highlight}>
+                    {formattedAmount}
+                  </span>
+                </>
+              ) : null}{" "}
+              to {quotedCampaign} was completed
+            </>
+          ) : (
+            <>
+              Donation
+              {formattedAmount ? (
+                <>
+                  {" "}
+                  of{" "}
+                  <span className={TONE_STYLES.success.highlight}>
+                    {formattedAmount}
+                  </span>
+                </>
+              ) : null}{" "}
+              for {quotedCampaign} was completed
+            </>
+          ),
+      };
+
+    case ACTIVITY_TYPES.DONATION_CANCELLED:
+      return {
+        icon: "solar:close-square-bold-duotone",
+        tone: "warning",
+        badgeLabel: "Cancelled",
+        message: (
+          <>
+            Donation
+            {formattedAmount ? ` of ${formattedAmount}` : ""} for{" "}
+            {quotedCampaign} was{" "}
+            <span className={TONE_STYLES.warning.highlight}>cancelled</span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.DONATION_FAILED:
+      return {
+        icon: "solar:danger-triangle-bold-duotone",
+        tone: "error",
+        badgeLabel: "Failed",
+        message: (
+          <>
+            Donation
+            {formattedAmount ? ` of ${formattedAmount}` : ""} for{" "}
+            {quotedCampaign}{" "}
+            <span className={TONE_STYLES.error.highlight}>failed</span>
+          </>
+        ),
+      };
+
+    case ACTIVITY_TYPES.TIMELINE:
+    default: {
+      const readableType = type
+        ? type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+        : "Activity";
+      return {
+        icon: "solar:history-bold-duotone",
+        tone: "neutral",
+        badgeLabel: "Timeline",
+        message: (
+          <>
+            {readableType} on {quotedCampaign}
+          </>
+        ),
+      };
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Data Helpers                                 */
+/* -------------------------------------------------------------------------- */
 
 function donorId(d: any) {
   return Number(
@@ -48,7 +475,6 @@ function personEmail(d: any) {
 }
 
 function campaignFundraiserId(c: any) {
-  // Priority: campaign.fundraiser.id -> campaign.author.id
   return Number(
     c?.fundraiser?.id ??
       c?.fundraiser_id ??
@@ -126,6 +552,10 @@ async function fetchAllPages(baseEndpoint: string, perPage = 200) {
   return allRows;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                Component                                   */
+/* -------------------------------------------------------------------------- */
+
 export default function PersonDetail({
   kind,
 }: {
@@ -140,6 +570,9 @@ export default function PersonDetail({
   );
   const [don, setDon] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -172,6 +605,8 @@ export default function PersonDetail({
       setError("");
       setCampaigns([]);
       setDon([]);
+      setActivities([]);
+      setShowAllActivities(false);
       setMetaStats(null);
 
       try {
@@ -211,15 +646,28 @@ export default function PersonDetail({
             person?.id ?? person?.user_id ?? person?.donor_id ?? targetId
           );
           const selectedEmail = personEmail(person);
-          setDon(
-            all.filter(
-              (x: any) =>
-                completed(x) &&
-                ((selectedId > 0 && donorId(x) === selectedId) ||
-                  (!donorId(x) &&
-                    selectedEmail &&
-                    donorEmail(x) === selectedEmail))
-            )
+          const matchedDonations = all.filter(
+            (x: any) =>
+              completed(x) &&
+              ((selectedId > 0 && donorId(x) === selectedId) ||
+                (!donorId(x) &&
+                  selectedEmail &&
+                  donorEmail(x) === selectedEmail))
+          );
+          setDon(matchedDonations);
+
+          // Synthesize donor activity items for fundraiser-scoped donor view
+          setActivities(
+            matchedDonations.map((d: any) => ({
+              id: d.id ?? d.donation_id,
+              type: ACTIVITY_TYPES.DONATION_CREATION,
+              campaign_id: d.campaign?.id ?? d.campaign_id,
+              campaign_title: d.campaign?.title ?? d.campaign_title,
+              donation_id: d.id ?? d.donation_id,
+              data: { donation_amount: Math.round(donationAmount(d) * 100) },
+              user_id: selectedId,
+              created_at: d.created_at ?? d.date_created ?? d.date,
+            }))
           );
         } else {
           const overviewData = dataFrom(
@@ -237,13 +685,22 @@ export default function PersonDetail({
 
           try {
             if (kind === "donor") {
-              const donorRows = await fetchAllPages(
-                `donations/paginated?user_id=${targetId}&status=completed&orderby=id&order=desc`,
-                200
-              );
+              const [donorRows, donorActivityRows] = await Promise.all([
+                fetchAllPages(
+                  `donations/paginated?user_id=${targetId}&status=completed&orderby=id&order=desc`,
+                  200
+                ),
+                adminApi(
+                  `activities/paginated?page=1&per_page=50&user_id=${targetId}`
+                )
+                  .then(rowsFrom)
+                  .catch(() => []),
+              ]);
+
               setDon(donorRows.filter(completed));
+              setActivities(donorActivityRows);
             } else {
-              // 1. Fetch all campaigns for this fundraiser from D1 (falls back to WP seamlessly)
+              // 1. Fetch all owned campaigns for this fundraiser
               const campaignRows = await fetchAllPages(
                 `campaigns?status=all&fundraiser_id=${targetId}`,
                 200
@@ -263,16 +720,28 @@ export default function PersonDetail({
 
               if (campaignIds.length === 0) {
                 setDon([]);
+                setActivities([]);
               } else {
-                // 2. Single D1 query via campaign_ids (with WP per-campaign fallback if needed)
-                const campaignIdSet = new Set<number>(campaignIds);
-                let rawDonations = await fetchAllPages(
-                  `donations/paginated?status=completed&campaign_ids=${campaignIds.join(",")}&orderby=id&order=desc`,
-                  500
-                );
+                const idsParam = campaignIds.join(",");
 
-                // If WP fallback was hit, WP ignores campaign_ids and returns unrelated rows;
-                // detect that and fall back to standard per-campaign WP queries if needed
+                // 2. Fetch completed donations AND D1 activities for owned campaign IDs in parallel
+                const [rawDonationsInit, fundraiserActivities] =
+                  await Promise.all([
+                    fetchAllPages(
+                      `donations/paginated?status=completed&campaign_ids=${idsParam}&orderby=id&order=desc`,
+                      500
+                    ),
+                    adminApi(
+                      `activities/paginated?page=1&per_page=50&campaign_ids=${idsParam}`
+                    )
+                      .then(rowsFrom)
+                      .catch(() => []),
+                  ]);
+
+                setActivities(fundraiserActivities);
+
+                let rawDonations = rawDonationsInit;
+                const campaignIdSet = new Set<number>(campaignIds);
                 const hasUnrelatedRows = rawDonations.some((d: any) => {
                   const cid = Number(d?.campaign?.id ?? d?.campaign_id ?? 0);
                   return cid > 0 && !campaignIdSet.has(cid);
@@ -317,6 +786,24 @@ export default function PersonDetail({
     })();
   }, [targetId, kind]);
 
+  const campaignTitleMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const c of campaigns) {
+      const cid = Number(c?.id ?? 0);
+      if (cid > 0 && c?.title) {
+        map.set(cid, String(c.title));
+      }
+    }
+    for (const d of don) {
+      const cid = Number(d?.campaign?.id ?? d?.campaign_id ?? 0);
+      const title = d?.campaign?.title ?? d?.campaign_title;
+      if (cid > 0 && title && !map.has(cid)) {
+        map.set(cid, String(title));
+      }
+    }
+    return map;
+  }, [campaigns, don]);
+
   const completedDonations = useMemo(() => don.filter(completed), [don]);
 
   const sorted = useMemo(
@@ -328,6 +815,18 @@ export default function PersonDetail({
       ),
     [completedDonations]
   );
+
+  const timelineItems = useMemo(() => {
+    return [...activities].sort((a, b) => {
+      const timeB = parseActivityDate(b?.created_at)?.getTime() ?? 0;
+      const timeA = parseActivityDate(a?.created_at)?.getTime() ?? 0;
+      return timeB - timeA || Number(b?.id ?? 0) - Number(a?.id ?? 0);
+    });
+  }, [activities]);
+
+  const visibleActivities = showAllActivities
+    ? timelineItems
+    : timelineItems.slice(0, 8);
 
   const pages = Math.max(1, Math.ceil(sorted.length / 10));
   const pageRows = sorted.slice((page - 1) * 10, page * 10);
@@ -350,7 +849,6 @@ export default function PersonDetail({
     u.name ||
     `${kind} #${id}`;
 
-  // Computed client-side values (used directly or as fallback when meta rows haven't synced yet)
   const scopedTotal = completedDonations.reduce(
     (s, d) => s + donationAmount(d),
     0
@@ -372,7 +870,6 @@ export default function PersonDetail({
             .filter(Boolean)
         ).size;
 
-  // Prefer D1 fundraiser_meta / donor_meta values when available, while falling back cleanly
   const total =
     kind === "fundraiser"
       ? metaStats?.total_raised !== undefined && completedDonations.length === 0
@@ -542,58 +1039,58 @@ export default function PersonDetail({
         >
           Donations
         </button>
-
-        {editOpen && kind === "donor" && isAdminViewer && (
-          <div className="rounded-xl border border-ld p-5">
-            <h3 className="mb-4 font-semibold">Edit Donor Profile</h3>
-
-            <form onSubmit={saveProfile} className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  ["first_name", "First Name"],
-                  ["last_name", "Last Name"],
-                  ["email", "Email"],
-                  ["username", "Username"],
-                  ["phone", "Phone"],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="text-sm">
-                  {label}
-                  <input
-                    required={
-                      key === "first_name" ||
-                      key === "email" ||
-                      key === "username"
-                    }
-                    type={key === "email" ? "email" : "text"}
-                    value={profile[key]}
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        [key]: e.target.value,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"
-                  />
-                </label>
-              ))}
-
-              <div className="flex gap-2 sm:col-span-2">
-                <Button type="submit" disabled={actionBusy}>
-                  Save Changes
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        )}
       </div>
+
+      {editOpen && kind === "donor" && isAdminViewer && (
+        <div className="rounded-xl border border-ld p-5">
+          <h3 className="mb-4 font-semibold">Edit Donor Profile</h3>
+
+          <form onSubmit={saveProfile} className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["first_name", "First Name"],
+                ["last_name", "Last Name"],
+                ["email", "Email"],
+                ["username", "Username"],
+                ["phone", "Phone"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="text-sm">
+                {label}
+                <input
+                  required={
+                    key === "first_name" ||
+                    key === "email" ||
+                    key === "username"
+                  }
+                  type={key === "email" ? "email" : "text"}
+                  value={profile[key]}
+                  onChange={(e) =>
+                    setProfile((current) => ({
+                      ...current,
+                      [key]: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border border-ld bg-transparent px-3 py-2"
+                />
+              </label>
+            ))}
+
+            <div className="flex gap-2 sm:col-span-2">
+              <Button type="submit" disabled={actionBusy}>
+                Save Changes
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {tab === "overview" && (
         <>
@@ -724,33 +1221,160 @@ export default function PersonDetail({
               </div>
             </CardBox>
 
+            {/* Modern Activity Timeline Card */}
             <CardBox>
-              <h3 className="text-lg font-semibold">
-                {kind === "donor" ? "Donor Activities" : "Activity Logs"}
-              </h3>
-              <div className="mt-5 divide-y divide-ld">
-                {sorted.length ? (
-                  sorted.slice(0, 10).map((d, i) => (
-                    <div key={d.id || d.donation_id || i} className="py-3">
-                      <p className="font-medium">
-                        {kind === "donor" ? "Donation" : "Donation received"} #
-                        {d.id || d.donation_id || "—"}
-                      </p>
-                      <p className="mt-1 text-sm text-darklink">
-                        {d.campaign?.title ||
-                          d.campaign_title ||
-                          `Campaign #${d.campaign?.id || d.campaign_id || "—"}`}{" "}
-                        · ${donationAmount(d).toFixed(2)} ·{" "}
-                        {donationDate(d)?.toLocaleDateString() || "—"}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="py-10 text-center text-darklink">
-                    No activities found.
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon
+                      icon="solar:history-bold-duotone"
+                      className="text-xl"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {kind === "donor" ? "Donor Activities" : "Activity Logs"}
+                    </h3>
+                    <p className="text-xs text-darklink">
+                      {kind === "donor"
+                        ? "Recent contribution history across campaigns"
+                        : "Real-time milestones and events across owned campaigns"}
+                    </p>
+                  </div>
+                </div>
+
+                {timelineItems.length > 0 && (
+                  <span className="rounded-full border border-ld px-2.5 py-0.5 text-xs font-medium text-darklink">
+                    {timelineItems.length}{" "}
+                    {timelineItems.length === 1 ? "event" : "events"}
+                  </span>
                 )}
               </div>
+
+              {visibleActivities.length > 0 ? (
+                <div className="mt-6">
+                  <ol className="relative space-y-1">
+                    {visibleActivities.map((item, idx) => {
+                      const visual = buildActivityVisual(
+                        item,
+                        kind,
+                        campaignTitleMap
+                      );
+                      const styles = TONE_STYLES[visual.tone];
+                      const dt = parseActivityDate(item?.created_at);
+                      const isLast = idx === visibleActivities.length - 1;
+
+                      return (
+                        <li
+                          key={item?.id ?? `${item?.type}-${idx}`}
+                          className="group relative flex gap-4 pb-5 last:pb-0"
+                        >
+                          {/* Connecting vertical rail */}
+                          {!isLast && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute left-[19px] top-10 -bottom-1 w-[2px] bg-gradient-to-b from-border via-border/70 to-transparent dark:from-white/15 dark:via-white/10"
+                            />
+                          )}
+
+                          {/* Solar Icon Node */}
+                          <div
+                            className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform duration-200 group-hover:scale-105 ${styles.ring}`}
+                          >
+                            <Icon icon={visual.icon} className="text-xl" />
+                          </div>
+
+                          {/* Event Content Card */}
+                          <div className="min-w-0 flex-1 rounded-xl border border-transparent px-3 py-1.5 transition-colors duration-150 group-hover:border-ld group-hover:bg-lightgray/40 dark:group-hover:bg-white/[0.02]">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="text-sm leading-relaxed text-darklink">
+                                {visual.message}
+                              </p>
+
+                              <span
+                                className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${styles.badge}`}
+                              >
+                                {visual.badgeLabel}
+                              </span>
+                            </div>
+
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-darklink/80">
+                              <span className="inline-flex items-center gap-1">
+                                <Icon
+                                  icon="solar:clock-circle-linear"
+                                  className="text-sm"
+                                />
+                                {formatRelativeTime(dt)}
+                              </span>
+
+                              {dt && (
+                                <>
+                                  <span>·</span>
+                                  <span>
+                                    {dt.toLocaleDateString(undefined, {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                </>
+                              )}
+
+                              {item?.donation_id ? (
+                                <>
+                                  <span>·</span>
+                                  <span className="font-mono text-[11px]">
+                                    Donation #{item.donation_id}
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+
+                  {timelineItems.length > 8 && (
+                    <div className="mt-5 flex justify-center border-t border-ld pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllActivities((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {showAllActivities
+                          ? "Show fewer activities"
+                          : `View all ${timelineItems.length} activities`}
+                        <Icon
+                          icon={
+                            showAllActivities
+                              ? "solar:alt-arrow-up-linear"
+                              : "solar:alt-arrow-down-linear"
+                          }
+                          className="text-sm"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-ld py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-lightgray text-darklink dark:bg-white/5">
+                    <Icon
+                      icon="solar:Ghost-smile-bold-duotone"
+                      className="text-2xl"
+                    />
+                  </div>
+                  <p className="mt-3 text-sm font-medium">
+                    No activity logs yet
+                  </p>
+                  <p className="mt-1 text-xs text-darklink">
+                    {kind === "donor"
+                      ? "Donations made by this donor will appear here."
+                      : "Campaign reviews, updates, deadlines, and donations will appear here."}
+                  </p>
+                </div>
+              )}
             </CardBox>
           </div>
         </>

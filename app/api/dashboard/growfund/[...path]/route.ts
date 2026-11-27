@@ -116,16 +116,15 @@ async function proxy(
   }
 
   // =====================================================================
-  // ⚡ 2. D1 INTERCEPT: GET fundraiser/:id/activities (Fixes WP 403 error)
+  // ⚡ 2. D1 INTERCEPT: GET fundraiser/:id/activities & donor/:id/activities
   // =====================================================================
-  const activitiesMatch = backendPath.match(/^fundraiser\/(\d+)\/activities$/);
+  const activitiesMatch = backendPath.match(/^(fundraiser|donor)\/(\d+)\/activities$/);
   if (method === "GET" && activitiesMatch) {
-    const requestedId = Number(activitiesMatch[1]);
+    const kind = activitiesMatch[1] as "fundraiser" | "donor";
+    const requestedId = Number(activitiesMatch[2]);
+
     if (requestedId !== auth.userId) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden." },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, message: "Forbidden." }, { status: 403 });
     }
 
     try {
@@ -135,82 +134,75 @@ async function proxy(
       if (db) {
         const sp = req.nextUrl.searchParams;
         const page = Math.max(1, Number(sp.get("page") || 1));
-        const perPage = Math.min(100, Math.max(1, Number(sp.get("per_page") || 10)));
+        const perPage = Math.min(100, Math.max(1, Number(sp.get("per_page") || 15)));
         const offset = (page - 1) * perPage;
-
-        const { results: allCampaigns } = await db
-          .prepare(`SELECT id, title, fundraiser, author, status FROM campaigns`)
-          .all();
 
         const safeParse = (val: any) => {
           if (!val || typeof val !== "string") return val ?? null;
           try {
             return JSON.parse(val);
           } catch {
-            return null;
+            return val;
           }
         };
 
-        const ownedCampaignIds: number[] = [];
-        const titleById = new Map<number, string>();
+        let whereSql = "";
+        let bindings: any[] = [];
 
-        for (const c of allCampaigns || []) {
-          const st = String(c.status ?? "").toLowerCase();
-          if (st === "trash" || st === "trashed") continue;
-          const fObj = safeParse(c.fundraiser);
-          const aObj = safeParse(c.author);
-          const ownerId = Number(fObj?.id ?? aObj?.id ?? 0);
-          if (ownerId === auth.userId) {
-            const cid = Number(c.id);
-            ownedCampaignIds.push(cid);
-            titleById.set(cid, String(c.title || `Campaign #${cid}`));
+        if (kind === "donor") {
+          whereSql = `
+            WHERE a.user_id = ?
+              AND LOWER(COALESCE(a.type, '')) IN ('donation-created', 'donation-completed', 'donation-cancelled', 'donation-failed')
+          `;
+          bindings = [auth.userId];
+        } else {
+          const { results: owned } = await db
+            .prepare(`
+              SELECT id FROM campaigns
+              WHERE LOWER(COALESCE(status, '')) NOT IN ('trash', 'trashed')
+                AND CAST(COALESCE(
+                  NULLIF(json_extract(fundraiser, '$.id'), ''),
+                  NULLIF(json_extract(author, '$.id'), '')
+                ) AS INTEGER) = ?
+            `)
+            .bind(auth.userId)
+            .all();
+
+          const cids = (owned || []).map((c: any) => Number(c.id)).filter(Boolean);
+          if (cids.length === 0) {
+            return NextResponse.json(
+              { success: true, data: [], total: 0, pagination: { page, per_page: perPage, total: 0, total_pages: 1 } },
+              { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
+            );
           }
-        }
 
-        if (ownedCampaignIds.length === 0) {
-          return NextResponse.json(
-            {
-              success: true,
-              data: [],
-              pagination: { page, per_page: perPage, total: 0, total_pages: 1 },
-            },
-            { status: 200, headers: { "X-Hiilbox-Source": "D1-Edge" } }
-          );
+          whereSql = `WHERE a.campaign_id IN (${cids.map(() => "?").join(",")})`;
+          bindings = [...cids];
         }
-
-        const placeholders = ownedCampaignIds.map(() => "?").join(",");
-        const whereSql = `
-          WHERE campaign_id IN (${placeholders})
-            AND LOWER(COALESCE(status, '')) NOT IN ('trash', 'trashed')
-            AND LOWER(COALESCE(payment_status, status, '')) IN ('completed', 'complete', 'paid', 'approved', 'success', 'successful')
-        `;
 
         const countRow = await db
-          .prepare(`SELECT COUNT(*) as total FROM donations ${whereSql}`)
-          .bind(...ownedCampaignIds)
+          .prepare(`SELECT COUNT(*) as total FROM activities a ${whereSql}`)
+          .bind(...bindings)
           .first();
         const total = Number(countRow?.total || 0);
 
-        const { results: donationRows } = await db
-          .prepare(
-            `SELECT * FROM donations ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`
-          )
-          .bind(...ownedCampaignIds, perPage, offset)
+        const { results } = await db
+          .prepare(`
+            SELECT a.*, c.title AS campaign_title
+            FROM activities a
+            LEFT JOIN campaigns c ON a.campaign_id = c.id
+            ${whereSql}
+            ORDER BY datetime(a.created_at) DESC, a.id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(...bindings, perPage, offset)
           .all();
 
-        const hydrated = (donationRows || []).map((row: any) => {
-          const parsedCampaign = safeParse(row.campaign);
-          const cid = Number(row.campaign_id || 0);
-          return {
-            ...row,
-            campaign:
-              parsedCampaign && typeof parsedCampaign === "object"
-                ? parsedCampaign
-                : { id: cid, title: titleById.get(cid) || `Campaign #${cid}` },
-            donor: safeParse(row.donor),
-            payment_method: safeParse(row.payment_method),
-          };
-        });
+        const hydrated = (results || []).map((row: any) => ({
+          ...row,
+          data: safeParse(row.data),
+          meta: safeParse(row.meta),
+        }));
 
         return NextResponse.json(
           {
@@ -224,17 +216,11 @@ async function proxy(
               total_pages: Math.max(1, Math.ceil(total / perPage)),
             },
           },
-          {
-            status: 200,
-            headers: {
-              "Cache-Control": "private, no-store",
-              "X-Hiilbox-Source": "D1-Edge",
-            },
-          }
+          { status: 200, headers: { "Cache-Control": "private, no-store", "X-Hiilbox-Source": "D1-Edge" } }
         );
       }
     } catch (err) {
-      console.error("🔥 D1 fundraiser activities intercept error:", err);
+      console.error("🔥 D1 dashboard activities intercept error:", err);
     }
   }
 

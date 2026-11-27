@@ -13,7 +13,8 @@ const ALLOWED = [
   /^fundraisers(?:\/|$)/,
   /^fundraiser(?:\/|$)/,
   /^users(?:\/|$)/,
-  /^analytics(?:\/|$)/, // Restored from your live version
+  /^activities(?:\/|$)/,
+  /^analytics(?:\/|$)/, 
   /^media(?:\/|$)/,
 ];
 
@@ -742,6 +743,162 @@ async function proxy(
       }
     } catch (error) {
       console.error("🔥 D1 OVERVIEW INTERCEPT FAILED, FALLING BACK TO WP:", error);
+    }
+  }
+
+  // ==============================================================
+  // ⚡ D1 DATABASE INTERCEPT: ADMIN ACTIVITIES (FUNDRAISER & DONOR)
+  // ==============================================================
+  const personActivitiesMatch = backendPath.match(/^(fundraiser|donor)\/(\d+)\/activities$/);
+  if (
+    method === "GET" &&
+    (backendPath === "activities/paginated" || Boolean(personActivitiesMatch))
+  ) {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const db = (env as any).growfund_db;
+
+      if (db) {
+        const sp = req.nextUrl.searchParams;
+        const page = Math.max(1, Number(sp.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(sp.get("per_page") || 20)));
+        const offset = (page - 1) * perPage;
+
+        const safeParse = (val: any) => {
+          if (!val || typeof val !== "string") return val ?? null;
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        };
+
+        const conditions: string[] = [];
+        const bindings: any[] = [];
+
+        let campaignIdsRaw = sp.get("campaign_ids")?.trim() || "";
+        let donorUserId = Number(sp.get("user_id") || 0);
+        const typeFilter = sp.get("type")?.trim();
+
+        // If called via fundraiser/:id/activities or donor/:id/activities
+        if (personActivitiesMatch) {
+          const kind = personActivitiesMatch[1];
+          const targetId = Number(personActivitiesMatch[2]);
+
+          if (kind === "donor") {
+            donorUserId = targetId;
+          } else {
+            const { results: ownedCampaigns } = await db
+              .prepare(`
+                SELECT id FROM campaigns
+                WHERE LOWER(COALESCE(status, '')) NOT IN ('trash', 'trashed')
+                  AND CAST(COALESCE(
+                    NULLIF(json_extract(fundraiser, '$.id'), ''),
+                    NULLIF(json_extract(author, '$.id'), '')
+                  ) AS INTEGER) = ?
+              `)
+              .bind(targetId)
+              .all();
+
+            const ids = (ownedCampaigns || []).map((c: any) => Number(c.id)).filter(Boolean);
+            campaignIdsRaw = ids.length > 0 ? ids.join(",") : "-1";
+          }
+        }
+
+        if (campaignIdsRaw) {
+          const ids = campaignIdsRaw
+            .split(",")
+            .map((v) => Number(v.trim()))
+            .filter((n) => Number.isFinite(n) && n > 0);
+
+          if (ids.length > 0) {
+            conditions.push(`a.campaign_id IN (${ids.map(() => "?").join(",")})`);
+            bindings.push(...ids);
+          } else {
+            conditions.push(`1 = 0`);
+          }
+        }
+
+        if (donorUserId > 0) {
+          conditions.push(`a.user_id = ?`);
+          bindings.push(donorUserId);
+          conditions.push(`LOWER(COALESCE(a.type, '')) IN (
+            'donation-created',
+            'donation-completed',
+            'donation-cancelled',
+            'donation-failed'
+          )`);
+        }
+
+        if (typeFilter && typeFilter !== "all") {
+          conditions.push(`LOWER(COALESCE(a.type, '')) = ?`);
+          bindings.push(typeFilter.toLowerCase());
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as total FROM activities a ${whereClause}`)
+          .bind(...bindings)
+          .first();
+
+        const total = Number(countRow?.total || 0);
+
+        const { results } = await db
+          .prepare(`
+            SELECT
+              a.*,
+              c.title AS campaign_title,
+              c.slug AS campaign_slug
+            FROM activities a
+            LEFT JOIN campaigns c ON a.campaign_id = c.id
+            ${whereClause}
+            ORDER BY datetime(a.created_at) DESC, a.id DESC
+            LIMIT ? OFFSET ?
+          `)
+          .bind(...bindings, perPage, offset)
+          .all();
+
+        const hydrated = (results || []).map((row: any) => ({
+          ...row,
+          data: safeParse(row.data),
+          meta: safeParse(row.meta),
+          campaign_title: row.campaign_title || null,
+        }));
+
+        const pageMeta = {
+          page,
+          current_page: page,
+          per_page: perPage,
+          count: hydrated.length,
+          total,
+          overall: total,
+          total_pages: Math.max(1, Math.ceil(total / perPage)),
+          last_page: Math.max(1, Math.ceil(total / perPage)),
+          has_more: page * perPage < total,
+        };
+
+        console.log("📂 SUCCESS - D1 ACTIVITIES INTERCEPT", { count: hydrated.length, total });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: hydrated,
+            ...pageMeta,
+            pagination: pageMeta,
+            paginated: pageMeta,
+          },
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store",
+              "X-Hiilbox-Source": "D1-Edge",
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("🔥 D1 ACTIVITIES INTERCEPT FAILED, FALLING BACK TO WP:", error);
     }
   }
 
